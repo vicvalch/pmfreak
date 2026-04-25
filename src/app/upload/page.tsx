@@ -14,6 +14,20 @@ type UploadResponse = {
   files: UploadResponseFile[];
 };
 
+type AnalysisResult = {
+  functionalRequirements: string[];
+  nonFunctionalRequirements: string[];
+  risks: string[];
+  dependencies: string[];
+  ambiguousStatements: string[];
+  missingInformation: string[];
+  suggestedClientQuestions: string[];
+  estimatedComplexity: {
+    level: "Low" | "Medium" | "High";
+    rationale: string;
+  };
+};
+
 const ALLOWED_MIME_TYPES = new Set([
   "application/pdf",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -21,6 +35,117 @@ const ALLOWED_MIME_TYPES = new Set([
 ]);
 
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
+
+const SECTION_PATTERNS = [
+  /^scope\b/i,
+  /^deliverables?\b/i,
+  /^timeline\b/i,
+  /^assumptions?\b/i,
+  /^exclusions?\b/i,
+  /^requirements?\b/i,
+  /^dependencies?\b/i,
+  /^risks?\b/i,
+  /^constraints?\b/i,
+  /^acceptance criteria\b/i,
+  /^out of scope\b/i,
+];
+
+const KEYWORDS = {
+  functional: [
+    /\bshall\b/i,
+    /\bmust\b/i,
+    /\bwill\b/i,
+    /\bprovide\b/i,
+    /\bbuild\b/i,
+    /\bimplement\b/i,
+    /\bintegrate\b/i,
+    /\bfeature\b/i,
+    /\bworkflow\b/i,
+    /\bupload\b/i,
+  ],
+  nonFunctional: [
+    /\bperformance\b/i,
+    /\bsecure|security\b/i,
+    /\bavailability\b/i,
+    /\bscalable|scalability\b/i,
+    /\breliable|reliability\b/i,
+    /\bcompliance\b/i,
+    /\blatency\b/i,
+    /\bresponse time\b/i,
+    /\buptime\b/i,
+    /\baccessibility\b/i,
+  ],
+  risk: [
+    /\brisk\b/i,
+    /\bdelay\b/i,
+    /\bblocked\b/i,
+    /\bunknown\b/i,
+    /\buncertain\b/i,
+    /\bchallenge\b/i,
+    /\bissue\b/i,
+    /\bdependency\b/i,
+    /\bconstraint\b/i,
+  ],
+  dependency: [
+    /\bthird[- ]party\b/i,
+    /\bapi\b/i,
+    /\bintegration\b/i,
+    /\bvendor\b/i,
+    /\bclient\b/i,
+    /\bstakeholder\b/i,
+    /\bapproval\b/i,
+    /\baccess\b/i,
+    /\benvironment\b/i,
+    /\bdata source\b/i,
+  ],
+  ambiguous: [
+    /\betc\.?\b/i,
+    /\bas needed\b/i,
+    /\bif possible\b/i,
+    /\bquickly\b/i,
+    /\buser-friendly\b/i,
+    /\bsoon\b/i,
+    /\bappropriate\b/i,
+    /\brobust\b/i,
+    /\boptimi[sz]e\b/i,
+    /\bTBD|TBA|to be defined|to be confirmed\b/i,
+  ],
+};
+
+const MISSING_INFO_CHECKS = [
+  {
+    key: "timeline",
+    regex: /\b(timeline|deadline|milestone|go-live|delivery date|schedule)\b/i,
+    message: "Timeline and milestone dates are missing or unclear.",
+  },
+  {
+    key: "budget",
+    regex: /\b(budget|cost|estimate|pricing|hours|effort)\b/i,
+    message: "Budget or effort estimates are not specified.",
+  },
+  {
+    key: "acceptance",
+    regex: /\b(acceptance criteria|success criteria|definition of done|sign-off)\b/i,
+    message: "Acceptance/success criteria are missing.",
+  },
+  {
+    key: "owners",
+    regex: /\b(owner|responsible|RACI|stakeholder|point of contact|approver)\b/i,
+    message: "Owners and approvers are not clearly defined.",
+  },
+  {
+    key: "security",
+    regex: /\b(security|compliance|privacy|PII|encryption|SOC 2|HIPAA|GDPR)\b/i,
+    message: "Security/compliance requirements are not covered.",
+  },
+  {
+    key: "environment",
+    regex: /\b(environment|staging|production|deployment|infrastructure)\b/i,
+    message: "Environment and deployment expectations are missing.",
+  },
+];
+
+const DEDUPE_NORMALIZE = /\s+/g;
 
 const formatFileSize = (bytes: number) => {
   if (bytes < 1024) {
@@ -33,6 +158,191 @@ const formatFileSize = (bytes: number) => {
 
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
+
+const cleanLine = (line: string) => line.replace(/^[-*•\d.)\s]+/, "").trim();
+
+const parseSections = (rawText: string) => {
+  const lines = rawText.split(/\r?\n/);
+  const sections: { heading: string; lines: string[] }[] = [];
+
+  let current = { heading: "General", lines: [] as string[] };
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    if (!trimmed) {
+      continue;
+    }
+
+    const looksLikeHeading =
+      trimmed.length <= 70 &&
+      SECTION_PATTERNS.some((pattern) => pattern.test(trimmed.replace(/:$/, "")));
+
+    if (looksLikeHeading) {
+      if (current.lines.length > 0) {
+        sections.push(current);
+      }
+      current = { heading: trimmed.replace(/:$/, ""), lines: [] };
+      continue;
+    }
+
+    current.lines.push(cleanLine(trimmed));
+  }
+
+  if (current.lines.length > 0) {
+    sections.push(current);
+  }
+
+  return sections;
+};
+
+const dedupe = (items: string[]) => {
+  const map = new Map<string, string>();
+
+  items.forEach((item) => {
+    const normalized = item.toLowerCase().replace(DEDUPE_NORMALIZE, " ").trim();
+    if (!normalized || map.has(normalized)) {
+      return;
+    }
+    map.set(normalized, item.trim());
+  });
+
+  return Array.from(map.values());
+};
+
+const pickComplexity = (input: {
+  functionalCount: number;
+  riskCount: number;
+  dependencyCount: number;
+  missingCount: number;
+}) => {
+  const score =
+    input.functionalCount * 1.2 +
+    input.riskCount * 1.5 +
+    input.dependencyCount * 1.3 +
+    input.missingCount * 1.7;
+
+  if (score >= 18) {
+    return {
+      level: "High" as const,
+      rationale:
+        "High scope or uncertainty detected from requirement volume, external dependencies, and unresolved details.",
+    };
+  }
+
+  if (score >= 10) {
+    return {
+      level: "Medium" as const,
+      rationale:
+        "Moderate delivery complexity based on the current level of scope definition and project risk indicators.",
+    };
+  }
+
+  return {
+    level: "Low" as const,
+    rationale: "Scope appears relatively contained with fewer blockers and open clarification points.",
+  };
+};
+
+const analyzeScopeText = (projectName: string, files: UploadResponseFile[]): AnalysisResult => {
+  const combinedText = files
+    .map((file) => `# ${file.fileName}\n${file.extractedText || ""}`)
+    .join("\n\n");
+
+  const sections = parseSections(combinedText);
+  const allLines = sections.flatMap((section) => section.lines);
+
+  const functionalRequirements = dedupe(
+    allLines.filter((line) => KEYWORDS.functional.some((pattern) => pattern.test(line))),
+  ).slice(0, 14);
+
+  const nonFunctionalRequirements = dedupe(
+    allLines.filter((line) => KEYWORDS.nonFunctional.some((pattern) => pattern.test(line))),
+  ).slice(0, 10);
+
+  const risks = dedupe(allLines.filter((line) => KEYWORDS.risk.some((pattern) => pattern.test(line)))).slice(0, 10);
+
+  const dependencies = dedupe(
+    allLines.filter((line) => KEYWORDS.dependency.some((pattern) => pattern.test(line))),
+  ).slice(0, 10);
+
+  const ambiguousStatements = dedupe(
+    allLines.filter((line) => KEYWORDS.ambiguous.some((pattern) => pattern.test(line))),
+  ).slice(0, 10);
+
+  const missingInformation = MISSING_INFO_CHECKS.filter(
+    (check) => !check.regex.test(combinedText),
+  ).map((check) => check.message);
+
+  const suggestedClientQuestions = dedupe([
+    missingInformation.some((item) => item.toLowerCase().includes("timeline"))
+      ? "What are the exact target milestone dates and final delivery deadline?"
+      : "Can you confirm the order of milestones and their approval gates?",
+    missingInformation.some((item) => item.toLowerCase().includes("budget"))
+      ? "Do you have a fixed budget or expected effort range for this scope?"
+      : "Should this be delivered in phases to manage cost and schedule?",
+    missingInformation.some((item) => item.toLowerCase().includes("acceptance"))
+      ? "What measurable acceptance criteria define project success?"
+      : "Who signs off each deliverable, and what evidence is required for acceptance?",
+    missingInformation.some((item) => item.toLowerCase().includes("owners"))
+      ? "Who are the primary owner, approver, and day-to-day contact on your side?"
+      : "Which stakeholders must be included in weekly review checkpoints?",
+    missingInformation.some((item) => item.toLowerCase().includes("security"))
+      ? "Are there compliance, security, or data handling standards we must meet?"
+      : "Do we need formal security review before production rollout?",
+    dependencies.length > 0
+      ? "Which third-party systems or client-provided APIs are critical path dependencies?"
+      : "Are there any external vendors, systems, or access dependencies not yet listed?",
+    `Are there assumptions in ${projectName || "this project"} scope that should be moved into explicit requirements?`,
+  ]).slice(0, 8);
+
+  const estimatedComplexity = pickComplexity({
+    functionalCount: functionalRequirements.length,
+    riskCount: risks.length,
+    dependencyCount: dependencies.length,
+    missingCount: missingInformation.length,
+  });
+
+  return {
+    functionalRequirements,
+    nonFunctionalRequirements,
+    risks,
+    dependencies,
+    ambiguousStatements,
+    missingInformation,
+    suggestedClientQuestions,
+    estimatedComplexity,
+  };
+};
+
+const fallbackItems = (items: string[], fallback: string) => (items.length > 0 ? items : [fallback]);
+
+type AnalysisCardProps = {
+  title: string;
+  items?: string[];
+  accent: string;
+  description?: string;
+};
+
+function AnalysisCard({ title, items, accent, description }: AnalysisCardProps) {
+  return (
+    <article className="relative overflow-hidden rounded-2xl border border-white/15 bg-slate-950/45 p-5 shadow-[0_8px_30px_rgba(15,23,42,0.35)] backdrop-blur">
+      <div className={`absolute inset-x-0 top-0 h-1 ${accent}`} />
+      <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-100">{title}</h3>
+      {description ? <p className="mt-2 text-sm text-slate-300">{description}</p> : null}
+      {items && items.length > 0 ? (
+        <ul className="mt-3 space-y-2 text-sm text-slate-200">
+          {items.map((item) => (
+            <li key={item} className="flex gap-2">
+              <span className="mt-1 text-cyan-200">•</span>
+              <span>{item}</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </article>
+  );
+}
 
 export default function UploadPage() {
   const [projectName, setProjectName] = useState("");
@@ -50,6 +360,11 @@ export default function UploadPage() {
     [projectNameIsValid, selectedFiles.length, isUploading],
   );
 
+  const analysisResult = useMemo(
+    () => (uploadResult ? analyzeScopeText(uploadResult.projectName, uploadResult.files) : null),
+    [uploadResult],
+  );
+
   const validateFiles = (incomingFiles: File[]) => {
     const validFiles: File[] = [];
     const errors: string[] = [];
@@ -61,9 +376,7 @@ export default function UploadPage() {
       }
 
       if (file.size > MAX_FILE_SIZE_BYTES) {
-        errors.push(
-          `\"${file.name}\" exceeds the 10 MB size limit (${formatFileSize(file.size)}).`,
-        );
+        errors.push(`\"${file.name}\" exceeds the 10 MB size limit (${formatFileSize(file.size)}).`);
         return;
       }
 
@@ -133,12 +446,12 @@ export default function UploadPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 px-6 py-16 text-white">
-      <main className="mx-auto w-full max-w-4xl space-y-8 rounded-3xl border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur-xl md:p-12">
+      <main className="mx-auto w-full max-w-6xl space-y-8 rounded-3xl border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur-xl md:p-12">
         <div className="space-y-2">
-          <p className="text-xs uppercase tracking-[0.28em] text-cyan-300">ScopeGuard AI • Sprint 2</p>
-          <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">Document Intake</h1>
+          <p className="text-xs uppercase tracking-[0.28em] text-cyan-300">ScopeGuard AI • Sprint 3</p>
+          <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">Document Intake & Scope Analyzer</h1>
           <p className="text-sm text-slate-300 md:text-base">
-            Upload PDF, DOCX, or TXT files and preview extracted content before policy analysis.
+            Upload PDF, DOCX, or TXT files, preview extraction output, and generate a rule-based analysis panel.
           </p>
         </div>
 
@@ -236,6 +549,83 @@ export default function UploadPage() {
                   </pre>
                 </article>
               ))}
+            </div>
+          </section>
+        ) : null}
+
+        {analysisResult ? (
+          <section className="space-y-5 rounded-2xl border border-cyan-300/30 bg-cyan-500/5 p-5 md:p-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-xl font-semibold text-cyan-100">AI Scope Output (Rule-Based MVP)</h2>
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${
+                  analysisResult.estimatedComplexity.level === "High"
+                    ? "bg-rose-300/20 text-rose-100"
+                    : analysisResult.estimatedComplexity.level === "Medium"
+                      ? "bg-amber-300/20 text-amber-100"
+                      : "bg-emerald-300/20 text-emerald-100"
+                }`}
+              >
+                Complexity: {analysisResult.estimatedComplexity.level}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <AnalysisCard
+                title="Functional requirements"
+                accent="bg-cyan-300"
+                items={fallbackItems(
+                  analysisResult.functionalRequirements,
+                  "No explicit functional requirement patterns were found.",
+                )}
+              />
+              <AnalysisCard
+                title="Non-functional requirements"
+                accent="bg-violet-300"
+                items={fallbackItems(
+                  analysisResult.nonFunctionalRequirements,
+                  "No explicit non-functional requirement patterns were found.",
+                )}
+              />
+              <AnalysisCard
+                title="Risks"
+                accent="bg-rose-300"
+                items={fallbackItems(analysisResult.risks, "No obvious risk keywords were detected in extracted text.")}
+              />
+              <AnalysisCard
+                title="Dependencies"
+                accent="bg-amber-300"
+                items={fallbackItems(
+                  analysisResult.dependencies,
+                  "No dependency-specific statements were detected in extracted text.",
+                )}
+              />
+              <AnalysisCard
+                title="Ambiguous statements"
+                accent="bg-fuchsia-300"
+                items={fallbackItems(
+                  analysisResult.ambiguousStatements,
+                  "No major ambiguity markers were found via heuristic matching.",
+                )}
+              />
+              <AnalysisCard
+                title="Missing information"
+                accent="bg-sky-300"
+                items={fallbackItems(
+                  analysisResult.missingInformation,
+                  "No major gaps were flagged by baseline completeness checks.",
+                )}
+              />
+              <AnalysisCard
+                title="Suggested client questions"
+                accent="bg-emerald-300"
+                items={analysisResult.suggestedClientQuestions}
+              />
+              <AnalysisCard
+                title="Estimated complexity"
+                accent="bg-indigo-300"
+                description={analysisResult.estimatedComplexity.rationale}
+              />
             </div>
           </section>
         ) : null}
