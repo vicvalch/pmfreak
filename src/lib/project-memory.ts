@@ -20,7 +20,7 @@ export type StoredProjectAnalysis = {
 };
 
 type ProjectMemoryStore = {
-  projects: StoredProjectAnalysis[];
+  companies: Record<string, StoredProjectAnalysis[]>;
 };
 
 const MEMORY_DIR = path.join(process.cwd(), "data");
@@ -54,33 +54,59 @@ const dedupe = (items: string[]) => {
 const safeParseStore = (raw: string): ProjectMemoryStore => {
   try {
     const parsed = JSON.parse(raw) as Partial<ProjectMemoryStore>;
-    if (!parsed || !Array.isArray(parsed.projects)) {
-      return { projects: [] };
+
+    if (parsed && typeof parsed === "object" && parsed.companies && typeof parsed.companies === "object") {
+      return {
+        companies: Object.fromEntries(
+          Object.entries(parsed.companies).map(([companyId, projects]) => [
+            companyId,
+            Array.isArray(projects) ? (projects as StoredProjectAnalysis[]) : [],
+          ]),
+        ),
+      };
     }
 
-    return { projects: parsed.projects as StoredProjectAnalysis[] };
+    const legacyProjects = (parsed as { projects?: unknown[] })?.projects;
+    if (Array.isArray(legacyProjects)) {
+      return {
+        companies: {
+          legacy: legacyProjects as StoredProjectAnalysis[],
+        },
+      };
+    }
+
+    return { companies: {} };
   } catch {
-    return { projects: [] };
+    return { companies: {} };
   }
 };
 
-export const readProjectMemory = async (): Promise<StoredProjectAnalysis[]> => {
+const readStore = async (): Promise<ProjectMemoryStore> => {
   try {
     const raw = await readFile(MEMORY_FILE, "utf-8");
-    const parsed = safeParseStore(raw);
-    return parsed.projects;
+    return safeParseStore(raw);
   } catch {
-    return [];
+    return { companies: {} };
   }
 };
 
-export const writeProjectMemory = async (projects: StoredProjectAnalysis[]) => {
+export const readProjectMemory = async (companyId: string): Promise<StoredProjectAnalysis[]> => {
+  const store = await readStore();
+  return store.companies[companyId] ?? [];
+};
+
+export const writeProjectMemory = async (companyId: string, projects: StoredProjectAnalysis[]) => {
+  const store = await readStore();
   await mkdir(MEMORY_DIR, { recursive: true });
+
   await writeFile(
     MEMORY_FILE,
     JSON.stringify(
       {
-        projects,
+        companies: {
+          ...store.companies,
+          [companyId]: projects,
+        },
       },
       null,
       2,
@@ -95,12 +121,8 @@ const computeSimilarityScore = (current: StoredProjectAnalysis, candidate: Store
   const currentDependencies = new Set(current.dependencies.map(normalize));
   const candidateDependencies = new Set(candidate.dependencies.map(normalize));
 
-  const sharedRequirements = Array.from(currentRequirements).filter((item) =>
-    candidateRequirements.has(item),
-  ).length;
-  const sharedDependencies = Array.from(currentDependencies).filter((item) =>
-    candidateDependencies.has(item),
-  ).length;
+  const sharedRequirements = Array.from(currentRequirements).filter((item) => candidateRequirements.has(item)).length;
+  const sharedDependencies = Array.from(currentDependencies).filter((item) => candidateDependencies.has(item)).length;
   const complexityDistance = Math.abs(complexityScore[current.complexity] - complexityScore[candidate.complexity]);
 
   return sharedRequirements * 2 + sharedDependencies * 3 - complexityDistance;
@@ -111,9 +133,7 @@ const estimateRelativeComplexity = (current: ComplexityLevel, historical: Comple
     return "Baseline not available yet (first project in memory).";
   }
 
-  const average =
-    historical.reduce((sum, level) => sum + complexityScore[level], 0) /
-    historical.length;
+  const average = historical.reduce((sum, level) => sum + complexityScore[level], 0) / historical.length;
   const delta = complexityScore[current] - average;
 
   if (delta >= 0.75) {
