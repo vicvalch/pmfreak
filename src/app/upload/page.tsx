@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { DragEvent, useMemo, useState } from "react";
 import { utils, writeFileXLSX } from "xlsx";
 import { jsPDF } from "jspdf";
@@ -41,6 +42,9 @@ type AIAnalysisResult = {
   client_questions: string[];
   suggested_next_steps: string[];
   complexity: "Low" | "Medium" | "High";
+  similar_projects: string[];
+  historical_risks: string[];
+  estimated_relative_complexity: string;
 };
 
 type DisplayAnalysisResult = {
@@ -55,6 +59,9 @@ type DisplayAnalysisResult = {
   suggestedNextSteps: string[];
   complexityLevel: "Low" | "Medium" | "High";
   complexityRationale: string;
+  similarProjects: string[];
+  historicalRisks: string[];
+  estimatedRelativeComplexity: string;
 };
 
 type RequirementMatrixRow = {
@@ -374,6 +381,9 @@ const mapRuleBasedAnalysisToDisplay = (
   ],
   complexityLevel: analysisResult.estimatedComplexity.level,
   complexityRationale: analysisResult.estimatedComplexity.rationale,
+  similarProjects: [],
+  historicalRisks: [],
+  estimatedRelativeComplexity: "Portfolio baseline not available in rule-based mode.",
 });
 
 const mapAIAnalysisToDisplay = (analysisResult: AIAnalysisResult): DisplayAnalysisResult => ({
@@ -388,6 +398,9 @@ const mapAIAnalysisToDisplay = (analysisResult: AIAnalysisResult): DisplayAnalys
   suggestedNextSteps: analysisResult.suggested_next_steps,
   complexityLevel: analysisResult.complexity,
   complexityRationale: `AI-assessed complexity for this scope is ${analysisResult.complexity}.`,
+  similarProjects: analysisResult.similar_projects,
+  historicalRisks: analysisResult.historical_risks,
+  estimatedRelativeComplexity: analysisResult.estimated_relative_complexity,
 });
 
 const createRequirementMatrix = (analysisResult: DisplayAnalysisResult): RequirementMatrixRow[] => {
@@ -588,6 +601,7 @@ export default function UploadPage() {
         body: JSON.stringify({
           projectName: uploadResult.projectName,
           extractedScopeText,
+          sourceFileNames: uploadResult.files.map((file) => file.fileName),
         }),
       });
 
@@ -718,7 +732,15 @@ export default function UploadPage() {
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 px-6 py-16 text-white">
       <main className="mx-auto w-full max-w-6xl space-y-8 rounded-3xl border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur-xl md:p-12">
         <div className="space-y-2">
-          <p className="text-xs uppercase tracking-[0.28em] text-cyan-300">ScopeGuard AI • Sprint 5</p>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs uppercase tracking-[0.28em] text-cyan-300">ScopeGuard AI • Sprint 6</p>
+            <Link
+              href="/portfolio"
+              className="inline-flex h-9 items-center justify-center rounded-full border border-cyan-300/60 px-4 text-xs font-semibold uppercase tracking-[0.12em] text-cyan-100 transition hover:bg-cyan-300/10"
+            >
+              View Portfolio
+            </Link>
+          </div>
           <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">Document Intake & Scope Analyzer</h1>
           <p className="text-sm text-slate-300 md:text-base">
             Upload PDF, DOCX, or TXT files, preview extraction output, then run AI-powered scope analysis.
@@ -959,6 +981,24 @@ export default function UploadPage() {
                 accent="bg-indigo-300"
                 description={displayAnalysisResult.complexityRationale}
               />
+              <AnalysisCard
+                title="Portfolio insights"
+                accent="bg-purple-300"
+                description={displayAnalysisResult.estimatedRelativeComplexity}
+                items={[
+                  `Similar projects: ${
+                    displayAnalysisResult.similarProjects.length > 0
+                      ? displayAnalysisResult.similarProjects.join(", ")
+                      : "No close portfolio matches yet."
+                  }`,
+                  `Historical risks: ${
+                    displayAnalysisResult.historicalRisks.length > 0
+                      ? displayAnalysisResult.historicalRisks.slice(0, 3).join(" • ")
+                      : "No historical risk trends yet."
+                  }`,
+                ]}
+              />
+
             </div>
           </section>
         ) : null}

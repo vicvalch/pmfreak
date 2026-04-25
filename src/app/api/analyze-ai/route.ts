@@ -1,3 +1,10 @@
+import {
+  enrichWithPortfolioIntelligence,
+  readProjectMemory,
+  type StoredProjectAnalysis,
+  writeProjectMemory,
+} from "@/lib/project-memory";
+
 const ANALYSIS_JSON_SCHEMA = {
   name: "scopeguard_ai_analysis",
   strict: true,
@@ -61,6 +68,7 @@ const ANALYSIS_JSON_SCHEMA = {
 type AnalyzeRequestPayload = {
   projectName?: string;
   extractedScopeText?: string;
+  sourceFileNames?: string[];
 };
 
 type AIAnalysisResult = {
@@ -74,6 +82,12 @@ type AIAnalysisResult = {
   client_questions: string[];
   suggested_next_steps: string[];
   complexity: "Low" | "Medium" | "High";
+};
+
+type AIAnalysisResponse = AIAnalysisResult & {
+  similar_projects: string[];
+  historical_risks: string[];
+  estimated_relative_complexity: string;
 };
 
 const normalizeStringArray = (value: unknown) => {
@@ -133,6 +147,7 @@ export async function POST(request: Request) {
 
   const projectName = payload.projectName?.trim() ?? "";
   const extractedScopeText = payload.extractedScopeText?.trim() ?? "";
+  const sourceFileNames = normalizeStringArray(payload.sourceFileNames);
 
   if (!projectName) {
     return Response.json({ error: "Project name is required." }, { status: 400 });
@@ -199,7 +214,42 @@ export async function POST(request: Request) {
       return Response.json({ error: "OpenAI response could not be validated." }, { status: 502 });
     }
 
-    return Response.json(analysis);
+    const previousProjects = await readProjectMemory();
+
+    const recordBase: Omit<
+      StoredProjectAnalysis,
+      "similarProjects" | "historicalRisks" | "estimatedRelativeComplexity"
+    > = {
+      id: crypto.randomUUID(),
+      projectName,
+      uploadDate: new Date().toISOString(),
+      executiveSummary: analysis.executive_summary,
+      requirements: [...analysis.functional_requirements, ...analysis.non_functional_requirements],
+      risks: analysis.risks,
+      dependencies: analysis.dependencies,
+      ambiguities: analysis.ambiguities,
+      complexity: analysis.complexity,
+      sourceFileNames,
+    };
+
+    const intelligence = enrichWithPortfolioIntelligence(recordBase, previousProjects);
+
+    await writeProjectMemory([
+      {
+        ...recordBase,
+        ...intelligence,
+      },
+      ...previousProjects,
+    ]);
+
+    const enrichedResponse: AIAnalysisResponse = {
+      ...analysis,
+      similar_projects: intelligence.similarProjects,
+      historical_risks: intelligence.historicalRisks,
+      estimated_relative_complexity: intelligence.estimatedRelativeComplexity,
+    };
+
+    return Response.json(enrichedResponse);
   } catch {
     return Response.json(
       {
