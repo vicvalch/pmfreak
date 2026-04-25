@@ -1,6 +1,8 @@
 "use client";
 
 import { DragEvent, useMemo, useState } from "react";
+import { utils, writeFileXLSX } from "xlsx";
+import { jsPDF } from "jspdf";
 
 type UploadResponseFile = {
   fileName: string;
@@ -26,6 +28,15 @@ type AnalysisResult = {
     level: "Low" | "Medium" | "High";
     rationale: string;
   };
+};
+
+type RequirementMatrixRow = {
+  ID: string;
+  Requirement: string;
+  Type: "Functional" | "Non-Functional";
+  Priority: "High" | "Medium";
+  Owner: string;
+  Notes: string;
 };
 
 const ALLOWED_MIME_TYPES = new Set([
@@ -317,6 +328,31 @@ const analyzeScopeText = (projectName: string, files: UploadResponseFile[]): Ana
 
 const fallbackItems = (items: string[], fallback: string) => (items.length > 0 ? items : [fallback]);
 
+const createRequirementMatrix = (analysisResult: AnalysisResult): RequirementMatrixRow[] => {
+  const functionalRows = analysisResult.functionalRequirements.map((requirement, index) => ({
+    ID: `FR-${index + 1}`,
+    Requirement: requirement,
+    Type: "Functional" as const,
+    Priority: "High" as const,
+    Owner: "Product Owner",
+    Notes: "Captured from uploaded scope text.",
+  }));
+
+  const nonFunctionalRows = analysisResult.nonFunctionalRequirements.map((requirement, index) => ({
+    ID: `NFR-${index + 1}`,
+    Requirement: requirement,
+    Type: "Non-Functional" as const,
+    Priority: "Medium" as const,
+    Owner: "Tech Lead",
+    Notes: "Needs acceptance criteria confirmation.",
+  }));
+
+  return [...functionalRows, ...nonFunctionalRows];
+};
+
+const toFileSafeName = (projectName: string, fallback: string) =>
+  (projectName.trim() || fallback).replace(/[^a-z0-9-_]+/gi, "_").replace(/^_+|_+$/g, "");
+
 type AnalysisCardProps = {
   title: string;
   items?: string[];
@@ -349,6 +385,7 @@ export default function UploadPage() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState<UploadResponse | null>(null);
@@ -363,6 +400,11 @@ export default function UploadPage() {
   const analysisResult = useMemo(
     () => (uploadResult ? analyzeScopeText(uploadResult.projectName, uploadResult.files) : null),
     [uploadResult],
+  );
+
+  const requirementMatrix = useMemo(
+    () => (analysisResult ? createRequirementMatrix(analysisResult) : []),
+    [analysisResult],
   );
 
   const validateFiles = (incomingFiles: File[]) => {
@@ -444,11 +486,111 @@ export default function UploadPage() {
     }
   };
 
+  const downloadRequirementMatrix = () => {
+    if (!analysisResult || !uploadResult) {
+      return;
+    }
+
+    try {
+      const workbook = utils.book_new();
+      const rows = requirementMatrix.length
+        ? requirementMatrix
+        : [
+            {
+              ID: "FR-1",
+              Requirement: "No requirement statements were detected in the uploaded text.",
+              Type: "Functional" as const,
+              Priority: "Medium" as const,
+              Owner: "Product Owner",
+              Notes: "Add explicit requirements and re-run analysis.",
+            },
+          ];
+      const worksheet = utils.json_to_sheet(rows, {
+        header: ["ID", "Requirement", "Type", "Priority", "Owner", "Notes"],
+      });
+      worksheet["!cols"] = [
+        { wch: 10 },
+        { wch: 72 },
+        { wch: 18 },
+        { wch: 12 },
+        { wch: 20 },
+        { wch: 50 },
+      ];
+      utils.book_append_sheet(workbook, worksheet, "Requirement Matrix");
+      writeFileXLSX(
+        workbook,
+        `${toFileSafeName(uploadResult.projectName, "scopeguard_project")}_requirement_matrix.xlsx`,
+      );
+      setExportError(null);
+    } catch {
+      setExportError("Unable to export Excel file right now. Please try again.");
+    }
+  };
+
+  const downloadExecutiveSummary = () => {
+    if (!analysisResult || !uploadResult) {
+      return;
+    }
+
+    try {
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const marginX = 16;
+      let y = 20;
+
+      doc.setFontSize(18);
+      doc.text("ScopeGuard AI Executive Summary", marginX, y);
+      y += 10;
+
+      doc.setFontSize(11);
+      const summaryLines = [
+        `Project name: ${uploadResult.projectName}`,
+        `Complexity: ${analysisResult.estimatedComplexity.level}`,
+      ];
+
+      summaryLines.forEach((line) => {
+        doc.text(line, marginX, y);
+        y += 7;
+      });
+
+      const addSection = (title: string, items: string[]) => {
+        if (y > 255) {
+          doc.addPage();
+          y = 20;
+        }
+        doc.setFontSize(13);
+        doc.text(title, marginX, y);
+        y += 6;
+        doc.setFontSize(11);
+        const content = items.length > 0 ? items : ["None noted."];
+        content.forEach((item) => {
+          const wrapped = doc.splitTextToSize(`• ${item}`, pageWidth - marginX * 2);
+          doc.text(wrapped, marginX, y);
+          y += wrapped.length * 5 + 1;
+          if (y > 260) {
+            doc.addPage();
+            y = 20;
+          }
+        });
+        y += 2;
+      };
+
+      addSection("Risks", analysisResult.risks);
+      addSection("Missing info", analysisResult.missingInformation);
+      addSection("Recommended next actions", analysisResult.suggestedClientQuestions);
+
+      doc.save(`${toFileSafeName(uploadResult.projectName, "scopeguard_project")}_executive_summary.pdf`);
+      setExportError(null);
+    } catch {
+      setExportError("Unable to export PDF file right now. Please try again.");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 px-6 py-16 text-white">
       <main className="mx-auto w-full max-w-6xl space-y-8 rounded-3xl border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur-xl md:p-12">
         <div className="space-y-2">
-          <p className="text-xs uppercase tracking-[0.28em] text-cyan-300">ScopeGuard AI • Sprint 3</p>
+          <p className="text-xs uppercase tracking-[0.28em] text-cyan-300">ScopeGuard AI • Sprint 4</p>
           <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">Document Intake & Scope Analyzer</h1>
           <p className="text-sm text-slate-300 md:text-base">
             Upload PDF, DOCX, or TXT files, preview extraction output, and generate a rule-based analysis panel.
@@ -557,18 +699,40 @@ export default function UploadPage() {
           <section className="space-y-5 rounded-2xl border border-cyan-300/30 bg-cyan-500/5 p-5 md:p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-xl font-semibold text-cyan-100">AI Scope Output (Rule-Based MVP)</h2>
-              <span
-                className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${
-                  analysisResult.estimatedComplexity.level === "High"
-                    ? "bg-rose-300/20 text-rose-100"
-                    : analysisResult.estimatedComplexity.level === "Medium"
-                      ? "bg-amber-300/20 text-amber-100"
-                      : "bg-emerald-300/20 text-emerald-100"
-                }`}
-              >
-                Complexity: {analysisResult.estimatedComplexity.level}
-              </span>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={downloadRequirementMatrix}
+                  className="inline-flex h-9 items-center justify-center rounded-full border border-cyan-200/70 bg-cyan-300/15 px-4 text-xs font-semibold uppercase tracking-[0.12em] text-cyan-100 transition hover:bg-cyan-300/25"
+                >
+                  Download Matrix (.xlsx)
+                </button>
+                <button
+                  type="button"
+                  onClick={downloadExecutiveSummary}
+                  className="inline-flex h-9 items-center justify-center rounded-full border border-violet-200/70 bg-violet-300/15 px-4 text-xs font-semibold uppercase tracking-[0.12em] text-violet-100 transition hover:bg-violet-300/25"
+                >
+                  Download Executive PDF
+                </button>
+                <span
+                  className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${
+                    analysisResult.estimatedComplexity.level === "High"
+                      ? "bg-rose-300/20 text-rose-100"
+                      : analysisResult.estimatedComplexity.level === "Medium"
+                        ? "bg-amber-300/20 text-amber-100"
+                        : "bg-emerald-300/20 text-emerald-100"
+                  }`}
+                >
+                  Complexity: {analysisResult.estimatedComplexity.level}
+                </span>
+              </div>
             </div>
+
+            {exportError ? (
+              <p className="rounded-xl border border-rose-400/30 bg-rose-400/10 px-4 py-3 text-sm text-rose-200">
+                {exportError}
+              </p>
+            ) : null}
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <AnalysisCard
