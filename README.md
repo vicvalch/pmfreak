@@ -1,36 +1,67 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ScopeGuard AI
+
+ScopeGuard AI is a Next.js app for uploading scope documents (PDF, DOCX, TXT), extracting text, and generating project analysis outputs for delivery teams.
+
+## Sprint 5 Highlights
+
+- Added AI-powered scope analysis via a secure backend route: `POST /api/analyze-ai`.
+- Uses OpenAI API with server-side `OPENAI_API_KEY`.
+- Added **Run AI Analysis** action on `/upload`.
+- Keeps Sprint 4 rule-based analysis and exports as graceful fallback if AI is unavailable.
+
+## Environment Setup
+
+Create a `.env.local` file in the project root:
+
+```bash
+OPENAI_API_KEY=your_openai_api_key_here
+```
+
+> The API key is only read on the server in route handlers. Do not expose it in client-side code.
 
 ## Getting Started
 
-First, run the development server:
+Install dependencies and run the app:
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000/upload](http://localhost:3000/upload).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run lint
+npm run build
+npm run start
+```
 
-## Learn More
+## Supported Upload Formats
 
-To learn more about Next.js, take a look at the following resources:
+- PDF (`.pdf`)
+- Microsoft Word (`.docx`)
+- Plain text (`.txt`)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Max file size: 10 MB per file.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## API Routes
 
-## Deploy on Vercel
+- `POST /api/upload` — ingest documents, persist uploads, extract text.
+- `POST /api/analyze-ai` — analyze extracted text with OpenAI and return structured JSON:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```json
+{
+  "executive_summary": "...",
+  "functional_requirements": ["..."],
+  "non_functional_requirements": ["..."],
+  "risks": ["..."],
+  "dependencies": ["..."],
+  "ambiguities": ["..."],
+  "missing_information": ["..."],
+  "client_questions": ["..."],
+  "suggested_next_steps": ["..."],
+  "complexity": "Low"
+}
+```
