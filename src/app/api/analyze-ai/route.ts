@@ -1,3 +1,4 @@
+import { getAuthUser } from "@/lib/auth";
 import {
   enrichWithPortfolioIntelligence,
   readProjectMemory,
@@ -131,6 +132,12 @@ const coerceAnalysisResult = (value: unknown): AIAnalysisResult | null => {
 };
 
 export async function POST(request: Request) {
+  const user = await getAuthUser();
+
+  if (!user) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const apiKey = process.env.OPENAI_API_KEY;
 
   if (!apiKey) {
@@ -214,7 +221,7 @@ export async function POST(request: Request) {
       return Response.json({ error: "OpenAI response could not be validated." }, { status: 502 });
     }
 
-    const previousProjects = await readProjectMemory();
+    const previousProjects = await readProjectMemory(user.companyId);
 
     const recordBase: Omit<
       StoredProjectAnalysis,
@@ -234,7 +241,7 @@ export async function POST(request: Request) {
 
     const intelligence = enrichWithPortfolioIntelligence(recordBase, previousProjects);
 
-    await writeProjectMemory([
+    await writeProjectMemory(user.companyId, [
       {
         ...recordBase,
         ...intelligence,

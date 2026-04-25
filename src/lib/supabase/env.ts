@@ -1,0 +1,12 @@
+const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+export const hasSupabaseEnv = Boolean(url && anonKey);
+
+export const getSupabaseEnv = () => {
+  if (!url || !anonKey) {
+    throw new Error("Missing Supabase environment variables.");
+  }
+
+  return { url, anonKey };
+};

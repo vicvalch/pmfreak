@@ -1,0 +1,56 @@
+import { redirect } from "next/navigation";
+import { hasSupabaseEnv } from "@/lib/supabase/env";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+export type UserRole = "admin" | "pm" | "viewer";
+
+export type AuthUserContext = {
+  id: string;
+  email: string;
+  fullName: string;
+  companyId: string;
+  companyName: string;
+  role: UserRole;
+};
+
+const toRole = (role: unknown): UserRole => {
+  if (role === "admin" || role === "pm" || role === "viewer") {
+    return role;
+  }
+
+  return "viewer";
+};
+
+export const getAuthUser = async (): Promise<AuthUserContext | null> => {
+  if (!hasSupabaseEnv) {
+    return null;
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user?.email) {
+    return null;
+  }
+
+  const metadata = user.user_metadata ?? {};
+
+  return {
+    id: user.id,
+    email: user.email,
+    fullName: typeof metadata.full_name === "string" ? metadata.full_name : user.email,
+    companyId: typeof metadata.company_id === "string" ? metadata.company_id : user.id,
+    companyName: typeof metadata.company_name === "string" ? metadata.company_name : "Independent",
+    role: toRole(metadata.role),
+  };
+};
+
+export const requireAuthUser = async () => {
+  const user = await getAuthUser();
+  if (!user) {
+    redirect("/login");
+  }
+  return user;
+};

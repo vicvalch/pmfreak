@@ -1,3 +1,4 @@
+import { getAuthUser } from "@/lib/auth";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import mammoth from "mammoth";
@@ -42,6 +43,12 @@ const extractTextFromFile = async (file: File, buffer: Buffer) => {
 };
 
 export async function POST(request: Request) {
+  const user = await getAuthUser();
+
+  if (!user) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const formData = await request.formData();
   const projectName = (formData.get("projectName") ?? "").toString().trim();
   const incomingFiles = formData.getAll("documents");
