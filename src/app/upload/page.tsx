@@ -16,7 +16,7 @@ type UploadResponse = {
   files: UploadResponseFile[];
 };
 
-type AnalysisResult = {
+type RuleBasedAnalysisResult = {
   functionalRequirements: string[];
   nonFunctionalRequirements: string[];
   risks: string[];
@@ -28,6 +28,33 @@ type AnalysisResult = {
     level: "Low" | "Medium" | "High";
     rationale: string;
   };
+};
+
+type AIAnalysisResult = {
+  executive_summary: string;
+  functional_requirements: string[];
+  non_functional_requirements: string[];
+  risks: string[];
+  dependencies: string[];
+  ambiguities: string[];
+  missing_information: string[];
+  client_questions: string[];
+  suggested_next_steps: string[];
+  complexity: "Low" | "Medium" | "High";
+};
+
+type DisplayAnalysisResult = {
+  executiveSummary: string;
+  functionalRequirements: string[];
+  nonFunctionalRequirements: string[];
+  risks: string[];
+  dependencies: string[];
+  ambiguities: string[];
+  missingInformation: string[];
+  clientQuestions: string[];
+  suggestedNextSteps: string[];
+  complexityLevel: "Low" | "Medium" | "High";
+  complexityRationale: string;
 };
 
 type RequirementMatrixRow = {
@@ -255,7 +282,7 @@ const pickComplexity = (input: {
   };
 };
 
-const analyzeScopeText = (projectName: string, files: UploadResponseFile[]): AnalysisResult => {
+const analyzeScopeText = (projectName: string, files: UploadResponseFile[]): RuleBasedAnalysisResult => {
   const combinedText = files
     .map((file) => `# ${file.fileName}\n${file.extractedText || ""}`)
     .join("\n\n");
@@ -328,7 +355,42 @@ const analyzeScopeText = (projectName: string, files: UploadResponseFile[]): Ana
 
 const fallbackItems = (items: string[], fallback: string) => (items.length > 0 ? items : [fallback]);
 
-const createRequirementMatrix = (analysisResult: AnalysisResult): RequirementMatrixRow[] => {
+const mapRuleBasedAnalysisToDisplay = (
+  uploadResult: UploadResponse,
+  analysisResult: RuleBasedAnalysisResult,
+): DisplayAnalysisResult => ({
+  executiveSummary: `Rule-based extraction completed for ${uploadResult.projectName}. Review the requirement lists, flagged ambiguities, and clarification prompts before estimation.`,
+  functionalRequirements: analysisResult.functionalRequirements,
+  nonFunctionalRequirements: analysisResult.nonFunctionalRequirements,
+  risks: analysisResult.risks,
+  dependencies: analysisResult.dependencies,
+  ambiguities: analysisResult.ambiguousStatements,
+  missingInformation: analysisResult.missingInformation,
+  clientQuestions: analysisResult.suggestedClientQuestions,
+  suggestedNextSteps: [
+    "Confirm timeline, scope boundaries, and acceptance criteria with the client.",
+    "Prioritize requirements and convert them into deliverable user stories/tasks.",
+    "Validate dependencies and assign clear owners for each critical-path item.",
+  ],
+  complexityLevel: analysisResult.estimatedComplexity.level,
+  complexityRationale: analysisResult.estimatedComplexity.rationale,
+});
+
+const mapAIAnalysisToDisplay = (analysisResult: AIAnalysisResult): DisplayAnalysisResult => ({
+  executiveSummary: analysisResult.executive_summary,
+  functionalRequirements: analysisResult.functional_requirements,
+  nonFunctionalRequirements: analysisResult.non_functional_requirements,
+  risks: analysisResult.risks,
+  dependencies: analysisResult.dependencies,
+  ambiguities: analysisResult.ambiguities,
+  missingInformation: analysisResult.missing_information,
+  clientQuestions: analysisResult.client_questions,
+  suggestedNextSteps: analysisResult.suggested_next_steps,
+  complexityLevel: analysisResult.complexity,
+  complexityRationale: `AI-assessed complexity for this scope is ${analysisResult.complexity}.`,
+});
+
+const createRequirementMatrix = (analysisResult: DisplayAnalysisResult): RequirementMatrixRow[] => {
   const functionalRows = analysisResult.functionalRequirements.map((requirement, index) => ({
     ID: `FR-${index + 1}`,
     Requirement: requirement,
@@ -388,7 +450,10 @@ export default function UploadPage() {
   const [exportError, setExportError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isAiAnalyzing, setIsAiAnalyzing] = useState(false);
   const [uploadResult, setUploadResult] = useState<UploadResponse | null>(null);
+  const [aiAnalysisResult, setAiAnalysisResult] = useState<AIAnalysisResult | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
 
   const projectNameIsValid = projectName.trim().length > 0;
 
@@ -397,14 +462,26 @@ export default function UploadPage() {
     [projectNameIsValid, selectedFiles.length, isUploading],
   );
 
-  const analysisResult = useMemo(
+  const ruleBasedAnalysisResult = useMemo(
     () => (uploadResult ? analyzeScopeText(uploadResult.projectName, uploadResult.files) : null),
     [uploadResult],
   );
 
+  const displayAnalysisResult = useMemo(() => {
+    if (!uploadResult || !ruleBasedAnalysisResult) {
+      return null;
+    }
+
+    if (aiAnalysisResult) {
+      return mapAIAnalysisToDisplay(aiAnalysisResult);
+    }
+
+    return mapRuleBasedAnalysisToDisplay(uploadResult, ruleBasedAnalysisResult);
+  }, [uploadResult, ruleBasedAnalysisResult, aiAnalysisResult]);
+
   const requirementMatrix = useMemo(
-    () => (analysisResult ? createRequirementMatrix(analysisResult) : []),
-    [analysisResult],
+    () => (displayAnalysisResult ? createRequirementMatrix(displayAnalysisResult) : []),
+    [displayAnalysisResult],
   );
 
   const validateFiles = (incomingFiles: File[]) => {
@@ -428,6 +505,8 @@ export default function UploadPage() {
     setValidationErrors(errors);
     setUploadError(null);
     setUploadResult(null);
+    setAiAnalysisResult(null);
+    setAiError(null);
     setSelectedFiles(validFiles);
   };
 
@@ -478,6 +557,8 @@ export default function UploadPage() {
       }
 
       setUploadResult(payload);
+      setAiAnalysisResult(null);
+      setAiError(null);
     } catch {
       setUploadError("Unable to upload right now. Please try again.");
       setUploadResult(null);
@@ -486,8 +567,53 @@ export default function UploadPage() {
     }
   };
 
+  const handleRunAiAnalysis = async () => {
+    if (!uploadResult || isAiAnalyzing) {
+      return;
+    }
+
+    setIsAiAnalyzing(true);
+    setAiError(null);
+
+    try {
+      const extractedScopeText = uploadResult.files
+        .map((file) => `# ${file.fileName}\n${file.extractedText || ""}`)
+        .join("\n\n");
+
+      const response = await fetch("/api/analyze-ai", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          projectName: uploadResult.projectName,
+          extractedScopeText,
+        }),
+      });
+
+      const payload = (await response.json()) as AIAnalysisResult | { error: string };
+
+      if (!response.ok || "error" in payload) {
+        setAiAnalysisResult(null);
+        setAiError(
+          "error" in payload
+            ? payload.error
+            : "AI analysis failed. Showing Sprint 4 rule-based output instead.",
+        );
+        return;
+      }
+
+      setAiAnalysisResult(payload);
+    } catch {
+      setAiAnalysisResult(null);
+      setAiError("AI analysis is currently unavailable. Showing Sprint 4 rule-based output.");
+    } finally {
+      setIsAiAnalyzing(false);
+    }
+  };
+
   const downloadRequirementMatrix = () => {
-    if (!analysisResult || !uploadResult) {
+    if (!displayAnalysisResult || !uploadResult) {
       return;
     }
 
@@ -528,7 +654,7 @@ export default function UploadPage() {
   };
 
   const downloadExecutiveSummary = () => {
-    if (!analysisResult || !uploadResult) {
+    if (!displayAnalysisResult || !uploadResult) {
       return;
     }
 
@@ -545,7 +671,7 @@ export default function UploadPage() {
       doc.setFontSize(11);
       const summaryLines = [
         `Project name: ${uploadResult.projectName}`,
-        `Complexity: ${analysisResult.estimatedComplexity.level}`,
+        `Complexity: ${displayAnalysisResult.complexityLevel}`,
       ];
 
       summaryLines.forEach((line) => {
@@ -575,9 +701,11 @@ export default function UploadPage() {
         y += 2;
       };
 
-      addSection("Risks", analysisResult.risks);
-      addSection("Missing info", analysisResult.missingInformation);
-      addSection("Recommended next actions", analysisResult.suggestedClientQuestions);
+      addSection("Executive summary", [displayAnalysisResult.executiveSummary]);
+      addSection("Risks", displayAnalysisResult.risks);
+      addSection("Missing info", displayAnalysisResult.missingInformation);
+      addSection("Client questions", displayAnalysisResult.clientQuestions);
+      addSection("Recommended next actions", displayAnalysisResult.suggestedNextSteps);
 
       doc.save(`${toFileSafeName(uploadResult.projectName, "scopeguard_project")}_executive_summary.pdf`);
       setExportError(null);
@@ -590,10 +718,10 @@ export default function UploadPage() {
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 px-6 py-16 text-white">
       <main className="mx-auto w-full max-w-6xl space-y-8 rounded-3xl border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur-xl md:p-12">
         <div className="space-y-2">
-          <p className="text-xs uppercase tracking-[0.28em] text-cyan-300">ScopeGuard AI • Sprint 4</p>
+          <p className="text-xs uppercase tracking-[0.28em] text-cyan-300">ScopeGuard AI • Sprint 5</p>
           <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">Document Intake & Scope Analyzer</h1>
           <p className="text-sm text-slate-300 md:text-base">
-            Upload PDF, DOCX, or TXT files, preview extraction output, and generate a rule-based analysis panel.
+            Upload PDF, DOCX, or TXT files, preview extraction output, then run AI-powered scope analysis.
           </p>
         </div>
 
@@ -695,10 +823,34 @@ export default function UploadPage() {
           </section>
         ) : null}
 
-        {analysisResult ? (
+        {uploadResult ? (
+          <section className="space-y-3 rounded-2xl border border-violet-300/30 bg-violet-400/10 p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold text-violet-100">Sprint 5 AI Analysis</h2>
+              <button
+                type="button"
+                onClick={handleRunAiAnalysis}
+                disabled={isAiAnalyzing}
+                className="inline-flex h-10 items-center justify-center rounded-full bg-violet-300 px-5 text-sm font-semibold text-slate-900 transition hover:bg-violet-200 disabled:cursor-not-allowed disabled:bg-slate-500"
+              >
+                {isAiAnalyzing ? "Running AI Analysis..." : "Run AI Analysis"}
+              </button>
+            </div>
+            <p className="text-sm text-violet-100/90">
+              Generate structured analysis with executive summary, risks, dependencies, and next steps.
+            </p>
+            {aiError ? (
+              <p className="rounded-xl border border-amber-300/40 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">
+                {aiError}
+              </p>
+            ) : null}
+          </section>
+        ) : null}
+
+        {displayAnalysisResult ? (
           <section className="space-y-5 rounded-2xl border border-cyan-300/30 bg-cyan-500/5 p-5 md:p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-xl font-semibold text-cyan-100">AI Scope Output (Rule-Based MVP)</h2>
+              <h2 className="text-xl font-semibold text-cyan-100">AI Scope Output</h2>
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
@@ -716,14 +868,17 @@ export default function UploadPage() {
                 </button>
                 <span
                   className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${
-                    analysisResult.estimatedComplexity.level === "High"
+                    displayAnalysisResult.complexityLevel === "High"
                       ? "bg-rose-300/20 text-rose-100"
-                      : analysisResult.estimatedComplexity.level === "Medium"
+                      : displayAnalysisResult.complexityLevel === "Medium"
                         ? "bg-amber-300/20 text-amber-100"
                         : "bg-emerald-300/20 text-emerald-100"
                   }`}
                 >
-                  Complexity: {analysisResult.estimatedComplexity.level}
+                  Complexity: {displayAnalysisResult.complexityLevel}
+                </span>
+                <span className="rounded-full bg-indigo-300/20 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-indigo-100">
+                  {aiAnalysisResult ? "AI Model" : "Fallback: Rule-Based"}
                 </span>
               </div>
             </div>
@@ -734,12 +889,18 @@ export default function UploadPage() {
               </p>
             ) : null}
 
+            <AnalysisCard
+              title="Executive summary"
+              accent="bg-indigo-300"
+              description={displayAnalysisResult.executiveSummary}
+            />
+
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <AnalysisCard
                 title="Functional requirements"
                 accent="bg-cyan-300"
                 items={fallbackItems(
-                  analysisResult.functionalRequirements,
+                  displayAnalysisResult.functionalRequirements,
                   "No explicit functional requirement patterns were found.",
                 )}
               />
@@ -747,28 +908,31 @@ export default function UploadPage() {
                 title="Non-functional requirements"
                 accent="bg-violet-300"
                 items={fallbackItems(
-                  analysisResult.nonFunctionalRequirements,
+                  displayAnalysisResult.nonFunctionalRequirements,
                   "No explicit non-functional requirement patterns were found.",
                 )}
               />
               <AnalysisCard
                 title="Risks"
                 accent="bg-rose-300"
-                items={fallbackItems(analysisResult.risks, "No obvious risk keywords were detected in extracted text.")}
+                items={fallbackItems(
+                  displayAnalysisResult.risks,
+                  "No obvious risk keywords were detected in extracted text.",
+                )}
               />
               <AnalysisCard
                 title="Dependencies"
                 accent="bg-amber-300"
                 items={fallbackItems(
-                  analysisResult.dependencies,
+                  displayAnalysisResult.dependencies,
                   "No dependency-specific statements were detected in extracted text.",
                 )}
               />
               <AnalysisCard
-                title="Ambiguous statements"
+                title="Ambiguities"
                 accent="bg-fuchsia-300"
                 items={fallbackItems(
-                  analysisResult.ambiguousStatements,
+                  displayAnalysisResult.ambiguities,
                   "No major ambiguity markers were found via heuristic matching.",
                 )}
               />
@@ -776,19 +940,24 @@ export default function UploadPage() {
                 title="Missing information"
                 accent="bg-sky-300"
                 items={fallbackItems(
-                  analysisResult.missingInformation,
+                  displayAnalysisResult.missingInformation,
                   "No major gaps were flagged by baseline completeness checks.",
                 )}
               />
               <AnalysisCard
-                title="Suggested client questions"
+                title="Client questions"
                 accent="bg-emerald-300"
-                items={analysisResult.suggestedClientQuestions}
+                items={displayAnalysisResult.clientQuestions}
+              />
+              <AnalysisCard
+                title="Suggested next steps"
+                accent="bg-teal-300"
+                items={displayAnalysisResult.suggestedNextSteps}
               />
               <AnalysisCard
                 title="Estimated complexity"
                 accent="bg-indigo-300"
-                description={analysisResult.estimatedComplexity.rationale}
+                description={displayAnalysisResult.complexityRationale}
               />
             </div>
           </section>
