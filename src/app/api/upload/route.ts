@@ -1,4 +1,6 @@
 import { getAuthUser } from "@/lib/auth";
+import { getCompanySubscription } from "@/lib/billing";
+import { canUploadDocuments, getCompanyUsage, getUploadLimitForPlan, incrementUploadUsage } from "@/lib/usage-limits";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import mammoth from "mammoth";
@@ -50,6 +52,10 @@ export async function POST(request: Request) {
   }
 
   const formData = await request.formData();
+
+  const subscription = await getCompanySubscription(user.companyId);
+  const usage = await getCompanyUsage(user.companyId);
+
   const projectName = (formData.get("projectName") ?? "").toString().trim();
   const incomingFiles = formData.getAll("documents");
 
@@ -65,6 +71,19 @@ export async function POST(request: Request) {
 
   if (files.length === 0) {
     return Response.json({ error: "No valid files found in request." }, { status: 400 });
+  }
+
+  if (!canUploadDocuments(subscription.plan, usage.uploadCount, files.length)) {
+    const limit = getUploadLimitForPlan(subscription.plan);
+    return Response.json(
+      {
+        error:
+          limit === null
+            ? "Upload limit reached."
+            : `Free plan limit reached (${limit} uploads/month). Upgrade to Pro for unlimited uploads.`,
+      },
+      { status: 403 },
+    );
   }
 
   const projectSlug = sanitizeFileName(projectName.toLowerCase().replace(/\s+/g, "-"));
@@ -99,6 +118,8 @@ export async function POST(request: Request) {
       savedTo: filePath,
     });
   }
+
+  await incrementUploadUsage(user.companyId, files.length);
 
   return Response.json({
     projectName,

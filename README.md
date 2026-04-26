@@ -2,22 +2,40 @@
 
 ScopeGuard AI is a Next.js app for uploading scope documents (PDF, DOCX, TXT), extracting text, and generating project analysis outputs for delivery teams.
 
-## Sprint 5 Highlights
+## Sprint 8 Highlights
 
-- Added AI-powered scope analysis via a secure backend route: `POST /api/analyze-ai`.
-- Uses OpenAI API with server-side `OPENAI_API_KEY`.
-- Added **Run AI Analysis** action on `/upload`.
-- Keeps Sprint 4 rule-based analysis and exports as graceful fallback if AI is unavailable.
+- Added SaaS billing foundation with Stripe.
+- Added `/pricing` page with Free, Pro, and Enterprise plans.
+- Added authenticated `/billing` page with Stripe checkout + customer portal actions.
+- Added billing APIs:
+  - `POST /api/billing/create-checkout-session`
+  - `POST /api/billing/create-portal-session`
+  - `POST /api/billing/webhook`
+  - `GET /api/billing/state`
+- Added company-level subscription persistence (`plan`, `subscriptionStatus`, Stripe IDs, renewal date).
+- Added premium feature gates:
+  - Free: limited uploads + rule-based analysis
+  - Pro: AI analysis + exports
+  - Enterprise: portfolio memory + enterprise-only permissions helpers
+- Added billing status card in dashboard.
 
 ## Environment Setup
 
-Create a `.env.local` file in the project root:
+Create a `.env.local` file in the project root (or copy `.env.example`):
 
 ```bash
 OPENAI_API_KEY=your_openai_api_key_here
+
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+
+STRIPE_SECRET_KEY=sk_test_...
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_PRO_PRICE_ID=price_...
 ```
 
-> The API key is only read on the server in route handlers. Do not expose it in client-side code.
+> Keep secret keys server-side only. `NEXT_PUBLIC_*` values are safe for browser exposure.
 
 ## Getting Started
 
@@ -28,7 +46,9 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:3000/upload](http://localhost:3000/upload).
+Open:
+- [http://localhost:3000/pricing](http://localhost:3000/pricing)
+- [http://localhost:3000/billing](http://localhost:3000/billing) (authenticated)
 
 ## Scripts
 
@@ -48,20 +68,7 @@ Max file size: 10 MB per file.
 
 ## API Routes
 
-- `POST /api/upload` — ingest documents, persist uploads, extract text.
-- `POST /api/analyze-ai` — analyze extracted text with OpenAI and return structured JSON:
-
-```json
-{
-  "executive_summary": "...",
-  "functional_requirements": ["..."],
-  "non_functional_requirements": ["..."],
-  "risks": ["..."],
-  "dependencies": ["..."],
-  "ambiguities": ["..."],
-  "missing_information": ["..."],
-  "client_questions": ["..."],
-  "suggested_next_steps": ["..."],
-  "complexity": "Low"
-}
-```
+- `POST /api/upload` — ingest documents, persist uploads, extract text, and enforce plan upload limits.
+- `POST /api/analyze-ai` — analyze extracted text with OpenAI for Pro/Enterprise plans.
+- `GET /api/portfolio` — enterprise portfolio-memory listing.
+- Billing routes listed above.

@@ -1,4 +1,6 @@
 import { getAuthUser } from "@/lib/auth";
+import { getCompanySubscription } from "@/lib/billing";
+import { canRunAiAnalysis, canUsePortfolioMemory } from "@/lib/usage-limits";
 import {
   enrichWithPortfolioIntelligence,
   readProjectMemory,
@@ -138,6 +140,15 @@ export async function POST(request: Request) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const subscription = await getCompanySubscription(user.companyId);
+
+  if (!canRunAiAnalysis(subscription.plan)) {
+    return Response.json(
+      { error: "AI analysis is available on Pro and Enterprise plans." },
+      { status: 403 },
+    );
+  }
+
   const apiKey = process.env.OPENAI_API_KEY;
 
   if (!apiKey) {
@@ -221,7 +232,8 @@ export async function POST(request: Request) {
       return Response.json({ error: "OpenAI response could not be validated." }, { status: 502 });
     }
 
-    const previousProjects = await readProjectMemory(user.companyId);
+    const portfolioEnabled = canUsePortfolioMemory(subscription.plan);
+    const previousProjects = portfolioEnabled ? await readProjectMemory(user.companyId) : [];
 
     const recordBase: Omit<
       StoredProjectAnalysis,
@@ -239,15 +251,23 @@ export async function POST(request: Request) {
       sourceFileNames,
     };
 
-    const intelligence = enrichWithPortfolioIntelligence(recordBase, previousProjects);
+    const intelligence = portfolioEnabled
+      ? enrichWithPortfolioIntelligence(recordBase, previousProjects)
+      : {
+          similarProjects: [] as string[],
+          historicalRisks: [] as string[],
+          estimatedRelativeComplexity: "Portfolio memory is available on Enterprise plan.",
+        };
 
-    await writeProjectMemory(user.companyId, [
-      {
-        ...recordBase,
-        ...intelligence,
-      },
-      ...previousProjects,
-    ]);
+    if (portfolioEnabled) {
+      await writeProjectMemory(user.companyId, [
+        {
+          ...recordBase,
+          ...intelligence,
+        },
+        ...previousProjects,
+      ]);
+    }
 
     const enrichedResponse: AIAnalysisResponse = {
       ...analysis,
