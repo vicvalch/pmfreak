@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { DragEvent, useMemo, useState } from "react";
+import { DragEvent, useEffect, useMemo, useState } from "react";
 import { utils, writeFileXLSX } from "xlsx";
 import { jsPDF } from "jspdf";
 
@@ -15,6 +15,25 @@ type UploadResponseFile = {
 type UploadResponse = {
   projectName: string;
   files: UploadResponseFile[];
+};
+
+
+
+type BillingStateResponse = {
+  subscription: {
+    plan: "free" | "pro" | "enterprise";
+    subscriptionStatus: string;
+  };
+  usage: {
+    uploadCount: number;
+    currentMonth: string;
+  };
+  limits: {
+    uploadLimit: number | null;
+    canRunAiAnalysis: boolean;
+    canExportReports: boolean;
+    canUsePortfolioMemory: boolean;
+  };
 };
 
 type RuleBasedAnalysisResult = {
@@ -467,6 +486,8 @@ export default function UploadPage() {
   const [uploadResult, setUploadResult] = useState<UploadResponse | null>(null);
   const [aiAnalysisResult, setAiAnalysisResult] = useState<AIAnalysisResult | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [billingState, setBillingState] = useState<BillingStateResponse | null>(null);
+  const [billingError, setBillingError] = useState<string | null>(null);
 
   const projectNameIsValid = projectName.trim().length > 0;
 
@@ -474,6 +495,31 @@ export default function UploadPage() {
     () => projectNameIsValid && selectedFiles.length > 0 && !isUploading,
     [projectNameIsValid, selectedFiles.length, isUploading],
   );
+
+
+
+  useEffect(() => {
+    const loadBillingState = async () => {
+      try {
+        const response = await fetch("/api/billing/state");
+        const payload = (await response.json()) as BillingStateResponse | { error: string };
+
+        if (!response.ok || "error" in payload) {
+          setBillingError("Unable to load billing limits.");
+          setBillingState(null);
+          return;
+        }
+
+        setBillingState(payload);
+        setBillingError(null);
+      } catch {
+        setBillingError("Unable to load billing limits.");
+        setBillingState(null);
+      }
+    };
+
+    void loadBillingState();
+  }, []);
 
   const ruleBasedAnalysisResult = useMemo(
     () => (uploadResult ? analyzeScopeText(uploadResult.projectName, uploadResult.files) : null),
@@ -581,7 +627,7 @@ export default function UploadPage() {
   };
 
   const handleRunAiAnalysis = async () => {
-    if (!uploadResult || isAiAnalyzing) {
+    if (!uploadResult || isAiAnalyzing || !billingState?.limits.canRunAiAnalysis) {
       return;
     }
 
@@ -627,7 +673,7 @@ export default function UploadPage() {
   };
 
   const downloadRequirementMatrix = () => {
-    if (!displayAnalysisResult || !uploadResult) {
+    if (!displayAnalysisResult || !uploadResult || !billingState?.limits.canExportReports) {
       return;
     }
 
@@ -668,7 +714,7 @@ export default function UploadPage() {
   };
 
   const downloadExecutiveSummary = () => {
-    if (!displayAnalysisResult || !uploadResult) {
+    if (!displayAnalysisResult || !uploadResult || !billingState?.limits.canExportReports) {
       return;
     }
 
@@ -745,6 +791,15 @@ export default function UploadPage() {
           <p className="text-sm text-slate-300 md:text-base">
             Upload PDF, DOCX, or TXT files, preview extraction output, then run AI-powered scope analysis.
           </p>
+          {billingState ? (
+            <p className="text-xs text-slate-400">
+              Plan: <span className="font-semibold text-cyan-200">{billingState.subscription.plan}</span>
+              {billingState.limits.uploadLimit !== null
+                ? ` • Uploads this month: ${billingState.usage.uploadCount}/${billingState.limits.uploadLimit}`
+                : " • Unlimited uploads"}
+            </p>
+          ) : null}
+          {billingError ? <p className="text-xs text-rose-200">{billingError}</p> : null}
         </div>
 
         <section className="space-y-3">
@@ -812,7 +867,7 @@ export default function UploadPage() {
           <button
             type="button"
             onClick={handleUpload}
-            disabled={!canUpload}
+            disabled={!canUpload || (billingState ? billingState.limits.uploadLimit !== null && billingState.usage.uploadCount >= billingState.limits.uploadLimit : false)}
             className="inline-flex h-11 items-center justify-center rounded-full bg-cyan-300 px-6 text-sm font-semibold text-slate-900 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:bg-slate-500"
           >
             {isUploading ? "Uploading..." : "Upload Documents"}
@@ -852,15 +907,18 @@ export default function UploadPage() {
               <button
                 type="button"
                 onClick={handleRunAiAnalysis}
-                disabled={isAiAnalyzing}
+                disabled={isAiAnalyzing || !billingState?.limits.canRunAiAnalysis}
                 className="inline-flex h-10 items-center justify-center rounded-full bg-violet-300 px-5 text-sm font-semibold text-slate-900 transition hover:bg-violet-200 disabled:cursor-not-allowed disabled:bg-slate-500"
               >
-                {isAiAnalyzing ? "Running AI Analysis..." : "Run AI Analysis"}
+                {!billingState?.limits.canRunAiAnalysis ? "Upgrade to Pro for AI" : isAiAnalyzing ? "Running AI Analysis..." : "Run AI Analysis"}
               </button>
             </div>
             <p className="text-sm text-violet-100/90">
               Generate structured analysis with executive summary, risks, dependencies, and next steps.
             </p>
+            {!billingState?.limits.canRunAiAnalysis ? (
+              <p className="text-xs text-amber-100">AI analysis requires a Pro or Enterprise plan.</p>
+            ) : null}
             {aiError ? (
               <p className="rounded-xl border border-amber-300/40 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">
                 {aiError}
@@ -877,14 +935,16 @@ export default function UploadPage() {
                 <button
                   type="button"
                   onClick={downloadRequirementMatrix}
-                  className="inline-flex h-9 items-center justify-center rounded-full border border-cyan-200/70 bg-cyan-300/15 px-4 text-xs font-semibold uppercase tracking-[0.12em] text-cyan-100 transition hover:bg-cyan-300/25"
+                  disabled={!billingState?.limits.canExportReports}
+                  className="inline-flex h-9 items-center justify-center rounded-full border border-cyan-200/70 bg-cyan-300/15 px-4 text-xs font-semibold uppercase tracking-[0.12em] text-cyan-100 transition hover:bg-cyan-300/25 disabled:cursor-not-allowed disabled:border-slate-500 disabled:text-slate-500"
                 >
                   Download Matrix (.xlsx)
                 </button>
                 <button
                   type="button"
                   onClick={downloadExecutiveSummary}
-                  className="inline-flex h-9 items-center justify-center rounded-full border border-violet-200/70 bg-violet-300/15 px-4 text-xs font-semibold uppercase tracking-[0.12em] text-violet-100 transition hover:bg-violet-300/25"
+                  disabled={!billingState?.limits.canExportReports}
+                  className="inline-flex h-9 items-center justify-center rounded-full border border-violet-200/70 bg-violet-300/15 px-4 text-xs font-semibold uppercase tracking-[0.12em] text-violet-100 transition hover:bg-violet-300/25 disabled:cursor-not-allowed disabled:border-slate-500 disabled:text-slate-500"
                 >
                   Download Executive PDF
                 </button>
@@ -904,6 +964,9 @@ export default function UploadPage() {
                 </span>
               </div>
             </div>
+            {!billingState?.limits.canExportReports ? (
+              <p className="text-xs text-amber-100">Report exports require a Pro or Enterprise plan.</p>
+            ) : null}
 
             {exportError ? (
               <p className="rounded-xl border border-rose-400/30 bg-rose-400/10 px-4 py-3 text-sm text-rose-200">
