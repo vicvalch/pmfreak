@@ -87,3 +87,16 @@ Max file size: 10 MB per file.
 - `POST /api/analyze-ai` — analyze extracted text with OpenAI for Pro/Enterprise plans.
 - `GET /api/portfolio` — enterprise portfolio-memory listing.
 - Billing routes listed above.
+
+
+## Sprint 9 PMO Copilot Core
+
+- Added protected `/copilot` page with chat interface, methodology selector (default Hybrid), project-context selector, prompt chips, session message history, and loading/empty/error states.
+- Added `POST /api/copilot` for tenant-scoped PMO copilot responses.
+- Added `GET /api/copilot/context` to load current-tenant project context options.
+- Copilot capabilities: next steps, risks, scope clarifications, RACI, meeting minutes, follow-up emails, escalation drafts, change-control recommendations, kickoff/closure checklists, and recovery plans.
+- Plan behavior:
+  - Free: basic rule-based PMO guidance only (OpenAI deep analysis blocked).
+  - Pro: AI-powered copilot enabled.
+  - Enterprise: AI-powered copilot + broader portfolio-memory context.
+- Data isolation principle: copilot only reads memory for the authenticated user's `companyId` and rejects tenant mismatch in request payloads.

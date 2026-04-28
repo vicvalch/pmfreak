@@ -6,6 +6,7 @@ const navItems = [
   { href: "/projects", label: "Projects" },
   { href: "/upload", label: "Upload" },
   { href: "/portfolio", label: "Portfolio" },
+  { href: "/copilot", label: "PMO Copilot" },
   { href: "/billing", label: "Billing" },
 ];
 
