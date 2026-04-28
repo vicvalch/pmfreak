@@ -28,6 +28,7 @@ OPENAI_API_KEY=your_openai_api_key_here
 
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 
 STRIPE_SECRET_KEY=sk_test_...
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
@@ -49,6 +50,20 @@ npm run dev
 Open:
 - [http://localhost:3000/pricing](http://localhost:3000/pricing)
 - [http://localhost:3000/billing](http://localhost:3000/billing) (authenticated)
+
+
+## Database Migrations
+
+State previously persisted in local JSON files now lives in Supabase Postgres with tenant-scoped RLS.
+
+Apply the migration:
+
+```bash
+npx supabase db push
+```
+
+The migration file is:
+- `supabase/migrations/20260428120000_p0_state_tables.sql`
 
 ## Scripts
 
