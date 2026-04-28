@@ -1,5 +1,4 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import path from "node:path";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type ComplexityLevel = "Low" | "Medium" | "High";
 
@@ -18,13 +17,6 @@ export type StoredProjectAnalysis = {
   historicalRisks: string[];
   estimatedRelativeComplexity: string;
 };
-
-type ProjectMemoryStore = {
-  companies: Record<string, StoredProjectAnalysis[]>;
-};
-
-const MEMORY_DIR = path.join(process.cwd(), "data");
-const MEMORY_FILE = path.join(MEMORY_DIR, "project-memory.json");
 
 const complexityScore: Record<ComplexityLevel, number> = {
   Low: 1,
@@ -51,68 +43,90 @@ const dedupe = (items: string[]) => {
   return output;
 };
 
-const safeParseStore = (raw: string): ProjectMemoryStore => {
-  try {
-    const parsed = JSON.parse(raw) as Partial<ProjectMemoryStore>;
-
-    if (parsed && typeof parsed === "object" && parsed.companies && typeof parsed.companies === "object") {
-      return {
-        companies: Object.fromEntries(
-          Object.entries(parsed.companies).map(([companyId, projects]) => [
-            companyId,
-            Array.isArray(projects) ? (projects as StoredProjectAnalysis[]) : [],
-          ]),
-        ),
-      };
-    }
-
-    const legacyProjects = (parsed as { projects?: unknown[] })?.projects;
-    if (Array.isArray(legacyProjects)) {
-      return {
-        companies: {
-          legacy: legacyProjects as StoredProjectAnalysis[],
-        },
-      };
-    }
-
-    return { companies: {} };
-  } catch {
-    return { companies: {} };
-  }
-};
-
-const readStore = async (): Promise<ProjectMemoryStore> => {
-  try {
-    const raw = await readFile(MEMORY_FILE, "utf-8");
-    return safeParseStore(raw);
-  } catch {
-    return { companies: {} };
-  }
-};
+const mapRowToStoredProject = (row: {
+  project_id: string;
+  project_name: string;
+  upload_date: string;
+  executive_summary: string;
+  requirements: string[] | null;
+  risks: string[] | null;
+  dependencies: string[] | null;
+  ambiguities: string[] | null;
+  complexity: ComplexityLevel;
+  source_file_names: string[] | null;
+  similar_projects: string[] | null;
+  historical_risks: string[] | null;
+  estimated_relative_complexity: string;
+}): StoredProjectAnalysis => ({
+  id: row.project_id,
+  projectName: row.project_name,
+  uploadDate: row.upload_date,
+  executiveSummary: row.executive_summary,
+  requirements: row.requirements ?? [],
+  risks: row.risks ?? [],
+  dependencies: row.dependencies ?? [],
+  ambiguities: row.ambiguities ?? [],
+  complexity: row.complexity,
+  sourceFileNames: row.source_file_names ?? [],
+  similarProjects: row.similar_projects ?? [],
+  historicalRisks: row.historical_risks ?? [],
+  estimatedRelativeComplexity: row.estimated_relative_complexity,
+});
 
 export const readProjectMemory = async (companyId: string): Promise<StoredProjectAnalysis[]> => {
-  const store = await readStore();
-  return store.companies[companyId] ?? [];
+  const supabase = await createSupabaseServerClient();
+
+  const { data, error } = await supabase
+    .from("project_memories")
+    .select(
+      "project_id, project_name, upload_date, executive_summary, requirements, risks, dependencies, ambiguities, complexity, source_file_names, similar_projects, historical_risks, estimated_relative_complexity",
+    )
+    .eq("company_id", companyId)
+    .order("upload_date", { ascending: false });
+
+  if (error) {
+    throw new Error(`Unable to read project memory: ${error.message}`);
+  }
+
+  return (data ?? []).map(mapRowToStoredProject);
 };
 
 export const writeProjectMemory = async (companyId: string, projects: StoredProjectAnalysis[]) => {
-  const store = await readStore();
-  await mkdir(MEMORY_DIR, { recursive: true });
+  const supabase = await createSupabaseServerClient();
 
-  await writeFile(
-    MEMORY_FILE,
-    JSON.stringify(
-      {
-        companies: {
-          ...store.companies,
-          [companyId]: projects,
-        },
-      },
-      null,
-      2,
-    ),
-    "utf-8",
-  );
+  const { error: deleteError } = await supabase.from("project_memories").delete().eq("company_id", companyId);
+
+  if (deleteError) {
+    throw new Error(`Unable to clear project memory: ${deleteError.message}`);
+  }
+
+  if (projects.length === 0) {
+    return;
+  }
+
+  const rows = projects.map((project) => ({
+    company_id: companyId,
+    project_id: project.id,
+    project_name: project.projectName,
+    upload_date: project.uploadDate,
+    executive_summary: project.executiveSummary,
+    requirements: project.requirements,
+    risks: project.risks,
+    dependencies: project.dependencies,
+    ambiguities: project.ambiguities,
+    complexity: project.complexity,
+    source_file_names: project.sourceFileNames,
+    similar_projects: project.similarProjects,
+    historical_risks: project.historicalRisks,
+    estimated_relative_complexity: project.estimatedRelativeComplexity,
+    updated_at: new Date().toISOString(),
+  }));
+
+  const { error: insertError } = await supabase.from("project_memories").insert(rows);
+
+  if (insertError) {
+    throw new Error(`Unable to persist project memory: ${insertError.message}`);
+  }
 };
 
 const computeSimilarityScore = (current: StoredProjectAnalysis, candidate: StoredProjectAnalysis) => {

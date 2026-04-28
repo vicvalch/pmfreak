@@ -34,7 +34,7 @@ const companyIdFromSubscription = async (subscription: Stripe.Subscription) => {
   }
 
   const customerId = typeof subscription.customer === "string" ? subscription.customer : subscription.customer.id;
-  return findCompanyIdByStripeCustomerId(customerId);
+  return findCompanyIdByStripeCustomerId(customerId, { useServiceRole: true });
 };
 
 const applySubscriptionUpdate = async (subscription: Stripe.Subscription) => {
@@ -54,7 +54,7 @@ const applySubscriptionUpdate = async (subscription: Stripe.Subscription) => {
     stripeCustomerId: customerId,
     stripeSubscriptionId: subscription.id,
     currentPeriodEnd: toIsoDate(periodEnd),
-  });
+  }, { useServiceRole: true });
 };
 
 const handleSubscriptionDeleted = async (subscription: Stripe.Subscription) => {
@@ -64,7 +64,7 @@ const handleSubscriptionDeleted = async (subscription: Stripe.Subscription) => {
     return;
   }
 
-  const current = await getCompanySubscription(companyId);
+  const current = await getCompanySubscription(companyId, { useServiceRole: true });
 
   await updateCompanySubscription(companyId, {
     plan: "free",
@@ -73,7 +73,7 @@ const handleSubscriptionDeleted = async (subscription: Stripe.Subscription) => {
       typeof subscription.customer === "string" ? subscription.customer : subscription.customer.id,
     stripeSubscriptionId: current.stripeSubscriptionId,
     currentPeriodEnd: toIsoDate(subscription.items.data[0]?.current_period_end ?? null),
-  });
+  }, { useServiceRole: true });
 };
 
 export async function POST(request: Request) {

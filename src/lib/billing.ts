@@ -1,5 +1,5 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import path from "node:path";
+import { createSupabaseServiceRoleClient } from "@/lib/supabase/admin";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type SubscriptionPlan = "free" | "pro" | "enterprise";
 
@@ -22,10 +22,6 @@ export type CompanySubscriptionState = {
   currentPeriodEnd: string | null;
 };
 
-type BillingStore = {
-  companies: Record<string, CompanySubscriptionState>;
-};
-
 const DEFAULT_STATE: CompanySubscriptionState = {
   plan: "free",
   subscriptionStatus: "inactive",
@@ -34,121 +30,135 @@ const DEFAULT_STATE: CompanySubscriptionState = {
   currentPeriodEnd: null,
 };
 
-const BILLING_DIR = path.join(process.cwd(), "data");
-const BILLING_FILE = path.join(BILLING_DIR, "billing-state.json");
-
-const safeParseStore = (raw: string): BillingStore => {
-  try {
-    const parsed = JSON.parse(raw) as Partial<BillingStore>;
-
-    if (!parsed || typeof parsed !== "object" || !parsed.companies || typeof parsed.companies !== "object") {
-      return { companies: {} };
-    }
-
-    return {
-      companies: Object.fromEntries(
-        Object.entries(parsed.companies).map(([companyId, state]) => {
-          const value = state as Partial<CompanySubscriptionState>;
-          const plan =
-            value.plan === "pro" || value.plan === "enterprise" || value.plan === "free"
-              ? value.plan
-              : DEFAULT_STATE.plan;
-          const subscriptionStatus =
-            value.subscriptionStatus === "trialing" ||
-            value.subscriptionStatus === "active" ||
-            value.subscriptionStatus === "past_due" ||
-            value.subscriptionStatus === "canceled" ||
-            value.subscriptionStatus === "incomplete" ||
-            value.subscriptionStatus === "inactive" ||
-            value.subscriptionStatus === "incomplete_expired" ||
-            value.subscriptionStatus === "unpaid" ||
-            value.subscriptionStatus === "paused"
-              ? value.subscriptionStatus
-              : DEFAULT_STATE.subscriptionStatus;
-
-          return [
-            companyId,
-            {
-              plan,
-              subscriptionStatus,
-              stripeCustomerId:
-                typeof value.stripeCustomerId === "string" && value.stripeCustomerId.length > 0
-                  ? value.stripeCustomerId
-                  : null,
-              stripeSubscriptionId:
-                typeof value.stripeSubscriptionId === "string" && value.stripeSubscriptionId.length > 0
-                  ? value.stripeSubscriptionId
-                  : null,
-              currentPeriodEnd:
-                typeof value.currentPeriodEnd === "string" && value.currentPeriodEnd.length > 0
-                  ? value.currentPeriodEnd
-                  : null,
-            } satisfies CompanySubscriptionState,
-          ];
-        }),
-      ),
-    };
-  } catch {
-    return { companies: {} };
+const toPlan = (plan: unknown): SubscriptionPlan => {
+  if (plan === "free" || plan === "pro" || plan === "enterprise") {
+    return plan;
   }
+
+  return DEFAULT_STATE.plan;
 };
 
-const readStore = async (): Promise<BillingStore> => {
-  try {
-    const raw = await readFile(BILLING_FILE, "utf-8");
-    return safeParseStore(raw);
-  } catch {
-    return { companies: {} };
+const toStatus = (status: unknown): SubscriptionStatus => {
+  if (
+    status === "inactive" ||
+    status === "trialing" ||
+    status === "active" ||
+    status === "past_due" ||
+    status === "canceled" ||
+    status === "incomplete" ||
+    status === "incomplete_expired" ||
+    status === "unpaid" ||
+    status === "paused"
+  ) {
+    return status;
   }
+
+  return DEFAULT_STATE.subscriptionStatus;
 };
 
-const writeStore = async (store: BillingStore) => {
-  await mkdir(BILLING_DIR, { recursive: true });
-  await writeFile(BILLING_FILE, JSON.stringify(store, null, 2), "utf-8");
+const normalizeState = (row: {
+  plan: unknown;
+  subscription_status: unknown;
+  stripe_customer_id: unknown;
+  stripe_subscription_id: unknown;
+  current_period_end: unknown;
+}): CompanySubscriptionState => ({
+  plan: toPlan(row.plan),
+  subscriptionStatus: toStatus(row.subscription_status),
+  stripeCustomerId: typeof row.stripe_customer_id === "string" && row.stripe_customer_id.length > 0 ? row.stripe_customer_id : null,
+  stripeSubscriptionId:
+    typeof row.stripe_subscription_id === "string" && row.stripe_subscription_id.length > 0
+      ? row.stripe_subscription_id
+      : null,
+  currentPeriodEnd: typeof row.current_period_end === "string" && row.current_period_end.length > 0 ? row.current_period_end : null,
+});
+
+const getClient = async (useServiceRole: boolean) => {
+  if (useServiceRole) {
+    return createSupabaseServiceRoleClient();
+  }
+
+  return createSupabaseServerClient();
 };
 
-export const getCompanySubscription = async (companyId: string): Promise<CompanySubscriptionState> => {
-  const store = await readStore();
-  return store.companies[companyId] ?? DEFAULT_STATE;
+export const getCompanySubscription = async (
+  companyId: string,
+  options?: { useServiceRole?: boolean },
+): Promise<CompanySubscriptionState> => {
+  const supabase = await getClient(Boolean(options?.useServiceRole));
+
+  const { data, error } = await supabase
+    .from("company_subscriptions")
+    .select("plan, subscription_status, stripe_customer_id, stripe_subscription_id, current_period_end")
+    .eq("company_id", companyId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Unable to read company subscription: ${error.message}`);
+  }
+
+  if (!data) {
+    return DEFAULT_STATE;
+  }
+
+  return normalizeState(data);
 };
 
 export const setCompanySubscription = async (
   companyId: string,
   value: CompanySubscriptionState,
+  options?: { useServiceRole?: boolean },
 ): Promise<CompanySubscriptionState> => {
-  const store = await readStore();
+  const supabase = await getClient(Boolean(options?.useServiceRole));
 
-  const next = {
-    ...store,
-    companies: {
-      ...store.companies,
-      [companyId]: value,
-    },
-  };
+  const { data, error } = await supabase
+    .from("company_subscriptions")
+    .upsert(
+      {
+        company_id: companyId,
+        plan: value.plan,
+        subscription_status: value.subscriptionStatus,
+        stripe_customer_id: value.stripeCustomerId,
+        stripe_subscription_id: value.stripeSubscriptionId,
+        current_period_end: value.currentPeriodEnd,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "company_id" },
+    )
+    .select("plan, subscription_status, stripe_customer_id, stripe_subscription_id, current_period_end")
+    .single();
 
-  await writeStore(next);
+  if (error) {
+    throw new Error(`Unable to persist company subscription: ${error.message}`);
+  }
 
-  return value;
+  return normalizeState(data);
 };
 
 export const updateCompanySubscription = async (
   companyId: string,
   patch: Partial<CompanySubscriptionState>,
+  options?: { useServiceRole?: boolean },
 ): Promise<CompanySubscriptionState> => {
-  const current = await getCompanySubscription(companyId);
-  const next = { ...current, ...patch };
-  await setCompanySubscription(companyId, next);
-  return next;
+  const current = await getCompanySubscription(companyId, options);
+  return setCompanySubscription(companyId, { ...current, ...patch }, options);
 };
 
-export const findCompanyIdByStripeCustomerId = async (customerId: string): Promise<string | null> => {
-  const store = await readStore();
+export const findCompanyIdByStripeCustomerId = async (
+  customerId: string,
+  options?: { useServiceRole?: boolean },
+): Promise<string | null> => {
+  const supabase = await getClient(Boolean(options?.useServiceRole));
 
-  for (const [companyId, state] of Object.entries(store.companies)) {
-    if (state.stripeCustomerId === customerId) {
-      return companyId;
-    }
+  const { data, error } = await supabase
+    .from("company_subscriptions")
+    .select("company_id")
+    .eq("stripe_customer_id", customerId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Unable to look up company by Stripe customer ID: ${error.message}`);
   }
 
-  return null;
+  return data?.company_id ?? null;
 };
