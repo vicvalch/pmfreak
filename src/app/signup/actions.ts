@@ -12,19 +12,23 @@ const slugify = (value: string) =>
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-");
 
-export const signupAction = async (formData: FormData): Promise<void> => {
+export async function signupAction(formData: FormData): Promise<void> {
   if (!hasSupabaseEnv) {
     redirect("/signup?error=Configure+Supabase+environment+variables");
   }
 
   const fullName = String(formData.get("fullName") ?? "").trim();
   const companyName = String(formData.get("companyName") ?? "").trim();
-  const role = String(formData.get("role") ?? "viewer").trim();
+  const role = String(formData.get("role") ?? "admin").trim();
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "").trim();
 
   if (!fullName || !companyName || !email || !password) {
     redirect("/signup?error=Name,+company,+email,+and+password+are+required");
+  }
+
+  if (password.length < 8) {
+    redirect("/signup?error=Password+must+be+at+least+8+characters");
   }
 
   if (!["admin", "pm", "viewer"].includes(role)) {
@@ -34,7 +38,7 @@ export const signupAction = async (formData: FormData): Promise<void> => {
   const companyId = slugify(companyName);
   const supabase = await createSupabaseServerClient();
 
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
@@ -48,8 +52,18 @@ export const signupAction = async (formData: FormData): Promise<void> => {
   });
 
   if (error) {
+    if (error.message.toLowerCase().includes("email rate limit exceeded")) {
+      redirect(
+        "/signup?error=Too+many+signup+emails+were+requested.+Please+wait+a+few+minutes+before+trying+again.",
+      );
+    }
+
     redirect(`/signup?error=${encodeURIComponent(error.message)}`);
   }
 
+  if (!data.session) {
+    redirect(`/signup/confirm-email?email=${encodeURIComponent(email)}`);
+  }
+
   redirect("/dashboard");
-};
+}
