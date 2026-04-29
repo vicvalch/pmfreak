@@ -1,6 +1,12 @@
 import Link from "next/link";
 import { PM_MODULES } from "@/features/navigation/module-registry";
 
+const crossModuleSummary = [
+  "Hidden owner detected in security approval chain",
+  "Sponsor disengagement risk increased this week",
+  "Meeting ended without clear owner for recovery timeline",
+];
+
 export default function DashboardPage() {
   return (
     <div className="space-y-6">
@@ -9,6 +15,13 @@ export default function DashboardPage() {
         <h1 className="mt-3 text-3xl font-semibold">Program Intelligence Dashboard</h1>
         <p className="mt-2 max-w-3xl text-sm text-slate-300">Monitor stakeholder sentiment, political risk, meeting execution quality, and escalation readiness from one workspace.</p>
       </header>
+
+      <section className="rounded-2xl border border-amber-300/30 bg-amber-950/20 p-5">
+        <h2 className="text-lg font-semibold text-amber-100">Cross-module intelligence summary</h2>
+        <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-amber-50">
+          {crossModuleSummary.map((item) => <li key={item}>{item}</li>)}
+        </ul>
+      </section>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {PM_MODULES.filter((item) => item.href !== "/dashboard").map((item) => (
