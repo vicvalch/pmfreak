@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "ScopeGuard AI",
-  description: "ScopeGuard AI document intake",
+  title: "PMFreak AI",
+  description: "PMFreak AI document intake",
 };
 
 export default function RootLayout({

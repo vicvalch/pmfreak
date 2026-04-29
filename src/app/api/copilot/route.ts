@@ -127,7 +127,7 @@ export async function POST(request: Request) {
     .map((p: StoredProjectAnalysis) => `Project: ${p.projectName}\nRisks: ${p.risks.join("; ") || "none"}\nDependencies: ${p.dependencies.join("; ") || "none"}`)
     .join("\n\n");
 
-  const system = `You are ScopeGuard PMO Copilot, a senior PMO advisor.\nNever invent project facts.\nNever use cross-tenant data.\nIf context is missing, ask for it.\nAlways separate: Known Facts, PMO Best Practices, Assumptions.\nMethodology mode: ${methodology}. ${getMethodologyGuide(methodology)}\nReturn compact JSON only.`;
+  const system = `You are PMFreak PMO Copilot, a senior PMO advisor.\nNever invent project facts.\nNever use cross-tenant data.\nIf context is missing, ask for it.\nAlways separate: Known Facts, PMO Best Practices, Assumptions.\nMethodology mode: ${methodology}. ${getMethodologyGuide(methodology)}\nReturn compact JSON only.`;
 
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",

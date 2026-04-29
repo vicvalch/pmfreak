@@ -20,7 +20,7 @@ export default async function ProtectedLayout({
         <aside className="sticky top-6 hidden h-[calc(100vh-3rem)] w-72 flex-col rounded-3xl border border-white/10 bg-white/5 p-5 shadow-2xl backdrop-blur-xl md:flex">
           <div>
             <p className="text-xs uppercase tracking-[0.28em] text-cyan-300">
-              ScopeGuard by AOC
+              PMFreak by AOC
             </p>
             <h2 className="mt-3 text-xl font-semibold">PMO Workspace</h2>
             <p className="mt-2 text-xs text-slate-400">{user.companyName}</p>
