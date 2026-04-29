@@ -74,6 +74,7 @@ export default function Home() {
           <article className="rounded-2xl border-2 border-black bg-white p-4"><p className="text-xs font-bold uppercase tracking-wide text-[#118383]">Victory mode</p><p className="mt-1 text-sm">You ship, execs smile, and meetings stop multiplying.</p><PmFreakMascot mood="celebration" className="mt-2 w-40" /></article>
         </section>
       </div>
-    </main>
+      </main>
+    </>
   );
 }
