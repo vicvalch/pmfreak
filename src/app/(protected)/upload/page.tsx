@@ -705,7 +705,7 @@ export default function UploadPage() {
       utils.book_append_sheet(workbook, worksheet, "Requirement Matrix");
       writeFileXLSX(
         workbook,
-        `${toFileSafeName(uploadResult.projectName, "scopeguard_project")}_requirement_matrix.xlsx`,
+        `${toFileSafeName(uploadResult.projectName, "pmfreak_project")}_requirement_matrix.xlsx`,
       );
       setExportError(null);
     } catch {
@@ -725,7 +725,7 @@ export default function UploadPage() {
       let y = 20;
 
       doc.setFontSize(18);
-      doc.text("ScopeGuard AI Executive Summary", marginX, y);
+      doc.text("PMFreak AI Executive Summary", marginX, y);
       y += 10;
 
       doc.setFontSize(11);
@@ -767,7 +767,7 @@ export default function UploadPage() {
       addSection("Client questions", displayAnalysisResult.clientQuestions);
       addSection("Recommended next actions", displayAnalysisResult.suggestedNextSteps);
 
-      doc.save(`${toFileSafeName(uploadResult.projectName, "scopeguard_project")}_executive_summary.pdf`);
+      doc.save(`${toFileSafeName(uploadResult.projectName, "pmfreak_project")}_executive_summary.pdf`);
       setExportError(null);
     } catch {
       setExportError("Unable to export PDF file right now. Please try again.");
@@ -779,7 +779,7 @@ export default function UploadPage() {
       <main className="mx-auto w-full max-w-6xl space-y-8 rounded-3xl border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur-xl md:p-12">
         <div className="space-y-2">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-xs uppercase tracking-[0.28em] text-cyan-300">ScopeGuard AI • Sprint 6</p>
+            <p className="text-xs uppercase tracking-[0.28em] text-cyan-300">PMFreak AI • Sprint 6</p>
             <Link
               href="/portfolio"
               className="inline-flex h-9 items-center justify-center rounded-full border border-cyan-300/60 px-4 text-xs font-semibold uppercase tracking-[0.12em] text-cyan-100 transition hover:bg-cyan-300/10"

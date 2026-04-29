@@ -27,7 +27,7 @@ export default function PricingPage() {
       <div className="mx-auto w-full max-w-6xl space-y-8">
         <div className="text-center">
           <p className="text-xs uppercase tracking-[0.28em] text-cyan-300">
-            ScopeGuard AI • Enterprise Pilots
+            PMFreak AI • Enterprise Pilots
           </p>
           <h1 className="mt-3 text-4xl font-semibold tracking-tight">
             Pilot packages built for PMO transformation
@@ -58,7 +58,7 @@ export default function PricingPage() {
 
         <div className="text-center">
           <Link
-            href="mailto:sales@scopeguard.ai?subject=Enterprise%20Pilot%20Package"
+            href="mailto:sales@pmfreak.ai?subject=Enterprise%20Pilot%20Package"
             className="inline-flex h-11 items-center justify-center rounded-full bg-cyan-300 px-6 text-sm font-semibold text-slate-900 transition hover:bg-cyan-200"
           >
             Book Enterprise Pilot

@@ -9,7 +9,7 @@ import {
 } from "@/lib/project-memory";
 
 const ANALYSIS_JSON_SCHEMA = {
-  name: "scopeguard_ai_analysis",
+  name: "pmfreak_ai_analysis",
   strict: true,
   schema: {
     type: "object",
@@ -193,7 +193,7 @@ export async function POST(request: Request) {
           {
             role: "system",
             content:
-              "You are ScopeGuard AI. Return only valid JSON that matches the provided schema. Keep bullets practical and concise.",
+              "You are PMFreak AI. Return only valid JSON that matches the provided schema. Keep bullets practical and concise.",
           },
           {
             role: "user",

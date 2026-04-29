@@ -11,7 +11,7 @@ export default async function LoginPage({
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-black px-6 py-16 text-white">
       <section className="mx-auto w-full max-w-md rounded-3xl border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur-xl">
-        <p className="text-xs uppercase tracking-[0.28em] text-cyan-300">ScopeGuard AI</p>
+        <p className="text-xs uppercase tracking-[0.28em] text-cyan-300">PMFreak AI</p>
         <h1 className="mt-3 text-3xl font-semibold tracking-tight">Welcome back</h1>
         <p className="mt-2 text-sm text-slate-300">Sign in to your company workspace.</p>
 

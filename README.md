@@ -1,6 +1,6 @@
-# ScopeGuard AI
+# PMFreak AI
 
-ScopeGuard AI is a Next.js app for uploading scope documents (PDF, DOCX, TXT), extracting text, and generating project analysis outputs for delivery teams.
+PMFreak AI is a Next.js app for uploading scope documents (PDF, DOCX, TXT), extracting text, and generating project analysis outputs for delivery teams.
 
 ## Sprint 8 Highlights
 
