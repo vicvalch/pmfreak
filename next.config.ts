@@ -8,7 +8,7 @@ const nextConfig: NextConfig = {
         "127.0.0.1:3000",
         "*.app.github.dev",
         "*.github.dev",
-        "scopeguard-mu.vercel.app",
+        "pmfreak-mu.vercel.app",
       ],
     },
   },

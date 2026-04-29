@@ -74,7 +74,7 @@ export default function PortfolioPage() {
       <main className="mx-auto w-full max-w-5xl space-y-6 rounded-3xl border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur-xl md:p-10">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-xs uppercase tracking-[0.28em] text-cyan-300">ScopeGuard AI • Sprint 6</p>
+            <p className="text-xs uppercase tracking-[0.28em] text-cyan-300">PMFreak AI • Sprint 6</p>
             <h1 className="text-3xl font-semibold tracking-tight">Portfolio Intelligence</h1>
             <p className="mt-2 text-sm text-slate-300">Browse analyzed projects and compare risk/complexity history.</p>
           </div>
