@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { MarketingNavbar } from "@/components/marketing-navbar";
 
 const trustMarkers = ["Project rescue", "PMO discipline", "Executive visibility", "AI-ready workflows"];
 
@@ -109,9 +110,11 @@ function PmFreakMascot({ mode }: { mode: "chaos" | "calm" | "celebration" }) {
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-[#efe4d3] px-5 py-8 text-[#15120f] md:px-8 md:py-12">
+    <>
+      <MarketingNavbar />
+      <main className="min-h-screen bg-[#efe4d3] px-5 py-8 text-[#15120f] md:px-8 md:py-12">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-8">
-        <section className="grid gap-6 rounded-3xl border-2 border-black bg-[#f8f1e3] p-6 shadow-[10px_10px_0_#15120f] md:grid-cols-[1.1fr_0.9fr] md:p-10">
+        <section id="product" className="grid gap-6 rounded-3xl border-2 border-black bg-[#f8f1e3] p-6 shadow-[10px_10px_0_#15120f] md:grid-cols-[1.1fr_0.9fr] md:p-10">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.26em] text-[#118383]">PM Freak • Chaos to Execution</p>
             <h1 className="mt-4 text-4xl font-extrabold leading-tight md:text-6xl">
@@ -258,7 +261,7 @@ export default function Home() {
           </Link>
         </section>
 
-        <footer className="pb-3 text-center text-sm font-semibold">
+        <footer id="about" className="pb-3 text-center text-sm font-semibold">
           <p>PM Freak — Chaos to Execution.</p>
           <div className="mt-2 flex items-center justify-center gap-5 text-black/70">
             <Link href="#services" className="hover:text-black">Services</Link>
@@ -267,6 +270,7 @@ export default function Home() {
           </div>
         </footer>
       </div>
-    </main>
+      </main>
+    </>
   );
 }
