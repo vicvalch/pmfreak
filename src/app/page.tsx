@@ -69,6 +69,44 @@ const noteDoodle = (
   </svg>
 );
 
+function PmFreakFace({ mood = "chaos" }: { mood?: "chaos" | "calm" | "celebration" }) {
+  const eyePath = mood === "calm" ? "M150 143q10 8 20 0M210 143q10 8 20 0" : "M150 139q10-8 20 0M210 139q10-8 20 0";
+  const mouthPath = mood === "calm" ? "M160 192q28 18 56 0" : mood === "celebration" ? "M158 194q30 24 60 0" : "M162 192q28-18 56 0";
+  const teethPath = "M170 202h40M178 196v12M190 196v12M202 196v12";
+  const eyeSize = mood === "calm" ? 4 : 7;
+
+  return (
+    <>
+      <path d="M96 82c38-46 126-52 182-2" fill="none" stroke="#15120f" strokeWidth="7" strokeLinecap="round" />
+      <path d="M108 104c34-30 88-42 144-18 22 10 40 24 52 40" fill="none" stroke="#15120f" strokeWidth="7" strokeLinecap="round" />
+      <circle cx="186" cy="154" r="84" fill="#fffdf8" stroke="#15120f" strokeWidth="7" />
+      <path d="M112 132c20-18 40-32 64-40M128 168c12-22 30-44 54-64M258 92c-22 12-38 28-52 48M276 134c-16-20-40-34-68-42" fill="none" stroke="#15120f" strokeWidth="7" strokeLinecap="round" />
+      <rect x="122" y="124" width="68" height="50" rx="22" fill="none" stroke="#15120f" strokeWidth="8" />
+      <rect x="186" y="124" width="68" height="50" rx="22" fill="none" stroke="#15120f" strokeWidth="8" />
+      <path d="M190 146h2" stroke="#15120f" strokeWidth="8" strokeLinecap="round" />
+      <path d={eyePath} fill="none" stroke="#15120f" strokeWidth="6" strokeLinecap="round" />
+      <circle cx="160" cy="151" r={eyeSize} fill="#15120f" />
+      <circle cx="220" cy="151" r={eyeSize} fill="#15120f" />
+      <path d={mouthPath} fill="none" stroke="#15120f" strokeWidth="7" strokeLinecap="round" />
+      {mood !== "calm" ? <path d={teethPath} fill="none" stroke="#15120f" strokeWidth="5" strokeLinecap="round" /> : null}
+      <circle cx="124" cy="194" r="10" fill="#53d4e0" stroke="#15120f" strokeWidth="5" />
+      <circle cx="248" cy="194" r="10" fill="#53d4e0" stroke="#15120f" strokeWidth="5" />
+    </>
+  );
+}
+
+function PmFreakMascot({ mode }: { mode: "chaos" | "calm" | "celebration" }) {
+  return (
+    <svg viewBox="0 0 380 300" className="w-full" aria-label={`PM Freak mascot ${mode}`}>
+      <PmFreakFace mood={mode} />
+      {mode === "chaos" ? <path d="M60 60l-16-8M320 64l18-10M92 52l-8-14M280 52l12-14" stroke="#15120f" strokeWidth="5" strokeLinecap="round" /> : null}
+      {mode === "calm" ? <rect x="252" y="212" width="34" height="34" rx="8" fill="#118383" stroke="#15120f" strokeWidth="4" /> : null}
+      {mode === "calm" ? <path d="M262 230l8 8 12-16" fill="none" stroke="#fff" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" /> : null}
+      {mode === "celebration" ? <path d="M186 20v24M144 30l10 18M228 30l-10 18M116 52l18 12M256 52l-18 12" fill="none" stroke="#15120f" strokeWidth="5" strokeLinecap="round" /> : null}
+    </svg>
+  );
+}
+
 export default function Home() {
   return (
     <main className="min-h-screen bg-[#efe4d3] px-5 py-8 text-[#15120f] md:px-8 md:py-12">
@@ -103,23 +141,7 @@ export default function Home() {
             <div className="absolute right-4 top-4 h-3 w-3 animate-pulse rounded-full bg-red-500" />
             <div className="absolute -left-2 top-6 h-12 w-10 -rotate-12 rounded-md border-2 border-black bg-white shadow-sm transition group-hover:-translate-y-1" />
             <div className="absolute right-5 top-20 h-10 w-8 rotate-12 rounded-md border-2 border-black bg-[#f6ecda]" />
-            <svg viewBox="0 0 380 300" className="w-full" aria-label="PM Freak mascot illustration">
-              <path d="M88 74c12-26 34-37 58-42 13 17 24 19 40 4 27 8 48 22 58 54" fill="none" stroke="#15120f" strokeWidth="4" strokeLinecap="round" className="origin-center animate-[wiggle_2.8s_ease-in-out_infinite]" />
-              <circle cx="185" cy="128" r="72" fill="#fffdf8" stroke="#15120f" strokeWidth="4" />
-              <rect x="126" y="112" width="44" height="32" rx="10" fill="none" stroke="#15120f" strokeWidth="4" />
-              <rect x="198" y="112" width="44" height="32" rx="10" fill="none" stroke="#15120f" strokeWidth="4" />
-              <path d="M170 126h28" stroke="#15120f" strokeWidth="4" strokeLinecap="round" />
-              <circle cx="147" cy="127" r="4" fill="#15120f" />
-              <circle cx="219" cy="127" r="4" fill="#15120f" />
-              <path d="M162 164q20-14 40 0" fill="none" stroke="#15120f" strokeWidth="4" strokeLinecap="round" />
-              <path d="M134 175h101" stroke="#15120f" strokeWidth="3" strokeDasharray="5 6" />
-              <rect x="40" y="202" width="118" height="70" rx="8" fill="#fff" stroke="#15120f" strokeWidth="4" />
-              <path d="M52 220h52M52 236h36M52 252h62" stroke="#15120f" strokeWidth="3" strokeLinecap="round" />
-              <circle cx="144" cy="218" r="6" fill="#118383" />
-              <rect x="186" y="206" width="154" height="76" rx="10" fill="#f3ebdc" stroke="#15120f" strokeWidth="4" />
-              <path d="M206 226h114M206 244h80M206 262h66" stroke="#15120f" strokeWidth="3" strokeLinecap="round" />
-              <rect x="298" y="234" width="26" height="26" rx="6" fill="#118383" stroke="#15120f" strokeWidth="3" />
-            </svg>
+            <PmFreakMascot mode="chaos" />
           </div>
         </section>
 
@@ -164,16 +186,16 @@ export default function Home() {
 
           <div className="rounded-2xl border-2 border-black bg-white p-4">
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#118383]">After chaos</p>
-            <svg viewBox="0 0 250 180" className="mt-3 w-full" aria-hidden>
-              <circle cx="84" cy="74" r="42" fill="#fffef8" stroke="#15120f" strokeWidth="3" />
-              <path d="M50 56c12-14 21-17 34-16 10 6 18 7 24 1 14 6 20 13 26 26" fill="none" stroke="#15120f" strokeWidth="3" />
-              <circle cx="68" cy="74" r="3" fill="#15120f" />
-              <circle cx="98" cy="74" r="3" fill="#15120f" />
-              <path d="M70 92q15 10 30 0" fill="none" stroke="#15120f" strokeWidth="3" strokeLinecap="round" />
-              <rect x="140" y="40" width="86" height="95" rx="8" fill="#f4ecdd" stroke="#15120f" strokeWidth="3" />
-              <path d="M154 58h58M154 74h46M154 90h52" stroke="#15120f" strokeWidth="3" strokeLinecap="round" />
-              <rect x="154" y="102" width="57" height="21" rx="5" fill="#118383" stroke="#15120f" strokeWidth="3" />
-            </svg>
+            <PmFreakMascot mode="calm" />
+          </div>
+        </section>
+
+        <section className="rounded-3xl border-2 border-black bg-[#fffaf1] p-6 md:p-8">
+          <h2 className="text-3xl font-extrabold">Mascot modes</h2>
+          <div className="mt-5 grid gap-4 md:grid-cols-3">
+            <article className="rounded-2xl border-2 border-black bg-white p-4"><p className="mb-2 text-xs font-bold uppercase tracking-wide text-[#118383]">Chaos mode</p><PmFreakMascot mode="chaos" /></article>
+            <article className="rounded-2xl border-2 border-black bg-white p-4"><p className="mb-2 text-xs font-bold uppercase tracking-wide text-[#118383]">Calm organized mode</p><PmFreakMascot mode="calm" /></article>
+            <article className="rounded-2xl border-2 border-black bg-white p-4"><p className="mb-2 text-xs font-bold uppercase tracking-wide text-[#118383]">Celebration mode</p><PmFreakMascot mode="celebration" /></article>
           </div>
         </section>
 
