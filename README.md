@@ -28,6 +28,7 @@ OPENAI_API_KEY=your_openai_api_key_here
 
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
 SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 
 STRIPE_SECRET_KEY=sk_test_...
@@ -100,3 +101,12 @@ Max file size: 10 MB per file.
   - Pro: AI-powered copilot enabled.
   - Enterprise: AI-powered copilot + broader portfolio-memory context.
 - Data isolation principle: copilot only reads memory for the authenticated user's `companyId` and rejects tenant mismatch in request payloads.
+
+## Supabase Auth Redirect URLs
+
+For password reset to work in all environments, add these URL patterns in **Supabase Dashboard → Authentication → URL Configuration → Redirect URLs**:
+
+- `https://YOUR_DOMAIN.vercel.app/**`
+- `http://localhost:3000/**`
+
+The forgot-password flow sends users to `${NEXT_PUBLIC_SITE_URL}/auth/reset-password`, so `NEXT_PUBLIC_SITE_URL` must match your deployed origin in production.

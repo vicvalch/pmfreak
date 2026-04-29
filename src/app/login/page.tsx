@@ -4,7 +4,7 @@ import { loginAction } from "@/app/login/actions";
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; success?: string }>;
 }) {
   const params = await searchParams;
 
@@ -16,6 +16,7 @@ export default async function LoginPage({
         <p className="mt-2 text-sm text-slate-300">Sign in to your company workspace.</p>
 
         {params.error ? <p className="mt-4 text-sm text-rose-200">{params.error}</p> : null}
+        {params.success ? <p className="mt-4 text-sm text-emerald-200">{params.success}</p> : null}
 
         <form action={loginAction} className="mt-8 space-y-4">
           <input
@@ -39,6 +40,12 @@ export default async function LoginPage({
             Login
           </button>
         </form>
+
+        <p className="mt-4 text-sm text-slate-300">
+          <Link href="/forgot-password" className="font-semibold text-cyan-200 hover:text-cyan-100">
+            Forgot your password?
+          </Link>
+        </p>
 
         <p className="mt-6 text-sm text-slate-300">
           No account yet?{" "}
