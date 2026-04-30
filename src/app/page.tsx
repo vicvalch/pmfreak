@@ -108,23 +108,57 @@ export default function Home() {
             </div>
           </section>
 
-          <section id="how" className="scroll-mt-28 rounded-3xl border-2 border-black bg-[#f0e1c7] p-6 md:p-8">
-            <p className="text-sm font-black uppercase tracking-[0.2em] text-pink-600">
-              How it works
-            </p>
-            <h2 className="mt-3 text-3xl font-black md:text-4xl">
-              One input. One diagnosis. One next move.
-            </h2>
+          <section id="how" className="scroll-mt-28 rounded-3xl border-2 border-black bg-[#f0e1c7] p-6 md:p-10">
+  <p className="text-sm font-black uppercase tracking-[0.2em] text-pink-600">
+    How it works
+  </p>
 
-            <div className="mt-6 grid gap-4 md:grid-cols-3">
-              {steps.map((step, index) => (
-                <article key={step} className="rounded-2xl border-2 border-black bg-white p-5 shadow-[5px_5px_0_#161616]">
-                  <p className="text-sm font-black text-pink-600">0{index + 1}</p>
-                  <p className="mt-3 text-lg font-black">{step}</p>
-                </article>
-              ))}
-            </div>
-          </section>
+  <h2 className="mt-3 text-3xl font-black md:text-4xl">
+    One input. One diagnosis. One next move.
+  </h2>
+
+  <p className="mt-4 max-w-2xl text-sm font-medium text-black/70">
+    PMFreak doesn’t give you options. It gives you clarity.
+  </p>
+
+  <div className="mt-8 rounded-3xl border-2 border-black bg-white p-6 shadow-[6px_6px_0_#161616]">
+    <div className="grid gap-6 md:grid-cols-[1fr_auto_1fr_auto_1fr] md:items-center">
+
+      <div className="rounded-2xl border-2 border-black bg-[#fff8ec] p-5">
+        <p className="text-xs font-black uppercase tracking-[0.15em] text-pink-600">
+          Input
+        </p>
+        <p className="mt-2 text-sm font-bold">
+          You describe what’s happening in your project.
+        </p>
+      </div>
+
+      <div className="hidden h-1 w-10 rounded-full bg-black md:block" />
+
+      <div className="rounded-2xl border-2 border-black bg-[#fff8ec] p-5">
+        <p className="text-xs font-black uppercase tracking-[0.15em] text-pink-600">
+          Diagnosis
+        </p>
+        <p className="mt-2 text-sm font-bold">
+          PMFreak detects the real execution risk behind the situation.
+        </p>
+      </div>
+
+      <div className="hidden h-1 w-10 rounded-full bg-black md:block" />
+
+      <div className="rounded-2xl border-2 border-black bg-[#fff8ec] p-5">
+        <p className="text-xs font-black uppercase tracking-[0.15em] text-pink-600">
+          Action
+        </p>
+        <p className="mt-2 text-sm font-bold">
+          You get one clear next move — including how to communicate it.
+        </p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
 
           <section id="who" className="scroll-mt-28 rounded-3xl border-2 border-black bg-white p-6 md:p-8">
             <p className="text-sm font-black uppercase tracking-[0.2em] text-pink-600">
