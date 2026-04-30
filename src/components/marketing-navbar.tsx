@@ -31,7 +31,7 @@ export function MarketingNavbar() {
     <header className="sticky top-0 z-50 border-b border-black/10 bg-[#fffaf2]/95 shadow-[0_6px_20px_rgba(15,12,9,0.06)] backdrop-blur-md">
       <div className="mx-auto grid w-full max-w-6xl grid-cols-[1fr_auto] items-center px-5 py-4 md:grid-cols-[1fr_auto_1fr] md:px-8 md:py-5">
         <Link href="/" className="inline-flex items-center" aria-label="PM Freak Home">
-          <Image src="/TextoPMFreakRosa.png" alt="PM Freak" width={220} height={56} priority className="h-9 w-auto object-contain md:h-11" />
+          <Image src="/LOGO.png" alt="PM Freak" width={220} height={56} priority className="h-9 w-auto object-contain md:h-11" />
         </Link>
 
         <nav className="hidden items-center justify-center gap-7 md:flex" aria-label="Main">
