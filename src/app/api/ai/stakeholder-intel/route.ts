@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
-import { executeAIModule } from "@/lib/ai/gateway";
+import { runAIModule } from "@/lib/ai/gateway";
 
 export async function GET() {
-  const response = await executeAIModule("stakeholder-intel");
+  const response = await runAIModule({
+    moduleId: "stakeholder-intel",
+    input: {},
+    context: {},
+  });
 
   return NextResponse.json(response);
 }
