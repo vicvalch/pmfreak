@@ -1,3 +1,4 @@
+import { MarketingNavbar } from "@/components/marketing-navbar";
 import Image from "next/image";
 import Link from "next/link";
 import { PmFreakMascot } from "@/components/brand/pm-freak-mascot";
@@ -14,21 +15,10 @@ const painPoints = [
 
 export default function Home() {
   return (
+  <>
+    <MarketingNavbar />
     <main className="min-h-screen bg-[#f5ead9] px-5 py-6 text-[#161616] md:px-8 md:py-10">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-        <nav className="flex items-center justify-between rounded-2xl border-2 border-black bg-[#fffaf2] px-4 py-3 shadow-[6px_6px_0_#161616] md:px-6">
-          <div className="flex items-center gap-3">
-            <Image src="/brand/pmfreak-logo.png" alt="PM Freak" width={44} height={44} className="h-11 w-11 rounded-lg object-cover" />
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#118383]">PM Freak</p>
-              <p className="text-sm font-semibold">Chaos to shipping velocity</p>
-            </div>
-          </div>
-          <div className="hidden items-center gap-2 sm:flex">
-            <Link href="/pricing" className="rounded-full border-2 border-black bg-white px-4 py-2 text-sm font-semibold hover:bg-[#efe4d3]">Pricing</Link>
-            <Link href="/login" className="rounded-full bg-[#161616] px-4 py-2 text-sm font-semibold text-white hover:bg-black">Log in</Link>
-          </div>
-        </nav>
 
         <section className="grid gap-6 rounded-3xl border-2 border-black bg-[#fff8ec] p-6 shadow-[10px_10px_0_#161616] md:grid-cols-[1.05fr_0.95fr] md:p-10">
           <div>
@@ -75,5 +65,6 @@ export default function Home() {
         </section>
       </div>
       </main>
+    </>
   );
 }
