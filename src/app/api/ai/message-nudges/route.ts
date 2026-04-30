@@ -2,11 +2,31 @@ import { NextResponse } from "next/server";
 import { runAIModule } from "@/lib/ai/gateway";
 
 export async function GET() {
-  const response = await runAIModule({
-    moduleId: "message-nudges",
-    input: {},
-    context: {},
-  });
+  return NextResponse.json(
+    { error: "Use POST with { rawMessage, audience } for message nudges." },
+    { status: 405 },
+  );
+}
 
-  return NextResponse.json(response);
+export async function POST(request: Request) {
+  let payload: { rawMessage?: string; audience?: string };
+
+  try {
+    payload = (await request.json()) as { rawMessage?: string; audience?: string };
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+  }
+
+  try {
+    const response = await runAIModule({
+      moduleId: "message-nudges",
+      input: payload,
+      context: {},
+    });
+
+    return NextResponse.json(response);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unable to process message nudges.";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }
