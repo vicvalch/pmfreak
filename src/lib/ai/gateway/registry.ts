@@ -30,7 +30,7 @@ const moduleConfigs: AIModuleConfig[] = [
   { id: "meetings", route: "/api/ai/meetings", promptVersion: "v1", mode: "mock", handler: createMockHandler("meetings") },
   { id: "political-risk", route: "/api/ai/political-risk", promptVersion: "v1", mode: "mock", handler: createMockHandler("political-risk") },
   { id: "escalation-guide", route: "/api/ai/escalation-guide", promptVersion: "v1", mode: "mock", handler: createMockHandler("escalation-guide") },
-  { id: "message-nudges", route: "/api/ai/message-nudges", promptVersion: "v1", mode: "mock", handler: createMockHandler("message-nudges") },
+  { id: "message-nudges", route: "/api/ai/message-nudges", promptVersion: "v1", mode: "openai", handler: createMockHandler("message-nudges") },
   { id: "project-memory", route: "/api/ai/project-memory", promptVersion: "v1", mode: "mock", handler: createMockHandler("project-memory") },
 ];
 

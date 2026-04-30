@@ -1,10 +1,14 @@
 export type MessageNudgesInputSchema = {
-  message?: string;
-  audience?: string;
+  rawMessage: string;
+  audience: string;
 };
 
 export type MessageNudgesOutputSchema = {
-  nudges: Array<{ id: string; rewriteHint: string }>;
+  toneRisk: "low" | "medium" | "high";
+  rewriteSuggestion: string;
+  improvedVersion: string;
+  confidence: "low" | "medium" | "high" | "very-high";
+  rationale: string;
 };
 
 export const messageNudgesPromptPackV1 = {
@@ -14,8 +18,14 @@ export const messageNudgesPromptPackV1 = {
   outputSchema: {} as MessageNudgesOutputSchema,
   examples: [
     {
-      input: { message: "You missed the deadline.", audience: "Ops VP" },
-      output: { nudges: [{ id: "tone", rewriteHint: "Use neutral fact + request framing" }] },
+      input: { rawMessage: "You missed the deadline.", audience: "Ops VP" },
+      output: {
+        toneRisk: "high",
+        rewriteSuggestion: "Use neutral fact + request framing",
+        improvedVersion: "The deadline was missed, and I'd like to align on a recovery plan by EOD.",
+        confidence: "high",
+        rationale: "The original statement can be perceived as accusatory with an executive audience.",
+      },
     },
   ],
   version: "v1",
