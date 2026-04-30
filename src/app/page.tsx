@@ -35,7 +35,7 @@ export default function Home() {
       <main className="min-h-screen bg-[#f5ead9] px-5 py-6 text-[#161616] md:px-8 md:py-10">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-8">
 
-          <section id="hero" className="grid gap-8 rounded-3xl border-2 border-black bg-[#fff8ec] p-6 shadow-[10px_10px_0_#161616] md:grid-cols-[1.1fr_0.9fr] md:p-10">
+          <section id="hero" className="scroll-mt-28 grid gap-8 rounded-3xl border-2 border-black bg-[#fff8ec] p-6 shadow-[10px_10px_0_#161616] md:grid-cols-[1.1fr_0.9fr] md:p-10">
             <div className="flex flex-col justify-center">
               <p className="text-sm font-black uppercase tracking-[0.25em] text-pink-600">
                 AI Project Manager
@@ -76,7 +76,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section id="product" className="rounded-3xl border-2 border-black bg-[#fffaf2] p-6 md:p-8">
+          <section id="product" className="scroll-mt-28 rounded-3xl border-2 border-black bg-[#fffaf2] p-6 md:p-8">
             <p className="text-sm font-black uppercase tracking-[0.2em] text-pink-600">
               Product
             </p>
@@ -88,7 +88,7 @@ export default function Home() {
             </p>
           </section>
 
-          <section id="how" className="rounded-3xl border-2 border-black bg-[#f0e1c7] p-6 md:p-8">
+          <section id="how" className="scroll-mt-28 rounded-3xl border-2 border-black bg-[#f0e1c7] p-6 md:p-8">
             <p className="text-sm font-black uppercase tracking-[0.2em] text-pink-600">
               How it works
             </p>
@@ -106,7 +106,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section id="intelligence" className="rounded-3xl border-2 border-black bg-[#fffaf2] p-6 md:p-8">
+          <section id="intelligence" className="scroll-mt-28 rounded-3xl border-2 border-black bg-[#fffaf2] p-6 md:p-8">
             <p className="text-sm font-black uppercase tracking-[0.2em] text-pink-600">
               Intelligence
             </p>
@@ -124,7 +124,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section id="who" className="rounded-3xl border-2 border-black bg-white p-6 md:p-8">
+          <section id="who" className="scroll-mt-28 rounded-3xl border-2 border-black bg-white p-6 md:p-8">
             <p className="text-sm font-black uppercase tracking-[0.2em] text-pink-600">
               Who it’s for
             </p>
@@ -136,7 +136,7 @@ export default function Home() {
             </p>
           </section>
 
-          <section id="pricing-preview" className="rounded-3xl border-2 border-black bg-[#ffe4ec] p-6 text-center shadow-[10px_10px_0_#161616] md:p-10">
+          <section id="pricing-preview" className="scroll-mt-28 rounded-3xl border-2 border-black bg-[#ffe4ec] p-6 text-center shadow-[10px_10px_0_#161616] md:p-10">
             <p className="text-sm font-black uppercase tracking-[0.2em] text-pink-700">
               Launch access
             </p>
