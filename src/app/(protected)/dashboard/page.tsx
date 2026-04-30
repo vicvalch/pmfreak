@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Suspense, type ReactNode } from "react";
+import { Suspense } from "react";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type AnalysisRecord = {
@@ -89,17 +90,31 @@ function renderSuccess(analysis: string) {
           ) : null}
         </section>
       ) : (
-        <Card>
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-pink-700">PMFreak analysis</p>
-          <p className="mt-3 whitespace-pre-wrap text-sm font-medium text-black/85">{analysis}</p>
-        </Card>
+        <Card title="PMFreak analysis" content={data.analysis} />
       )}
 
-      <div>
-        <Link href="/onboarding" className="inline-flex rounded-full border-2 border-black bg-pink-600 px-6 py-3 text-sm font-black uppercase tracking-[0.08em] text-white shadow-[4px_4px_0_#111]">
-          Run new analysis
-        </Link>
-      </div>
+      <Link href="/onboarding" className="inline-flex rounded-full border-2 border-black bg-pink-600 px-6 py-3 text-sm font-black text-white shadow-[4px_4px_0_#111]">
+        Run new analysis
+      </Link>
+    </div>
+  );
+}
+
+function Loading() {
+  return (
+    <Card
+      title="Loading"
+      content="Loading your latest PMFreak analysis..."
+    />
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <div className="p-8">
+      <Suspense fallback={<Loading />}>
+        <DashboardContent />
+      </Suspense>
     </div>
   );
 }
