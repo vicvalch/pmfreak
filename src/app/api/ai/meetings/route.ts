@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
-import { meetingsEnvelope } from "@/lib/ai/mock-data";
+import { executeAIModule } from "@/lib/ai/gateway";
 
 export async function GET() {
-  return NextResponse.json(meetingsEnvelope);
+  const response = await executeAIModule("meetings");
+
+  return NextResponse.json(response);
 }

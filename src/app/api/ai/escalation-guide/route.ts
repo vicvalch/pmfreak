@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
-import { escalationGuideEnvelope } from "@/lib/ai/mock-data";
+import { executeAIModule } from "@/lib/ai/gateway";
 
 export async function GET() {
-  return NextResponse.json(escalationGuideEnvelope);
+  const response = await executeAIModule("escalation-guide");
+
+  return NextResponse.json(response);
 }

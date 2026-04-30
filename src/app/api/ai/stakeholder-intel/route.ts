@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
-import { stakeholderIntelEnvelope } from "@/lib/ai/mock-data";
+import { executeAIModule } from "@/lib/ai/gateway";
 
 export async function GET() {
-  return NextResponse.json(stakeholderIntelEnvelope);
+  const response = await executeAIModule("stakeholder-intel");
+
+  return NextResponse.json(response);
 }

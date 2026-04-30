@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
-import { messageNudgesEnvelope } from "@/lib/ai/mock-data";
+import { executeAIModule } from "@/lib/ai/gateway";
 
 export async function GET() {
-  return NextResponse.json(messageNudgesEnvelope);
+  const response = await executeAIModule("message-nudges");
+
+  return NextResponse.json(response);
 }
