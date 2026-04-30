@@ -65,5 +65,5 @@ export async function signupAction(formData: FormData): Promise<void> {
     redirect(`/signup/confirm-email?email=${encodeURIComponent(email)}`);
   }
 
-  redirect("/dashboard");
+  redirect("/onboarding");
 }
