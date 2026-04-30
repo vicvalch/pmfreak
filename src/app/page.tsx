@@ -22,11 +22,9 @@ export default function Home() {
 
         <section className="grid gap-6 rounded-3xl border-2 border-black bg-[#fff8ec] p-6 shadow-[10px_10px_0_#161616] md:grid-cols-[1.05fr_0.95fr] md:p-10">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.28em] text-[#118383]">Duolingo energy. Linear discipline.</p>
             <h1 className="mt-4 text-4xl font-black leading-tight md:text-6xl">Your favorite project goblin, now running your PM stack.</h1>
             <p className="mt-4 max-w-xl text-base text-black/80 md:text-lg">PM Freak turns panic threads into crisp priorities, real ownership, and updates your execs actually trust.</p>
             <div className="mt-7 flex flex-wrap gap-3">
-              <Link href="/copilot" className="rounded-full bg-[#118383] px-6 py-3 text-sm font-bold text-white hover:-translate-y-0.5 hover:bg-[#0d6f6f]">Start Freak Mode</Link>
               <Link href="/pricing" className="rounded-full border-2 border-black bg-white px-6 py-3 text-sm font-bold hover:-translate-y-0.5">See Plans</Link>
             </div>
             <div className="mt-7 flex flex-wrap gap-2">
@@ -37,11 +35,9 @@ export default function Home() {
           </div>
           <div className="grid gap-4">
             <article className="rounded-2xl border-2 border-black bg-white p-3">
-              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-[#118383]">Current mood: chaotic</p>
               <PmFreakMascot mood="chaos" />
             </article>
             <article className="rounded-2xl border-2 border-black bg-[#e8f7f8] p-3">
-              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-[#118383]">After PM Freak: calm + shipping</p>
               <PmFreakMascot mood="calm" />
             </article>
           </div>
@@ -59,9 +55,6 @@ export default function Home() {
         </section>
 
         <section className="grid gap-4 rounded-3xl border-2 border-black bg-[#f0e1c7] p-6 md:grid-cols-3">
-          <article className="rounded-2xl border-2 border-black bg-white p-4"><p className="text-xs font-bold uppercase tracking-wide text-[#118383]">Chaos mode</p><p className="mt-1 text-sm">Everything is urgent. Nobody agrees what “done” means.</p></article>
-          <article className="rounded-2xl border-2 border-black bg-white p-4"><p className="text-xs font-bold uppercase tracking-wide text-[#118383]">Command mode</p><p className="mt-1 text-sm">PM Freak builds one source of truth, owners, and weekly momentum.</p></article>
-          <article className="rounded-2xl border-2 border-black bg-white p-4"><p className="text-xs font-bold uppercase tracking-wide text-[#118383]">Victory mode</p><p className="mt-1 text-sm">You ship, execs smile, and meetings stop multiplying.</p><PmFreakMascot mood="celebration" className="mt-2 w-40" /></article>
         </section>
       </div>
       </main>
