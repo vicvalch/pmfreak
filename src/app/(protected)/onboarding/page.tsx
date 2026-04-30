@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { FormEvent, useMemo, useState } from "react";
 
 type BrainResponse = {
@@ -19,6 +20,8 @@ export default function OnboardingPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [finalResponse, setFinalResponse] = useState("");
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [persistenceWarning, setPersistenceWarning] = useState<string | null>(null);
 
   const canSubmit = workspace.trim() && problem.trim() && !loading;
 
@@ -40,6 +43,8 @@ export default function OnboardingPage() {
     setLoading(true);
     setError(null);
     setFinalResponse("");
+    setIsInitialized(false);
+    setPersistenceWarning(null);
 
     try {
       const userInput = `Company/workspace: ${workspace}\nRole: ${role}\nProject type: ${projectType}\nCurrent execution problem: ${problem}`;
@@ -56,7 +61,33 @@ export default function OnboardingPage() {
         throw new Error(data.error || "PMFreak analysis failed. Please try again.");
       }
 
-      setFinalResponse(data.final || "PMFreak returned no analysis. Please retry.");
+      const analysis = data.final || "PMFreak returned no analysis. Please retry.";
+      setFinalResponse(analysis);
+
+      try {
+        const persistenceResponse = await fetch("/api/onboarding", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            workspace,
+            role,
+            projectType,
+            problem,
+            analysis,
+            source: "onboarding",
+            createdAt: new Date().toISOString(),
+          }),
+        });
+
+        if (!persistenceResponse.ok) {
+          setPersistenceWarning("Analysis completed, but we could not save it yet.");
+          return;
+        }
+
+        setIsInitialized(true);
+      } catch {
+        setPersistenceWarning("Analysis completed, but we could not save it yet.");
+      }
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Something went wrong.");
     } finally {
@@ -143,6 +174,20 @@ export default function OnboardingPage() {
           )}
         </section>
       ) : null}
+
+      {isInitialized ? (
+        <section className="rounded-3xl border-2 border-black bg-[#fff3fb] p-6 shadow-[6px_6px_0_#111]">
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-pink-700">Initialization</p>
+          <p className="mt-2 text-base font-black text-black">PMFreak is initialized.</p>
+          <div className="mt-4">
+            <Link href="/dashboard" className="inline-flex rounded-full border-2 border-black bg-pink-600 px-5 py-2 text-xs font-black uppercase tracking-[0.08em] text-white shadow-[4px_4px_0_#111] transition hover:-translate-y-0.5">
+              Go to Dashboard
+            </Link>
+          </div>
+        </section>
+      ) : null}
+
+      {persistenceWarning ? <p className="rounded-xl border-2 border-black bg-[#fff0cd] px-4 py-3 font-semibold text-amber-700">{persistenceWarning}</p> : null}
     </div>
   );
 }
