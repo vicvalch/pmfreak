@@ -7,16 +7,14 @@ export function AnimatedHero() {
   return (
     <section id="hero" className="scroll-mt-28 grid gap-8 rounded-3xl border-2 border-black bg-[#fff8ec] p-6 shadow-[10px_10px_0_#161616] md:grid-cols-[1.05fr_0.95fr] md:p-10">
       <div className="flex flex-col justify-center">
-        <p className="text-sm font-black uppercase tracking-[0.25em] text-pink-600">
-          AI Project Manager
-        </p>
+        <p className="text-sm font-black uppercase tracking-[0.25em] text-pink-600">AI Project Manager</p>
 
         <h1 className="mt-4 text-4xl font-black leading-tight md:text-6xl">
           Your AI Project Manager that keeps execution on track.
         </h1>
 
         <p className="mt-5 max-w-xl text-base font-medium text-black/80 md:text-lg">
-          PMFreak turns project chaos into clear execution, ownership, and communication.
+          PMFreak detects project drift, nudges hard when things get risky, and brings execution back on track.
         </p>
 
         <div className="mt-8 flex flex-wrap gap-3">
@@ -30,107 +28,301 @@ export function AnimatedHero() {
         </div>
       </div>
 
-      <div className="relative min-h-[430px] overflow-hidden rounded-3xl border-2 border-black bg-white shadow-[8px_8px_0_#161616]">
+      <div className="relative min-h-[460px] overflow-hidden rounded-3xl border-2 border-black bg-white shadow-[8px_8px_0_#161616]">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,#ffe4ec_0%,#fff8ec_45%,#ffffff_100%)]" />
 
-        <div className="pm-face absolute left-1/2 top-8 z-20 w-44 -translate-x-1/2 md:w-52">
-          <Image src="/Cara.png" alt="PMFreak mascot face" width={420} height={420} priority className="h-auto w-full object-contain" />
+        <div className="freak-face absolute left-1/2 top-10 z-30 w-56 -translate-x-1/2 md:w-64">
+          <Image src="/Cara.png" alt="PMFreak freak alert face" width={480} height={480} priority className="h-auto w-full object-contain" />
+
+          <div className="eyebrow absolute left-[44%] top-[39%] h-2 w-12 -rotate-6 rounded-full bg-black" />
+          <div className="eye-spiral left-eye" />
+          <div className="eye-spiral right-eye" />
         </div>
 
-        <div className="pm-chaos-text absolute left-8 top-24 z-30 rotate-[-8deg] rounded-2xl border-2 border-black bg-pink-500 px-5 py-2 text-3xl font-black text-white shadow-[4px_4px_0_#161616]">
-          Chaos!
+        <div className="chaos-copy absolute left-8 top-24 z-40 rotate-[-7deg] rounded-2xl border-2 border-black bg-pink-500 px-5 py-2 text-3xl font-black text-white shadow-[4px_4px_0_#161616]">
+          From chaos!
         </div>
 
-        <svg className="pm-spiral absolute inset-0 z-10 h-full w-full" viewBox="0 0 600 430" fill="none">
-          <path d="M300 165 C240 110 150 145 170 230 C195 340 390 325 415 215 C440 110 285 80 250 180 C220 265 345 285 365 205 C382 140 280 130 270 190" stroke="#ec4899" strokeWidth="7" strokeLinecap="round" />
-          <path d="M300 165 C210 80 75 145 105 270 C145 405 500 380 520 205 C540 60 250 35 190 185" stroke="#161616" strokeWidth="4" strokeLinecap="round" strokeDasharray="14 12" />
+        <div className="to-copy absolute left-1/2 top-[46%] z-40 -translate-x-1/2 rounded-full border-2 border-black bg-white px-5 py-2 text-2xl font-black shadow-[4px_4px_0_#161616]">
+          to
+        </div>
+
+        <div className="track-copy absolute right-7 top-24 z-40 rotate-[3deg] rounded-2xl border-2 border-black bg-white px-5 py-2 text-3xl font-black shadow-[4px_4px_0_#161616]">
+          Back on Track!
+        </div>
+
+        <svg className="chaos-spiral absolute inset-0 z-20 h-full w-full" viewBox="0 0 640 460" fill="none">
+          <path d="M320 180 C250 105 145 150 170 250 C202 380 455 350 470 220 C486 90 285 80 245 190 C210 290 365 315 390 210 C408 135 280 135 278 205" stroke="#ec4899" strokeWidth="8" strokeLinecap="round" />
+          <path d="M320 180 C215 70 65 150 105 300 C155 455 565 410 570 215 C575 40 260 20 185 200" stroke="#161616" strokeWidth="4" strokeLinecap="round" strokeDasharray="15 13" />
         </svg>
 
-        <div className="pm-track-text absolute right-8 top-24 z-30 rounded-2xl border-2 border-black bg-white px-5 py-2 text-2xl font-black shadow-[4px_4px_0_#161616]">
-          Back on Track
-        </div>
-
-        <svg className="pm-tracks absolute bottom-16 left-1/2 z-20 w-[86%] -translate-x-1/2" viewBox="0 0 520 120" fill="none">
-          <path d="M20 62 C120 20 220 20 310 62 C390 100 455 100 500 70" stroke="#161616" strokeWidth="7" strokeLinecap="round" />
-          <path d="M20 92 C120 50 220 50 310 92 C390 130 455 130 500 100" stroke="#161616" strokeWidth="7" strokeLinecap="round" />
-          {Array.from({ length: 10 }).map((_, i) => (
-            <path key={i} d={`M${55 + i * 42} 57 L${70 + i * 42} 103`} stroke="#161616" strokeWidth="4" strokeLinecap="round" />
+        <svg className="tracks absolute bottom-20 left-1/2 z-30 w-[105%] -translate-x-1/2" viewBox="0 0 640 140" fill="none">
+          <path d="M0 58 C120 35 230 35 330 58 C450 84 535 84 640 58" stroke="#161616" strokeWidth="7" strokeLinecap="round" />
+          <path d="M0 94 C120 71 230 71 330 94 C450 120 535 120 640 94" stroke="#161616" strokeWidth="7" strokeLinecap="round" />
+          {Array.from({ length: 14 }).map((_, i) => (
+            <path key={i} d={`M${32 + i * 44} 55 L${48 + i * 44} 101`} stroke="#161616" strokeWidth="4" strokeLinecap="round" />
           ))}
         </svg>
 
-        <div className="pm-train absolute bottom-20 left-[-160px] z-30">
-          <div className="relative h-16 w-32 rounded-xl border-2 border-black bg-white shadow-[4px_4px_0_#161616]">
-            <div className="absolute -top-7 left-5 h-8 w-10 rounded-t-lg border-2 border-black bg-white" />
+        <div className="train absolute bottom-[92px] left-[-180px] z-40">
+          <div className="relative h-16 w-36 rounded-xl border-2 border-black bg-white shadow-[4px_4px_0_#161616]">
+            <div className="absolute -top-8 left-5 h-9 w-11 rounded-t-lg border-2 border-black bg-white" />
             <div className="absolute right-3 top-4 h-5 w-5 rounded-full border-2 border-black bg-pink-500" />
-            <div className="absolute -bottom-4 left-4 h-8 w-8 rounded-full border-2 border-black bg-white" />
-            <div className="absolute -bottom-4 right-5 h-8 w-8 rounded-full border-2 border-black bg-white" />
-            <div className="pm-smoke absolute -top-12 left-0 h-5 w-5 rounded-full border-2 border-black bg-white" />
-            <div className="pm-smoke2 absolute -top-16 left-8 h-4 w-4 rounded-full border-2 border-black bg-white" />
+            <div className="absolute -bottom-4 left-5 h-8 w-8 rounded-full border-2 border-black bg-white" />
+            <div className="absolute -bottom-4 right-6 h-8 w-8 rounded-full border-2 border-black bg-white" />
+            <div className="smoke smoke-a" />
+            <div className="smoke smoke-b" />
+            <div className="smoke smoke-c" />
           </div>
         </div>
 
-        <div className="pm-calm absolute bottom-6 left-1/2 z-40 w-24 -translate-x-1/2 opacity-0">
-          <Image src="/Cara.png" alt="Calm PMFreak face" width={200} height={200} className="h-auto w-full object-contain" />
+        <div className="calm-face absolute left-1/2 top-14 z-50 w-52 -translate-x-1/2 md:w-60">
+          <Image src="/Cara.png" alt="PMFreak calm on-track face" width={480} height={480} className="h-auto w-full object-contain" />
+          <div className="smile absolute left-[43%] top-[63%] h-8 w-16 rounded-b-full border-b-4 border-black" />
+          <div className="wink absolute left-[55%] top-[48%] h-2 w-10 rounded-full bg-black" />
+          <div className="ok-badge absolute -right-3 bottom-6 rounded-full border-2 border-black bg-emerald-300 px-3 py-1 text-xs font-black shadow-[3px_3px_0_#161616]">
+            GREEN
+          </div>
         </div>
       </div>
 
       <style jsx>{`
-        .pm-face { animation: facePulse 8s infinite ease-in-out; }
-        .pm-spiral { animation: spiralMorph 8s infinite ease-in-out; transform-origin: center; }
-        .pm-chaos-text { animation: chaosText 8s infinite ease-in-out; }
-        .pm-track-text { animation: trackText 8s infinite ease-in-out; opacity: 0; }
-        .pm-tracks { animation: tracksIn 8s infinite ease-in-out; opacity: 0; }
-        .pm-train { animation: trainMove 8s infinite ease-in-out; }
-        .pm-calm { animation: calmIn 8s infinite ease-in-out; }
-        .pm-smoke { animation: smoke 1.2s infinite ease-out; }
-        .pm-smoke2 { animation: smoke 1.5s infinite ease-out; }
-
-        @keyframes facePulse {
-          0%, 18% { opacity: 1; transform: translateX(-50%) scale(1) rotate(0deg); }
-          28%, 70% { opacity: 0.25; transform: translateX(-50%) scale(0.92) rotate(-2deg); }
-          82%, 100% { opacity: 1; transform: translateX(-50%) scale(0.9) rotate(0deg); }
+        .freak-face {
+          animation: freakFace 9s infinite ease-in-out;
         }
 
-        @keyframes spiralMorph {
-          0% { opacity: 0; transform: scale(0.2) rotate(0deg); }
-          18% { opacity: 1; transform: scale(0.8) rotate(130deg); }
-          38% { opacity: 1; transform: scale(1.15) rotate(260deg); }
-          58% { opacity: 0.25; transform: scale(1.05) rotate(360deg); }
-          70%, 100% { opacity: 0; transform: scale(0.7) rotate(420deg); }
+        .eyebrow {
+          animation: nervousBrow 0.12s infinite alternate;
         }
 
-        @keyframes chaosText {
-          0%, 12% { opacity: 0; transform: translateY(10px) rotate(-8deg) scale(0.8); }
-          22%, 42% { opacity: 1; transform: translateY(0) rotate(-8deg) scale(1); }
-          55%, 100% { opacity: 0; transform: translateY(-10px) rotate(4deg) scale(0.9); }
+        .eye-spiral {
+          position: absolute;
+          top: 51%;
+          height: 28px;
+          width: 28px;
+          border: 4px solid #ec4899;
+          border-left-color: transparent;
+          border-radius: 9999px;
+          animation: eyeSpin 0.45s infinite linear;
         }
 
-        @keyframes trackText {
-          0%, 50% { opacity: 0; transform: translateY(12px) scale(0.9); }
-          62%, 88% { opacity: 1; transform: translateY(0) scale(1); }
-          100% { opacity: 0; }
+        .left-eye {
+          left: 37%;
         }
 
-        @keyframes tracksIn {
-          0%, 45% { opacity: 0; transform: translateX(-50%) translateY(30px) scale(0.85); }
-          58%, 100% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+        .right-eye {
+          left: 59%;
         }
 
-        @keyframes trainMove {
-          0%, 58% { transform: translateX(0); opacity: 0; }
-          62% { opacity: 1; }
-          86% { transform: translateX(700px); opacity: 1; }
-          100% { transform: translateX(760px); opacity: 0; }
+        .chaos-spiral {
+          transform-origin: 52% 42%;
+          animation: spiralToTracks 9s infinite ease-in-out;
         }
 
-        @keyframes calmIn {
-          0%, 78% { opacity: 0; transform: translateX(-50%) translateY(10px) scale(0.8); }
-          88%, 100% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+        .chaos-copy {
+          opacity: 0;
+          animation: chaosCopy 9s infinite ease-in-out;
+        }
+
+        .to-copy {
+          opacity: 0;
+          animation: toCopy 9s infinite ease-in-out;
+        }
+
+        .track-copy {
+          opacity: 0;
+          animation: trackCopy 9s infinite ease-in-out;
+        }
+
+        .tracks {
+          opacity: 0;
+          animation: tracksReveal 9s infinite ease-in-out;
+        }
+
+        .train {
+          opacity: 0;
+          animation: trainPass 9s infinite ease-in-out;
+        }
+
+        .calm-face {
+          opacity: 0;
+          animation: calmFace 9s infinite ease-in-out;
+        }
+
+        .smoke {
+          position: absolute;
+          top: -48px;
+          border: 2px solid #161616;
+          background: white;
+          border-radius: 9999px;
+          opacity: 0;
+        }
+
+        .smoke-a {
+          left: 4px;
+          height: 18px;
+          width: 18px;
+          animation: smoke 1.1s infinite ease-out;
+        }
+
+        .smoke-b {
+          left: 28px;
+          height: 14px;
+          width: 14px;
+          animation: smoke 1.3s infinite ease-out;
+        }
+
+        .smoke-c {
+          left: 50px;
+          height: 10px;
+          width: 10px;
+          animation: smoke 1.5s infinite ease-out;
+        }
+
+        @keyframes nervousBrow {
+          from {
+            transform: translateX(-2px) rotate(-8deg);
+          }
+          to {
+            transform: translateX(3px) rotate(-2deg);
+          }
+        }
+
+        @keyframes eyeSpin {
+          to {
+            transform: rotate(360deg);
+          }
+        }
+
+        @keyframes freakFace {
+          0%, 18% {
+            opacity: 1;
+            transform: translateX(-50%) scale(1);
+          }
+          30%, 100% {
+            opacity: 0;
+            transform: translateX(-50%) scale(0.86);
+          }
+        }
+
+        @keyframes spiralToTracks {
+          0% {
+            opacity: 0;
+            transform: scale(0.08) rotate(0deg);
+          }
+          12% {
+            opacity: 1;
+            transform: scale(0.35) rotate(160deg);
+          }
+          28% {
+            opacity: 1;
+            transform: scale(1.08) rotate(360deg);
+          }
+          45% {
+            opacity: 0.55;
+            transform: scaleX(1.55) scaleY(0.22) rotate(360deg);
+          }
+          55%, 100% {
+            opacity: 0;
+            transform: scaleX(1.7) scaleY(0.12) rotate(360deg);
+          }
+        }
+
+        @keyframes chaosCopy {
+          0%, 14% {
+            opacity: 0;
+            transform: translateY(10px) rotate(-7deg) scale(0.85);
+          }
+          22%, 36% {
+            opacity: 1;
+            transform: translateY(0) rotate(-7deg) scale(1);
+          }
+          46%, 100% {
+            opacity: 0;
+            transform: translateY(-10px) rotate(2deg) scale(0.9);
+          }
+        }
+
+        @keyframes toCopy {
+          0%, 36% {
+            opacity: 0;
+            transform: translateX(-50%) translateY(12px) scale(0.8);
+          }
+          44%, 56% {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0) scale(1);
+          }
+          65%, 100% {
+            opacity: 0;
+          }
+        }
+
+        @keyframes tracksReveal {
+          0%, 42% {
+            opacity: 0;
+            transform: translateX(-50%) translateY(26px) scaleX(0.65);
+          }
+          55%, 82% {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0) scaleX(1);
+          }
+          92%, 100% {
+            opacity: 0;
+          }
+        }
+
+        @keyframes trackCopy {
+          0%, 52% {
+            opacity: 0;
+            transform: translateY(14px) rotate(3deg) scale(0.9);
+          }
+          62%, 80% {
+            opacity: 1;
+            transform: translateY(0) rotate(3deg) scale(1);
+          }
+          92%, 100% {
+            opacity: 0;
+          }
+        }
+
+        @keyframes trainPass {
+          0%, 56% {
+            opacity: 0;
+            transform: translateX(0);
+          }
+          62% {
+            opacity: 1;
+          }
+          82% {
+            opacity: 1;
+            transform: translateX(760px);
+          }
+          92%, 100% {
+            opacity: 0;
+            transform: translateX(820px);
+          }
+        }
+
+        @keyframes calmFace {
+          0%, 84% {
+            opacity: 0;
+            transform: translateX(-50%) translateY(12px) scale(0.85);
+          }
+          92%, 100% {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0) scale(1);
+          }
         }
 
         @keyframes smoke {
-          from { opacity: 0.9; transform: translateY(0) scale(0.8); }
-          to { opacity: 0; transform: translateY(-28px) scale(1.4); }
+          0% {
+            opacity: 0.9;
+            transform: translateY(0) scale(0.7);
+          }
+          100% {
+            opacity: 0;
+            transform: translateY(-30px) scale(1.5);
+          }
         }
       `}</style>
     </section>
