@@ -13,6 +13,12 @@ type MessageNudgesContext = {
   projectMemory: string[];
   recentEvents: string[];
   stakeholderSignals: string[];
+  derivedSignals: {
+    toneTrend: "improving" | "worsening" | "stable" | "unknown";
+    blamePattern: "increasing" | "decreasing" | "stable" | "spiky" | "unknown";
+    riskTrend: "improving" | "worsening" | "stable" | "unknown";
+    escalationSignal: "ready" | "watch" | "not-ready" | "unknown";
+  };
 };
 
 type MessageAnalysisRow = {
@@ -63,6 +69,81 @@ const toLevel = (score: number): "low" | "medium" | "high" => {
   return "low";
 };
 
+const avg = (items: number[]) => (items.length ? items.reduce((sum, item) => sum + item, 0) / items.length : null);
+
+const getTrend = (first: number[], second: number[]): "improving" | "worsening" | "stable" | "unknown" => {
+  const a = avg(first);
+  const b = avg(second);
+  if (a === null || b === null) {
+    return "unknown";
+  }
+  const delta = b - a;
+  if (delta <= -0.08) {
+    return "improving";
+  }
+  if (delta >= 0.08) {
+    return "worsening";
+  }
+  return "stable";
+};
+
+const deriveSignals = (events: MessageAnalysisRow[]) => {
+  if (events.length < 2) {
+    return {
+      toneTrend: "unknown",
+      blamePattern: "unknown",
+      riskTrend: "unknown",
+      escalationSignal: "unknown",
+    } as const;
+  }
+
+  const newestFirst = events.slice(0, 10);
+  const oldestFirst = [...newestFirst].reverse();
+  const midpoint = Math.max(1, Math.floor(oldestFirst.length / 2));
+  const older = oldestFirst.slice(0, midpoint);
+  const newer = oldestFirst.slice(midpoint);
+
+  const olderTone = older.map((event) => event.decision?.risk?.tone ?? scoreToneRisk(event.raw_message));
+  const newerTone = newer.map((event) => event.decision?.risk?.tone ?? scoreToneRisk(event.raw_message));
+  const olderBlame = older.map((event) => event.decision?.risk?.blame ?? scoreBlame(event.raw_message));
+  const newerBlame = newer.map((event) => event.decision?.risk?.blame ?? scoreBlame(event.raw_message));
+  const olderAmbiguity = older.map((event) => event.decision?.risk?.ambiguity ?? scoreAmbiguity(event.raw_message));
+  const newerAmbiguity = newer.map((event) => event.decision?.risk?.ambiguity ?? scoreAmbiguity(event.raw_message));
+  const olderOverall = older.map((event) => event.decision?.risk?.overall ?? 0);
+  const newerOverall = newer.map((event) => event.decision?.risk?.overall ?? 0);
+
+  const toneTrend = getTrend(olderTone, newerTone);
+  const blameTrend = getTrend(olderBlame, newerBlame);
+  const ambiguityTrend = getTrend(olderAmbiguity, newerAmbiguity);
+  const riskTrend = getTrend(olderOverall, newerOverall);
+
+  const blameVolatility = Math.abs((avg(newerBlame) ?? 0) - (avg(olderBlame) ?? 0));
+  const blamePattern =
+    blameVolatility >= 0.22 && blameTrend === "stable"
+      ? "spiky"
+      : blameTrend === "worsening"
+        ? "increasing"
+        : blameTrend === "improving"
+          ? "decreasing"
+          : "stable";
+
+  const currentRisk = avg(newerOverall) ?? 0;
+  const currentAmbiguity = avg(newerAmbiguity) ?? 0;
+  const escalationSignal =
+    (riskTrend === "worsening" && currentRisk >= 0.58) || (blamePattern === "increasing" && currentAmbiguity >= 0.5)
+      ? "ready"
+      : riskTrend === "worsening" || ambiguityTrend === "worsening"
+        ? "watch"
+        : "not-ready";
+
+  return {
+    toneTrend,
+    blamePattern,
+    riskTrend,
+    escalationSignal,
+  } as const;
+};
+
 const buildMessageNudgesContext = (events: MessageAnalysisRow[]): MessageNudgesContext => {
   const recentThree = events.slice(0, 3);
   const messages = recentThree.map((event) => event.raw_message);
@@ -70,6 +151,7 @@ const buildMessageNudgesContext = (events: MessageAnalysisRow[]): MessageNudgesC
     .map((event) => event.decision?.recommendation?.primaryAction)
     .filter((value): value is string => Boolean(value));
 
+  const derivedSignals = deriveSignals(events);
   const avgRisk =
     recentThree.length === 0
       ? null
@@ -87,7 +169,8 @@ const buildMessageNudgesContext = (events: MessageAnalysisRow[]): MessageNudgesC
   return {
     projectMemory: messages,
     recentEvents: decisions,
-    stakeholderSignals: [riskPattern],
+    stakeholderSignals: [riskPattern, `Ambiguity trend: ${derivedSignals.riskTrend}. Escalation signal: ${derivedSignals.escalationSignal}.`],
+    derivedSignals,
   };
 };
 
@@ -155,12 +238,19 @@ export const getProjectContext = async (projectId?: string): Promise<MemoryConte
         createdAt: event.created_at,
       })),
       stakeholderSignals: [],
+      derivedSignals: deriveSignals(recentEvents),
     };
   } catch {
     return {
       projectMemory: [],
       recentEvents: [],
       stakeholderSignals: [],
+      derivedSignals: {
+        toneTrend: "unknown",
+        blamePattern: "unknown",
+        riskTrend: "unknown",
+        escalationSignal: "unknown",
+      },
     };
   }
 };
@@ -239,6 +329,11 @@ export async function runAIModule({
               ...messageNudgesContext.projectMemory.slice(0, 3).map((item) => `- Past message: ${item}`),
               ...messageNudgesContext.recentEvents.slice(0, 3).map((item) => `- Past decision: ${item}`),
               ...messageNudgesContext.stakeholderSignals.map((item) => `- Risk pattern: ${item}`),
+              "- Derived trend signals:",
+              `  toneTrend=${messageNudgesContext.derivedSignals.toneTrend}`,
+              `  blamePattern=${messageNudgesContext.derivedSignals.blamePattern}`,
+              `  riskTrend=${messageNudgesContext.derivedSignals.riskTrend}`,
+              `  escalationSignal=${messageNudgesContext.derivedSignals.escalationSignal}`,
             ].join("\n"),
           },
         ],
@@ -265,10 +360,16 @@ export async function runAIModule({
     const ambiguityScore = scoreAmbiguity(rawMessage);
     const overallRisk = clampScore(toneScore * 0.45 + blameScore * 0.35 + ambiguityScore * 0.2);
 
+    const trendRiskBump =
+      (messageNudgesContext.derivedSignals.riskTrend === "worsening" ? 0.08 : 0) +
+      (messageNudgesContext.derivedSignals.blamePattern === "increasing" ? 0.07 : 0) +
+      (messageNudgesContext.derivedSignals.escalationSignal === "ready" ? 0.1 : 0);
+    const adjustedRisk = clampScore(overallRisk + trendRiskBump);
+
     const recommendation =
-      overallRisk >= 0.7
+      adjustedRisk >= 0.7
         ? "Rewrite with neutral facts, shared accountability, and a concrete ask before sending."
-        : overallRisk >= 0.4
+        : adjustedRisk >= 0.4
           ? "Tighten language with clearer ask and less direct attribution."
           : "Message is mostly safe; apply minor clarity polish.";
 
@@ -277,18 +378,18 @@ export async function runAIModule({
         tone: Number(toneScore.toFixed(2)),
         blame: Number(blameScore.toFixed(2)),
         ambiguity: Number(ambiguityScore.toFixed(2)),
-        overall: Number(overallRisk.toFixed(2)),
+        overall: Number(adjustedRisk.toFixed(2)),
       },
       recommendation: {
         primaryAction: recommendation,
-        reason: `Tone=${toLevel(toneScore)}, Blame=${toLevel(blameScore)}, Ambiguity=${toLevel(ambiguityScore)} from heuristic analysis.`,
+        reason: `Tone=${toLevel(toneScore)}, Blame=${toLevel(blameScore)}, Ambiguity=${toLevel(ambiguityScore)}. trend=${messageNudgesContext.derivedSignals.riskTrend}, blamePattern=${messageNudgesContext.derivedSignals.blamePattern}, escalation=${messageNudgesContext.derivedSignals.escalationSignal}.`,
       },
       alternatives: [
         "Use a neutral fact + recovery-plan framing.",
         "Convert 'you' statements into joint ownership language.",
         "Add explicit timeline and owner request.",
       ],
-      confidence: Number((0.55 + overallRisk * 0.35).toFixed(2)),
+      confidence: Number((0.55 + adjustedRisk * 0.35).toFixed(2)),
     };
 
     const enrichedOutput: MessageNudgesOutputSchema = {
