@@ -7,6 +7,7 @@ import { messageNudgesPromptPackV1 } from "@/lib/ai/prompts/message-nudges.v1";
 import { politicalRiskPromptPackV1 } from "@/lib/ai/prompts/political-risk.v1";
 import { stakeholderIntelPromptPackV1 } from "@/lib/ai/prompts/stakeholder-intel.v1";
 import type { MessageNudgesInputSchema, MessageNudgesOutputSchema } from "@/lib/ai/prompts/message-nudges.v1";
+import { createSupabaseServerClient } from "@/lib/db/supabase-server";
 
 type MessageNudgesContext = {
   projectMemory: string[];
@@ -14,24 +15,14 @@ type MessageNudgesContext = {
   stakeholderSignals: string[];
 };
 
+type MessageAnalysisRow = {
+  raw_message: string;
+  created_at: string;
+  decision: MessageNudgesDecision | null;
+};
+
 type MessageNudgesDecision = NonNullable<MessageNudgesOutputSchema["decision"]>;
 
-const messageNudgesEventStore: Array<{ at: string; input: MessageNudgesInputSchema; decision: MessageNudgesDecision }> = [];
-
-const getMessageNudgesContext = (): MessageNudgesContext => ({
-  projectMemory: [
-    "Sponsor prefers neutral, facts-first status language.",
-    "Prior escalations were delayed when messages implied personal fault.",
-  ],
-  recentEvents: [
-    "Recovery-plan ask requested in latest SteerCo follow-up.",
-    "Dependency slip discussed with executive visibility.",
-  ],
-  stakeholderSignals: [
-    "Ops VP responds best to collaborative framing.",
-    "Chief of Staff flagged tone sensitivity in sponsor updates.",
-  ],
-});
 
 const clampScore = (value: number) => Math.max(0, Math.min(1, value));
 
@@ -72,6 +63,64 @@ const toLevel = (score: number): "low" | "medium" | "high" => {
   return "low";
 };
 
+const buildMessageNudgesContext = (events: MessageAnalysisRow[]): MessageNudgesContext => {
+  const recentThree = events.slice(0, 3);
+  const messages = recentThree.map((event) => event.raw_message);
+  const decisions = recentThree
+    .map((event) => event.decision?.recommendation?.primaryAction)
+    .filter((value): value is string => Boolean(value));
+
+  const avgRisk =
+    recentThree.length === 0
+      ? null
+      : recentThree.reduce((sum, event) => sum + (event.decision?.risk?.overall ?? 0), 0) / recentThree.length;
+
+  const riskPattern =
+    avgRisk === null
+      ? "No historical risk pattern yet."
+      : avgRisk >= 0.7
+        ? "Recent communications trend high risk; prioritize neutral language and explicit asks."
+        : avgRisk >= 0.4
+          ? "Recent communications trend moderate risk; tighten ownership framing."
+          : "Recent communications trend low risk; preserve clarity baseline.";
+
+  return {
+    projectMemory: messages,
+    recentEvents: decisions,
+    stakeholderSignals: [riskPattern],
+  };
+};
+
+const saveMessageAnalysis = async (input: {
+  projectId: string;
+  rawMessage: string;
+  audience: string;
+  toneScore: number;
+  blameScore: number;
+  ambiguityScore: number;
+  overallRisk: number;
+  decision: MessageNudgesDecision;
+  aiOutput: MessageNudgesOutputSchema;
+}) => {
+  try {
+    const supabase = createSupabaseServerClient();
+    await supabase.from("message_analyses").insert({
+      project_id: input.projectId,
+      raw_message: input.rawMessage,
+      audience: input.audience,
+      tone_score: Number(input.toneScore.toFixed(2)),
+      blame_score: Number(input.blameScore.toFixed(2)),
+      ambiguity_score: Number(input.ambiguityScore.toFixed(2)),
+      overall_risk: Number(input.overallRisk.toFixed(2)),
+      decision: input.decision,
+      ai_output: input.aiOutput,
+      created_at: new Date().toISOString(),
+    });
+  } catch {
+    // best-effort memory persistence only
+  }
+};
+
 const promptPacks: Partial<Record<AIModuleId, unknown>> = {
   "stakeholder-intel": stakeholderIntelPromptPackV1,
   meetings: meetingsPromptPackV1,
@@ -81,13 +130,39 @@ const promptPacks: Partial<Record<AIModuleId, unknown>> = {
 };
 
 export const getProjectContext = async (projectId?: string): Promise<MemoryContext> => {
-  void projectId;
-  // TODO: integrate Supabase memory
-  return {
-    stakeholders: [],
-    recentEvents: [],
-    risks: [],
-  };
+  const scopedProjectId = projectId?.trim() || "demo-project";
+
+  try {
+    const supabase = createSupabaseServerClient();
+    const { data, error } = await supabase
+      .from("message_analyses")
+      .select("raw_message, decision, created_at")
+      .eq("project_id", scopedProjectId)
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    if (error) {
+      throw error;
+    }
+
+    const recentEvents = (data ?? []) as MessageAnalysisRow[];
+
+    return {
+      projectMemory: recentEvents.map((event) => event.raw_message),
+      recentEvents: recentEvents.map((event) => ({
+        rawMessage: event.raw_message,
+        decision: event.decision,
+        createdAt: event.created_at,
+      })),
+      stakeholderSignals: [],
+    };
+  } catch {
+    return {
+      projectMemory: [],
+      recentEvents: [],
+      stakeholderSignals: [],
+    };
+  }
 };
 
 export async function runAIModule({
@@ -105,6 +180,7 @@ export async function runAIModule({
   void promptPack;
 
   const memoryContext = await getProjectContext(context?.projectId);
+  const messageNudgesContext = buildMessageNudgesContext(memoryContext.recentEvents as MessageAnalysisRow[]);
 
   if (moduleConfig.mode === "openai") {
     if (moduleId !== "message-nudges") {
@@ -116,7 +192,8 @@ export async function runAIModule({
       throw new Error("Missing OPENAI_API_KEY on the server.");
     }
 
-    const payload = input as Partial<MessageNudgesInputSchema>;
+    const payload = input as Partial<MessageNudgesInputSchema & { projectId?: string }>;
+    const projectId = context?.projectId?.toString().trim() || payload.projectId?.trim() || "demo-project";
     const rawMessage = payload.rawMessage?.trim() ?? "";
     const audience = payload.audience?.trim() ?? "";
     if (!rawMessage || !audience) {
@@ -159,9 +236,9 @@ export async function runAIModule({
               `Audience: ${audience}`,
               `Raw message: ${rawMessage}`,
               "Context for better organizational fit:",
-              ...getMessageNudgesContext().projectMemory.map((item) => `- Project memory: ${item}`),
-              ...getMessageNudgesContext().recentEvents.map((item) => `- Recent event: ${item}`),
-              ...getMessageNudgesContext().stakeholderSignals.map((item) => `- Stakeholder signal: ${item}`),
+              ...messageNudgesContext.projectMemory.slice(0, 3).map((item) => `- Past message: ${item}`),
+              ...messageNudgesContext.recentEvents.slice(0, 3).map((item) => `- Past decision: ${item}`),
+              ...messageNudgesContext.stakeholderSignals.map((item) => `- Risk pattern: ${item}`),
             ].join("\n"),
           },
         ],
@@ -228,12 +305,17 @@ export async function runAIModule({
       decision,
     };
 
-    messageNudgesEventStore.unshift({
-      at: new Date().toISOString(),
-      input: { rawMessage, audience },
+    await saveMessageAnalysis({
+      projectId,
+      rawMessage,
+      audience,
+      toneScore,
+      blameScore,
+      ambiguityScore,
+      overallRisk,
       decision,
+      aiOutput: enrichedOutput,
     });
-    messageNudgesEventStore.splice(30);
 
     return {
       module: moduleId,
