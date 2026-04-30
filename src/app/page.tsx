@@ -37,17 +37,72 @@ export default function Home() {
 
           <AnimatedHero />
 
-          <section id="product" className="scroll-mt-28 rounded-3xl border-2 border-black bg-[#fffaf2] p-6 md:p-8">
-            <p className="text-sm font-black uppercase tracking-[0.2em] text-pink-600">
-              Product
-            </p>
-            <h2 className="mt-3 text-3xl font-black md:text-4xl">
-              Projects don’t fail all at once. They drift.
-            </h2>
-            <p className="mt-4 max-w-3xl text-base font-medium text-black/75 md:text-lg">
-              The missed follow-up, the owner nobody confirmed, the client update nobody wants to send, the deadline that quietly moved. PMFreak catches the drift before it becomes failure.
-            </p>
-          </section>
+          <section id="product" className="scroll-mt-28 rounded-3xl border-2 border-black bg-[#fffaf2] p-6 md:p-10">
+  <p className="text-sm font-black uppercase tracking-[0.2em] text-pink-600">
+    Product
+  </p>
+
+  <h2 className="mt-3 text-3xl font-black md:text-5xl">
+    PMFreak is not another project dashboard. It’s an execution brain.
+  </h2>
+
+  <p className="mt-4 max-w-3xl text-base font-medium text-black/75 md:text-lg">
+    PMFreak detects what’s actually broken in execution, decides what needs to happen next, and helps you communicate it under pressure.
+  </p>
+
+  <div className="mt-8 grid gap-4 md:grid-cols-4">
+    <div className="rounded-2xl border-2 border-black bg-white p-5 shadow-[5px_5px_0_#161616]">
+      <p className="font-black">1</p>
+      <p className="mt-2 font-bold">Describe the situation</p>
+    </div>
+
+    <div className="rounded-2xl border-2 border-black bg-white p-5 shadow-[5px_5px_0_#161616]">
+      <p className="font-black">2</p>
+      <p className="mt-2 font-bold">PMFreak detects the real execution risk</p>
+    </div>
+
+    <div className="rounded-2xl border-2 border-black bg-white p-5 shadow-[5px_5px_0_#161616]">
+      <p className="font-black">3</p>
+      <p className="mt-2 font-bold">Routes it to the right intelligence layer</p>
+    </div>
+
+    <div className="rounded-2xl border-2 border-black bg-white p-5 shadow-[5px_5px_0_#161616]">
+      <p className="font-black">4</p>
+      <p className="mt-2 font-bold">Gives one clear next move</p>
+    </div>
+  </div>
+
+  <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="rounded-2xl border-2 border-black bg-white p-5 shadow-[5px_5px_0_#161616]">
+      <h3 className="font-black">Execution Diagnosis</h3>
+      <p className="mt-2 text-sm text-black/70">
+        Detects what’s actually broken behind delays and unclear ownership.
+      </p>
+    </div>
+
+    <div className="rounded-2xl border-2 border-black bg-white p-5 shadow-[5px_5px_0_#161616]">
+      <h3 className="font-black">Smart Message Nudges</h3>
+      <p className="mt-2 text-sm text-black/70">
+        Fixes how you communicate under pressure.
+      </p>
+    </div>
+
+    <div className="rounded-2xl border-2 border-black bg-white p-5 shadow-[5px_5px_0_#161616]">
+      <h3 className="font-black">Meta Intelligence</h3>
+      <p className="mt-2 text-sm text-black/70">
+        Understands whether the problem is execution, communication, or strategy.
+      </p>
+    </div>
+
+    <div className="rounded-2xl border-2 border-black bg-white p-5 shadow-[5px_5px_0_#161616]">
+      <h3 className="font-black">PMFreak Brain</h3>
+      <p className="mt-2 text-sm text-black/70">
+        Orchestrates everything into one clear decision.
+      </p>
+    </div>
+  </div>
+</section>
+
 
           <section id="how" className="scroll-mt-28 rounded-3xl border-2 border-black bg-[#f0e1c7] p-6 md:p-8">
             <p className="text-sm font-black uppercase tracking-[0.2em] text-pink-600">
