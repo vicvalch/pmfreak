@@ -14,6 +14,12 @@ export type MemoryContext = {
   projectMemory: unknown[];
   recentEvents: unknown[];
   stakeholderSignals: unknown[];
+  derivedSignals?: {
+    toneTrend: "improving" | "worsening" | "stable" | "unknown";
+    blamePattern: "increasing" | "decreasing" | "stable" | "spiky" | "unknown";
+    riskTrend: "improving" | "worsening" | "stable" | "unknown";
+    escalationSignal: "ready" | "watch" | "not-ready" | "unknown";
+  };
 };
 
 export type RunAIModuleInput = {
