@@ -1,6 +1,6 @@
 import { MarketingNavbar } from "@/components/marketing-navbar";
 import Link from "next/link";
-import { PmFreakMascot } from "@/components/brand/pm-freak-mascot";
+import { AnimatedHero } from "@/components/pmfreak/animated-hero";
 
 const modules = [
   {
@@ -35,46 +35,7 @@ export default function Home() {
       <main className="min-h-screen bg-[#f5ead9] px-5 py-6 text-[#161616] md:px-8 md:py-10">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-8">
 
-          <section id="hero" className="scroll-mt-28 grid gap-8 rounded-3xl border-2 border-black bg-[#fff8ec] p-6 shadow-[10px_10px_0_#161616] md:grid-cols-[1.1fr_0.9fr] md:p-10">
-            <div className="flex flex-col justify-center">
-              <p className="text-sm font-black uppercase tracking-[0.25em] text-pink-600">
-                AI Project Manager
-              </p>
-
-              <h1 className="mt-4 text-4xl font-black leading-tight md:text-6xl">
-                Your AI Project Manager that keeps you on track.
-              </h1>
-
-              <p className="mt-5 max-w-xl text-base font-medium text-black/80 md:text-lg">
-                PMFreak detects execution risks, fixes unclear ownership, and tells you exactly what to do — and how to communicate it.
-              </p>
-
-              <div className="mt-8 flex flex-wrap gap-3">
-                <Link
-                  href="/signup"
-                  className="rounded-full border-2 border-black bg-pink-500 px-6 py-3 text-sm font-black text-white shadow-[4px_4px_0_#161616] transition hover:-translate-y-0.5"
-                >
-                  Try PMFreak
-                </Link>
-
-                <Link
-                  href="#how"
-                  className="rounded-full border-2 border-black bg-white px-6 py-3 text-sm font-black shadow-[4px_4px_0_#161616] transition hover:-translate-y-0.5"
-                >
-                  See how it works
-                </Link>
-              </div>
-            </div>
-
-            <div className="grid gap-4">
-              <article className="rounded-3xl border-2 border-black bg-white p-4 shadow-[6px_6px_0_#161616]">
-                <PmFreakMascot mood="chaos" />
-              </article>
-              <article className="rounded-3xl border-2 border-black bg-[#ffe4ec] p-4 shadow-[6px_6px_0_#161616]">
-                <PmFreakMascot mood="calm" />
-              </article>
-            </div>
-          </section>
+          <AnimatedHero />
 
           <section id="product" className="scroll-mt-28 rounded-3xl border-2 border-black bg-[#fffaf2] p-6 md:p-8">
             <p className="text-sm font-black uppercase tracking-[0.2em] text-pink-600">
