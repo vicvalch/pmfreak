@@ -6,19 +6,18 @@ import { useState } from "react";
 
 const desktopNavLinks = [
   { label: "Product", href: "/#product" },
-  { label: "Who It's For", href: "/#about" },
-  { label: "How it works", href: "/#how-it-works" },
-  { label: "Use cases", href: "/#services" },
+  { label: "How it works", href: "/#how" },
+  { label: "Intelligence", href: "/#intelligence" },
+  { label: "Who It's For", href: "/#who" },
   { label: "Pricing", href: "/pricing" },
-  { label: "FAQ", href: "/#faq" },
 ];
 
 const mobileNavLinks = [
   { label: "Product", href: "/#product" },
-  { label: "How it works", href: "/#how-it-works" },
-  { label: "Use cases", href: "/#services" },
+  { label: "How it works", href: "/#how" },
+  { label: "Intelligence", href: "/#intelligence" },
+  { label: "Who It's For", href: "/#who" },
   { label: "Pricing", href: "/pricing" },
-  { label: "FAQ", href: "/#faq" },
 ];
 
 export function MarketingNavbar() {
