@@ -1,38 +1,40 @@
 import type { AIResponseEnvelope } from "@/lib/ai/types";
 
 export type AIModuleId =
-  | "message-nudges"
-  | "meetings"
   | "stakeholder-intel"
+  | "meetings"
   | "political-risk"
   | "escalation-guide"
+  | "message-nudges"
   | "project-memory";
 
-export type AIProvider = "mock" | "openai" | "supabase";
+export type AIModuleMode = "mock" | "openai" | "hybrid";
 
-export type AIInputSchemaField = {
-  name: string;
-  type: "string" | "number" | "boolean" | "object" | "array";
-  required: boolean;
-  description: string;
+export type MemoryContext = {
+  stakeholders: unknown[];
+  recentEvents: unknown[];
+  risks: unknown[];
 };
 
-export type AIInputSchema = {
-  description: string;
-  fields: AIInputSchemaField[];
-};
-
-export type AIGatewayModuleConfig = {
+export type RunAIModuleInput = {
   moduleId: AIModuleId;
-  endpointPath: string;
+  input: unknown;
+  context?: {
+    projectId?: string;
+    [key: string]: unknown;
+  };
+};
+
+export type AIModuleHandler = (args: {
+  input: unknown;
+  context: RunAIModuleInput["context"];
+  memory: MemoryContext;
+}) => Promise<AIResponseEnvelope<unknown>>;
+
+export type AIModuleConfig = {
+  id: AIModuleId;
+  route: string;
   promptVersion: string;
-  inputSchema: AIInputSchema;
-  outputEnvelopeType: string;
-  provider: AIProvider;
+  mode: AIModuleMode;
+  handler: AIModuleHandler;
 };
-
-export type AIGatewayContext = {
-  input?: unknown;
-};
-
-export type AIGatewayHandler = (context?: AIGatewayContext) => Promise<AIResponseEnvelope<unknown>>;
