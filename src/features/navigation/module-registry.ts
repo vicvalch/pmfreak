@@ -8,6 +8,7 @@ export type PMModule = {
 
 export const PM_MODULES: PMModule[] = [
   { href: "/dashboard", label: "Dashboard", shortLabel: "Overview", description: "Portfolio pulse and delivery health.", status: "Live" },
+  { href: "/onboarding", label: "Onboarding", shortLabel: "Onboard", description: "Capture context and run your first PMFreak analysis.", status: "New" },
   { href: "/stakeholder-intel", label: "Stakeholder Intel", shortLabel: "Stakeholders", description: "Influence, stance, and relationship risk map.", status: "New" },
   { href: "/meetings", label: "Meetings", shortLabel: "Transcripts", description: "Decisions, actions, and sentiment shifts.", status: "New" },
   { href: "/political-risk", label: "Political Risk", shortLabel: "Risk Alerts", description: "Org dynamics and escalation threats.", status: "New" },
