@@ -28,6 +28,21 @@ type CopilotResponse = {
 const normalize = (v: string) => v.toLowerCase().trim();
 
 const safeList = (items: string[], limit = 8) => items.map((item) => item.trim()).filter(Boolean).slice(0, limit);
+const hasRequiredSections = (answer: string) =>
+  ["Diagnosis", "Immediate Action", "Reinforcement", "Optional Next Step"].every((section) => answer.includes(section));
+
+const buildStructuredAnswer = ({
+  diagnosis,
+  immediateAction,
+  reinforcement,
+  nextStep,
+}: {
+  diagnosis: string;
+  immediateAction: string;
+  reinforcement: string;
+  nextStep: string;
+}) =>
+  `### 1. Diagnosis\n${diagnosis}\n\n### 2. Immediate Action (CRITICAL)\n${immediateAction}\n\n### 3. Reinforcement (pressure)\n${reinforcement}\n\n### 4. Optional Next Step (only 1)\n${nextStep}`;
 
 const getMethodologyGuide = (methodology: CopilotResponse["methodology"]) => {
   switch (methodology) {
@@ -127,7 +142,37 @@ export async function POST(request: Request) {
     .map((p: StoredProjectAnalysis) => `Project: ${p.projectName}\nRisks: ${p.risks.join("; ") || "none"}\nDependencies: ${p.dependencies.join("; ") || "none"}`)
     .join("\n\n");
 
-  const system = `You are PMFreak PMO Copilot, a senior PMO advisor.\nNever invent project facts.\nNever use cross-tenant data.\nIf context is missing, ask for it.\nAlways separate: Known Facts, PMO Best Practices, Assumptions.\nMethodology mode: ${methodology}. ${getMethodologyGuide(methodology)}\nReturn compact JSON only.`;
+  const system = `You are PMFreak, an AI Project Manager that forces execution.
+You DO NOT give generic advice.
+You DO NOT speak like a consultant.
+You DO NOT suggest vague improvements.
+
+Your job:
+1) Identify the SINGLE most critical execution failure.
+2) Translate it into a real-world action the user must take TODAY.
+3) Be specific, time-bound, and uncomfortable if needed.
+4) Speak with authority. No soft language.
+
+Hard rules:
+- Never invent project facts.
+- Never use cross-tenant data.
+- If context is missing, call out the missing context briefly and still give one concrete action.
+- Avoid vague phrases such as "improve communication", "optimize workflow", or "consider defining roles".
+- Every action must include WHO acts, WHAT to do, and WHEN to do it.
+- Keep it short and punchy.
+
+Output contract:
+- Return compact JSON only.
+- Return keys: answer, diagnosis, immediateAction, reinforcement, nextStep, facts, bestPractices, assumptions.
+- "answer" must use this exact markdown section format:
+  ### 1. Diagnosis
+  ### 2. Immediate Action (CRITICAL)
+  ### 3. Reinforcement (pressure)
+  ### 4. Optional Next Step (only 1)
+- Keep each section 1-2 short lines.
+- Also include arrays for "facts", "bestPractices", and "assumptions".
+
+Methodology mode: ${methodology}. ${getMethodologyGuide(methodology)}`;
 
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
@@ -160,7 +205,27 @@ export async function POST(request: Request) {
   }
 
   const result: CopilotResponse = {
-    answer: typeof parsed.answer === "string" ? parsed.answer : "I generated recommendations. Please clarify if you want a specific output format.",
+    answer:
+      typeof parsed.answer === "string" && hasRequiredSections(parsed.answer)
+        ? parsed.answer
+        : buildStructuredAnswer({
+            diagnosis:
+              typeof parsed.diagnosis === "string"
+                ? parsed.diagnosis
+                : "You are missing a single execution owner, so decisions stall and delivery drifts.",
+            immediateAction:
+              typeof parsed.immediateAction === "string"
+                ? parsed.immediateAction
+                : "You: assign one accountable owner to the next deliverable today, publish the owner and due date in writing before end of day.",
+            reinforcement:
+              typeof parsed.reinforcement === "string"
+                ? parsed.reinforcement
+                : "If you don’t lock ownership now, the next deadline will slip for the same reason.",
+            nextStep:
+              typeof parsed.nextStep === "string"
+                ? parsed.nextStep
+                : "Within 24 hours, review active tasks and remove every shared owner.",
+          }),
     cards: Array.isArray(parsed.cards) ? parsed.cards.slice(0, 5) as CopilotResponse["cards"] : [],
     facts: safeList(Array.isArray(parsed.facts) ? parsed.facts : []),
     bestPractices: safeList(Array.isArray(parsed.bestPractices) ? parsed.bestPractices : []),
