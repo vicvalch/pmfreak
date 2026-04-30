@@ -11,9 +11,9 @@ export type AIModuleId =
 export type AIModuleMode = "mock" | "openai" | "hybrid";
 
 export type MemoryContext = {
-  stakeholders: unknown[];
+  projectMemory: unknown[];
   recentEvents: unknown[];
-  risks: unknown[];
+  stakeholderSignals: unknown[];
 };
 
 export type RunAIModuleInput = {

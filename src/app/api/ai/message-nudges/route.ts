@@ -9,10 +9,10 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  let payload: { rawMessage?: string; audience?: string };
+  let payload: { rawMessage?: string; audience?: string; projectId?: string };
 
   try {
-    payload = (await request.json()) as { rawMessage?: string; audience?: string };
+    payload = (await request.json()) as { rawMessage?: string; audience?: string; projectId?: string };
   } catch {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
@@ -21,7 +21,9 @@ export async function POST(request: Request) {
     const response = await runAIModule({
       moduleId: "message-nudges",
       input: payload,
-      context: {},
+      context: {
+        projectId: payload.projectId?.trim() || "demo-project",
+      },
     });
 
     return NextResponse.json(response);
