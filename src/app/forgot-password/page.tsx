@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { AuthShell } from "@/components/auth/auth-shell";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -36,41 +37,38 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-black px-6 py-16 text-white">
-      <section className="mx-auto w-full max-w-md rounded-3xl border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur-xl">
-        <p className="text-xs uppercase tracking-[0.28em] text-cyan-300">ScopeGuard AI</p>
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight">Forgot password</h1>
-        <p className="mt-2 text-sm text-slate-300">Enter your email to receive a password reset link.</p>
+    <AuthShell
+      title="Reset your access"
+      subtitle="Enter your email and we’ll send you a reset link."
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <input
+          type="email"
+          placeholder="Email"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="w-full rounded-xl border-2 border-black px-4 py-3 text-sm"
+        />
 
-        <form onSubmit={handleSubmit} className="mt-8 space-y-4">
-          <input
-            name="email"
-            type="email"
-            placeholder="Email"
-            required
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-400 focus:ring focus:ring-cyan-300/60"
-          />
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-xl bg-cyan-300/90 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-70"
-          >
-            {loading ? "Sending..." : "Send reset link"}
-          </button>
-        </form>
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full rounded-xl border-2 border-black bg-pink-500 px-4 py-3 text-sm font-black text-white shadow-[4px_4px_0_#161616]"
+        >
+          {loading ? "Sending..." : "Send reset link"}
+        </button>
+      </form>
 
-        {successMessage ? <p className="mt-4 text-sm text-emerald-200">{successMessage}</p> : null}
-        {errorMessage ? <p className="mt-4 text-sm text-rose-200">{errorMessage}</p> : null}
+      {successMessage && <p className="mt-4 text-sm text-green-700">{successMessage}</p>}
+      {errorMessage && <p className="mt-4 text-sm text-red-600">{errorMessage}</p>}
 
-        <p className="mt-6 text-sm text-slate-300">
-          Back to{" "}
-          <Link href="/login" className="font-semibold text-cyan-200 hover:text-cyan-100">
-            login
-          </Link>
-        </p>
-      </section>
-    </main>
+      <p className="mt-6 text-sm">
+        Back to{" "}
+        <Link href="/login" className="font-bold">
+          login
+        </Link>
+      </p>
+    </AuthShell>
   );
 }
