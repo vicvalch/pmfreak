@@ -9,6 +9,20 @@ export type MessageNudgesOutputSchema = {
   improvedVersion: string;
   confidence: "low" | "medium" | "high" | "very-high";
   rationale: string;
+  decision?: {
+    risk: {
+      tone: number;
+      blame: number;
+      ambiguity: number;
+      overall: number;
+    };
+    recommendation: {
+      primaryAction: string;
+      reason: string;
+    };
+    alternatives: string[];
+    confidence: number;
+  };
 };
 
 export const messageNudgesPromptPackV1 = {
