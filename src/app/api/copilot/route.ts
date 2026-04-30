@@ -14,6 +14,10 @@ type CopilotRequest = {
 
 type CopilotResponse = {
   answer: string;
+  diagnosis?: string;
+  immediateAction?: string;
+  reinforcement?: string;
+  nextStep?: string;
   cards: Array<{ type: "Risks" | "Next Actions" | "Draft Email" | "RACI" | "Checklist"; title: string; items: string[] }>;
   facts: string[];
   bestPractices: string[];
