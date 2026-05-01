@@ -16,7 +16,7 @@ export function AnimatedHero() {
         </p>
 
         <h1 className="mt-4 text-4xl font-black leading-tight md:text-6xl">
-          Your AI Project Manager that keeps execution on track.
+          🔥 TEST DEPLOY PMFREAK 🔥
         </h1>
 
         <p className="mt-5 max-w-xl text-base font-medium text-black/80 md:text-lg">
