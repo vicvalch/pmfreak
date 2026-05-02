@@ -46,9 +46,17 @@ export default function Home() {
               Product
             </p>
 
-            <h2 className="mt-3 text-3xl font-black md:text-5xl">
-              PMFreak is an execution brain.
-            </h2>
+            <div className="mt-3 flex items-center justify-between gap-6 flex-wrap">
+              <h2 className="text-3xl font-black md:text-5xl">
+                PMFreak is an execution brain.
+              </h2>
+
+              <img
+                src="/brain.png"
+                alt="PMFreak Brain"
+                className="w-[120px] md:w-[160px] lg:w-[180px]"
+              />
+            </div>
 
             <p className="mt-4 max-w-3xl text-base font-medium text-black/75 md:text-lg">
               Find what’s broken. Fix what matters. Stay on track.
