@@ -40,17 +40,19 @@ export function AnimatedHero() {
         </div>
       </div>
 
-      {/* RIGHT — VIDEO */}
+      {/* RIGHT — VIDEO WITH FRAME */}
       <div className="flex items-center justify-center">
-        <video
-          autoPlay
-          loop
-          muted
-          playsInline
-          className="w-full max-w-[500px] h-auto"
-        >
-          <source src="/Hero.mp4" type="video/mp4" />
-        </video>
+        <div className="rounded-2xl border-4 border-black bg-white p-2 shadow-[8px_8px_0_#161616]">
+          <video
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="w-full max-w-[500px] h-auto rounded-lg"
+          >
+            <source src="/Hero.mp4" type="video/mp4" />
+          </video>
+        </div>
       </div>
     </section>
   );
