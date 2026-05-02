@@ -51,11 +51,11 @@ export default function Home() {
                 PMFreak is an execution brain.
               </h2>
 
-              <div className="bg-[#f5ead9] rounded-xl p-2">
+              <div className="">
                 <img
                   src="/Brain.png"
                   alt="PMFreak Brain"
-                  className="w-[120px] md:w-[160px] lg:w-[180px] mix-blend-multiply"
+                  className="w-[120px] md:w-[160px] lg:w-[180px] "
                 />
               </div>
             </div>
