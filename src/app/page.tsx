@@ -3,10 +3,10 @@ import Link from "next/link";
 import { AnimatedHero } from "@/components/pmfreak/animated-hero";
 
 const productFlow = [
-  "Describe the situation",
-  "Detect the real execution risk",
-  "Route to the right intelligence layer",
-  "Get one clear next move",
+  { title: "Describe", text: "Tell PMFreak what’s happening." },
+  { title: "Detect", text: "Find the real execution risk." },
+  { title: "Route", text: "Send the issue to the right intelligence layer." },
+  { title: "Act", text: "Get one clear next move." },
 ];
 
 const modules = [
@@ -47,23 +47,26 @@ export default function Home() {
             </p>
 
             <h2 className="mt-3 text-3xl font-black md:text-5xl">
-              PMFreak is not another project dashboard. It’s an execution brain.
+              PMFreak is an execution brain.
             </h2>
 
             <p className="mt-4 max-w-3xl text-base font-medium text-black/75 md:text-lg">
-              PMFreak detects what’s actually broken in execution, decides what needs to happen next, and helps you communicate it under pressure.
+              Find what’s broken. Fix what matters. Stay on track.
             </p>
 
             <div className="mt-8 rounded-3xl border-2 border-black bg-white p-5 shadow-[6px_6px_0_#161616]">
               <div className="grid gap-4 md:grid-cols-[1fr_auto_1fr_auto_1fr_auto_1fr] md:items-center">
                 {productFlow.map((step, index) => (
-                  <div key={step} className="contents">
-                    <div className="rounded-2xl border-2 border-black bg-[#fff8ec] p-4">
-                      <div className="flex items-center gap-3">
+                  <div key={step.title} className="contents">
+                    <div className="rounded-2xl border-2 border-black bg-[#fff8ec] p-4 transition hover:-translate-y-0.5">
+                      <div className="flex items-start gap-3">
                         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-black bg-pink-500 text-sm font-black text-white">
                           {index + 1}
                         </div>
-                        <p className="text-sm font-black">{step}</p>
+                        <div>
+                          <p className="text-base font-black">{step.title}</p>
+                          <p className="mt-1 text-xs font-medium text-black/65">{step.text}</p>
+                        </div>
                       </div>
                     </div>
 
@@ -81,21 +84,21 @@ export default function Home() {
               </p>
 
               <h3 className="mt-2 text-2xl font-black md:text-3xl">
-                Here’s a deeper look at the reasoning layers that make PMFreak keep everything on track.
+                The intelligence layers behind every next move.
               </h3>
 
               <p className="mt-3 max-w-2xl text-sm font-medium text-black/70">
-                Each layer is designed to remove ambiguity, force clarity, and push execution forward.
+                Less guessing. More execution.
               </p>
 
               <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 {modules.map((module) => (
-                  <article key={module.title} className="rounded-2xl border-2 border-black bg-white p-5 shadow-[5px_5px_0_#161616]">
-                    <p className="text-xs font-black uppercase tracking-[0.15em] text-pink-600">
+                  <article key={module.title} className="group rounded-2xl border-2 border-black bg-white p-5 shadow-[5px_5px_0_#161616] transition hover:-translate-y-1 hover:shadow-[7px_7px_0_#161616]">
+                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-pink-600">
                       {module.subtitle}
                     </p>
-                    <h4 className="mt-2 text-lg font-black">{module.title}</h4>
-                    <p className="mt-2 text-sm font-medium text-black/70">{module.text}</p>
+                    <h4 className="mt-3 text-lg font-black">{module.title}</h4>
+                    <p className="mt-2 text-sm font-medium leading-relaxed text-black/65">{module.text}</p>
                   </article>
                 ))}
               </div>
@@ -108,46 +111,43 @@ export default function Home() {
             </p>
 
             <h2 className="mt-3 text-3xl font-black md:text-4xl">
-              One input. One diagnosis. One next move.
+              From messy situation to confident action.
             </h2>
 
             <p className="mt-4 max-w-2xl text-sm font-medium text-black/70">
-              PMFreak doesn’t give you options. It gives you clarity.
+              The workflow is simple: describe the mess, get the diagnosis, move with confidence.
             </p>
 
-            <div className="mt-8 rounded-3xl border-2 border-black bg-white p-6 shadow-[6px_6px_0_#161616]">
-              <div className="grid gap-6 md:grid-cols-[1fr_auto_1fr_auto_1fr] md:items-center">
-                <div className="rounded-2xl border-2 border-black bg-[#fff8ec] p-5">
-                  <p className="text-xs font-black uppercase tracking-[0.15em] text-pink-600">
-                    Input
-                  </p>
-                  <p className="mt-2 text-sm font-bold">
-                    You describe what’s happening in your project.
-                  </p>
-                </div>
+            <div className="mt-8 grid gap-4 md:grid-cols-3">
+              <article className="rounded-3xl border-2 border-black bg-white p-6 shadow-[6px_6px_0_#161616]">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-pink-600">
+                  01 / Dump the mess
+                </p>
+                <h3 className="mt-3 text-2xl font-black">No perfect brief required.</h3>
+                <p className="mt-3 text-sm font-medium leading-relaxed text-black/70">
+                  Paste the ugly project situation exactly as it is: blockers, pressure, missing owners, client noise.
+                </p>
+              </article>
 
-                <div className="hidden h-1 w-10 rounded-full bg-black md:block" />
+              <article className="rounded-3xl border-2 border-black bg-white p-6 shadow-[6px_6px_0_#161616]">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-pink-600">
+                  02 / Get the read
+                </p>
+                <h3 className="mt-3 text-2xl font-black">PMFreak calls the real risk.</h3>
+                <p className="mt-3 text-sm font-medium leading-relaxed text-black/70">
+                  It separates noise from execution failure and tells you what actually needs attention.
+                </p>
+              </article>
 
-                <div className="rounded-2xl border-2 border-black bg-[#fff8ec] p-5">
-                  <p className="text-xs font-black uppercase tracking-[0.15em] text-pink-600">
-                    Diagnosis
-                  </p>
-                  <p className="mt-2 text-sm font-bold">
-                    PMFreak detects the real execution risk behind the situation.
-                  </p>
-                </div>
-
-                <div className="hidden h-1 w-10 rounded-full bg-black md:block" />
-
-                <div className="rounded-2xl border-2 border-black bg-[#fff8ec] p-5">
-                  <p className="text-xs font-black uppercase tracking-[0.15em] text-pink-600">
-                    Action
-                  </p>
-                  <p className="mt-2 text-sm font-bold">
-                    You get one clear next move — including how to communicate it.
-                  </p>
-                </div>
-              </div>
+              <article className="rounded-3xl border-2 border-black bg-white p-6 shadow-[6px_6px_0_#161616]">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-pink-600">
+                  03 / Move now
+                </p>
+                <h3 className="mt-3 text-2xl font-black">One next move. No fog.</h3>
+                <p className="mt-3 text-sm font-medium leading-relaxed text-black/70">
+                  You get the action, the message, and the direction needed to bring the project back on track.
+                </p>
+              </article>
             </div>
           </section>
 
