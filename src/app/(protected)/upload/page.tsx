@@ -487,7 +487,7 @@ export default function UploadPage() {
   const [uploadResult, setUploadResult] = useState<UploadResponse | null>(null);
   const [aiAnalysisResult, setAiAnalysisResult] = useState<AIAnalysisResult | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
-  const [aiLimitRedirect, setAiLimitRedirect] = useState<string | null>(null);
+  const [showAiUpgradeCta, setShowAiUpgradeCta] = useState(false);
   const [billingState, setBillingState] = useState<BillingStateResponse | null>(null);
   const [billingError, setBillingError] = useState<string | null>(null);
 
@@ -568,7 +568,7 @@ export default function UploadPage() {
     setUploadResult(null);
     setAiAnalysisResult(null);
     setAiError(null);
-    setAiLimitRedirect(null);
+    setShowAiUpgradeCta(false);
     setSelectedFiles(validFiles);
   };
 
@@ -621,7 +621,7 @@ export default function UploadPage() {
       setUploadResult(payload);
       setAiAnalysisResult(null);
       setAiError(null);
-      setAiLimitRedirect(null);
+      setShowAiUpgradeCta(false);
     } catch {
       setUploadError("Unable to upload right now. Please try again.");
       setUploadResult(null);
@@ -637,7 +637,7 @@ export default function UploadPage() {
 
     setIsAiAnalyzing(true);
     setAiError(null);
-    setAiLimitRedirect(null);
+    setShowAiUpgradeCta(false);
 
     try {
       const extractedScopeText = uploadResult.files
@@ -658,6 +658,13 @@ export default function UploadPage() {
 
       const payload = (await response.json()) as AIAnalysisResult | AIAnalysisErrorResponse;
 
+      if (response.status === 402) {
+        setAiAnalysisResult(null);
+        setAiError("You’ve reached your free limit. Upgrade to continue.");
+        setShowAiUpgradeCta(true);
+        return;
+      }
+
       if (!response.ok || "error" in payload) {
         setAiAnalysisResult(null);
         if (response.status === 402) {
@@ -675,9 +682,11 @@ export default function UploadPage() {
       }
 
       setAiAnalysisResult(payload);
+      setShowAiUpgradeCta(false);
     } catch {
       setAiAnalysisResult(null);
       setAiError("AI analysis is currently unavailable. Showing Sprint 4 rule-based output.");
+      setShowAiUpgradeCta(false);
     } finally {
       setIsAiAnalyzing(false);
     }
@@ -928,9 +937,17 @@ export default function UploadPage() {
               Generate structured analysis with executive summary, risks, dependencies, and next steps.
             </p>
             {aiError ? (
-              <p className="rounded-xl border border-amber-300/40 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">
-                {aiError}
-              </p>
+              <div className="space-y-2 rounded-xl border border-amber-300/40 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">
+                <p>{aiError}</p>
+                {showAiUpgradeCta ? (
+                  <a
+                    href="/pricing"
+                    className="inline-flex h-9 items-center justify-center rounded-full bg-amber-200 px-4 text-xs font-semibold uppercase tracking-[0.12em] text-slate-900 transition hover:bg-amber-100"
+                  >
+                    Upgrade
+                  </a>
+                ) : null}
+              </div>
             ) : null}
             {aiLimitRedirect ? (
               <Link

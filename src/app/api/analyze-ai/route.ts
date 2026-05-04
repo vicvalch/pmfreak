@@ -25,6 +25,7 @@ const coerceAnalysisResult = (value: unknown): AIAnalysisResult | null => {
 };
 
 export async function POST(request: Request) {
+  const FREE_ANALYSIS_LIMIT = 3;
   const user = await getAuthUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -60,10 +61,12 @@ export async function POST(request: Request) {
 
   const { count: analysisCount, error: analysisCountError } = await supabase
     .from("onboarding_analyses")
-    .select("id", { count: "exact", head: true })
+    .select("*", { count: "exact", head: true })
     .eq("user_id", user.id);
-  if (analysisCountError) return Response.json({ error: "Unable to verify AI usage right now." }, { status: 500 });
-  if ((analysisCount ?? 0) >= 3) {
+  if (analysisCountError) return Response.json({ error: "Unable to verify usage right now. Please retry shortly." }, { status: 500 });
+
+  const currentUsageCount = analysisCount ?? 0;
+  if (currentUsageCount >= FREE_ANALYSIS_LIMIT) {
     return Response.json({ error: "Upgrade required", redirect: "/pricing" }, { status: 402 });
   }
 
@@ -86,7 +89,7 @@ export async function POST(request: Request) {
 
     const enrichedResponse: AIAnalysisResponse = { ...analysis, similar_projects: intelligence.similarProjects, historical_risks: intelligence.historicalRisks, estimated_relative_complexity: intelligence.estimatedRelativeComplexity };
     await supabase.from("onboarding_analyses").insert({ company_id: user.companyId, user_id: user.id, workspace: "project", role: user.role, project_type: "project_analysis", problem: projectName, analysis: JSON.stringify(enrichedResponse), source: "onboarding", project_id: projectId });
-    return Response.json(enrichedResponse, { headers: { "X-Usage-Remaining": String(Math.max(0, 3 - ((analysisCount ?? 0) + 1))) } });
+    return Response.json(enrichedResponse, { headers: { "X-Usage-Remaining": String(FREE_ANALYSIS_LIMIT - (currentUsageCount + 1)) } });
   } catch {
     return Response.json({ error: "Unable to run AI analysis right now. Please retry shortly." }, { status: 502 });
   }
