@@ -675,9 +675,8 @@ export default function UploadPage() {
       if (!response.ok || "error" in payload) {
         setAiAnalysisResult(null);
         if (response.status === 402) {
-          const redirect = "error" in payload ? payload.redirect : undefined;
           setAiError("You’ve reached your free limit of 3 AI analyses. Upgrade to continue.");
-          setAiLimitRedirect(redirect ?? "/pricing");
+          setShowAiUpgradeCta(true);
           return;
         }
         setAiError(
