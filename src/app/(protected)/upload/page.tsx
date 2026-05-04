@@ -13,6 +13,7 @@ type UploadResponseFile = {
 };
 
 type UploadResponse = {
+  projectId: string;
   projectName: string;
   files: UploadResponseFile[];
 };
@@ -644,12 +645,18 @@ export default function UploadPage() {
         .map((file) => `# ${file.fileName}\n${file.extractedText || ""}`)
         .join("\n\n");
 
+      if (!uploadResult?.projectId) {
+        setAiError("Missing project context. Please recreate the project.");
+        return;
+      }
+
       const response = await fetch("/api/analyze-ai", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
+          projectId: uploadResult.projectId,
           projectName: uploadResult.projectName,
           extractedScopeText,
           sourceFileNames: uploadResult.files.map((file) => file.fileName),
