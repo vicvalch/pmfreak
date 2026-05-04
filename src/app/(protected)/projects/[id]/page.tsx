@@ -1,0 +1,60 @@
+import { notFound } from "next/navigation";
+import { requireAuthUser } from "@/lib/auth";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+type Props = { params: Promise<{ id: string }> };
+
+export default async function ProjectDetailPage({ params }: Props) {
+  const user = await requireAuthUser();
+  const { id } = await params;
+  const supabase = await createSupabaseServerClient();
+
+  const { data: project } = await supabase
+    .from("projects")
+    .select("id, name, description, status")
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!project) notFound();
+
+  const { data: analyses } = await supabase
+    .from("onboarding_analyses")
+    .select("id, analysis, created_at")
+    .eq("project_id", id)
+    .order("created_at", { ascending: false })
+    .limit(10);
+
+  return (
+    <main className="rounded-3xl border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur-xl md:p-10 space-y-6">
+      <div>
+        <h1 className="text-3xl font-semibold tracking-tight">{project.name}</h1>
+        <p className="mt-2 text-sm text-slate-300">{project.description ?? "No description provided."}</p>
+        <p className="mt-2 text-xs uppercase tracking-wide text-slate-400">Status: {project.status}</p>
+      </div>
+
+      <section className="rounded-2xl border border-white/10 bg-black/20 p-5">
+        <h2 className="text-lg font-semibold">Run PMFreak AI</h2>
+        <form action="/api/analyze-ai" method="post" className="mt-3 space-y-3">
+          <input type="hidden" name="projectId" value={project.id} />
+          <input name="projectName" defaultValue={project.name} required className="w-full rounded-xl border border-white/15 bg-black/30 px-3 py-2 text-sm" />
+          <textarea name="extractedScopeText" required placeholder="Paste scope text to analyze" rows={6} className="w-full rounded-xl border border-white/15 bg-black/30 px-3 py-2 text-sm" />
+          <button type="submit" className="rounded-xl border border-cyan-300/50 px-4 py-2 text-sm font-semibold">Analyze</button>
+        </form>
+      </section>
+
+      <section>
+        <h2 className="text-lg font-semibold">Previous analyses</h2>
+        <ul className="mt-3 space-y-3">
+          {(analyses ?? []).length === 0 ? <li className="text-sm text-slate-300">No analyses yet for this project.</li> : null}
+          {(analyses ?? []).map((row) => (
+            <li key={row.id} className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <p className="text-xs text-slate-400">{new Date(row.created_at).toLocaleString()}</p>
+              <p className="mt-2 whitespace-pre-wrap text-sm text-slate-200">{row.analysis}</p>
+            </li>
+          ))}
+        </ul>
+      </section>
+    </main>
+  );
+}
