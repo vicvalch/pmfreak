@@ -65,6 +65,7 @@ type AIAnalysisResult = {
   historical_risks: string[];
   estimated_relative_complexity: string;
 };
+type AIAnalysisErrorResponse = { error: string; redirect?: string };
 
 type DisplayAnalysisResult = {
   executiveSummary: string;
@@ -655,7 +656,7 @@ export default function UploadPage() {
         }),
       });
 
-      const payload = (await response.json()) as AIAnalysisResult | { error: string };
+      const payload = (await response.json()) as AIAnalysisResult | AIAnalysisErrorResponse;
 
       if (response.status === 402) {
         setAiAnalysisResult(null);
@@ -666,6 +667,12 @@ export default function UploadPage() {
 
       if (!response.ok || "error" in payload) {
         setAiAnalysisResult(null);
+        if (response.status === 402) {
+          const redirect = "error" in payload ? payload.redirect : undefined;
+          setAiError("You’ve reached your free limit of 3 AI analyses. Upgrade to continue.");
+          setAiLimitRedirect(redirect ?? "/pricing");
+          return;
+        }
         setAiError(
           "error" in payload
             ? payload.error
@@ -941,6 +948,14 @@ export default function UploadPage() {
                   </a>
                 ) : null}
               </div>
+            ) : null}
+            {aiLimitRedirect ? (
+              <Link
+                href={aiLimitRedirect}
+                className="inline-flex h-9 items-center justify-center rounded-full border border-amber-200/70 bg-amber-300/20 px-4 text-xs font-semibold uppercase tracking-[0.12em] text-amber-100 transition hover:bg-amber-300/30"
+              >
+                Upgrade on Pricing
+              </Link>
             ) : null}
           </section>
         ) : null}
