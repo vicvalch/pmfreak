@@ -23,5 +23,5 @@ export const loginAction = async (formData: FormData): Promise<void> => {
     redirect(`/login?error=${encodeURIComponent(error.message)}`);
   }
 
-  redirect("/onboarding");
+  redirect("/projects");
 };
