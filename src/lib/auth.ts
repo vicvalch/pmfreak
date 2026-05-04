@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { cache } from "react";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -21,7 +22,7 @@ const toRole = (role: unknown): UserRole => {
   return "viewer";
 };
 
-export const getAuthUser = async (): Promise<AuthUserContext | null> => {
+export const getAuthUser = cache(async (): Promise<AuthUserContext | null> => {
   if (!hasSupabaseEnv) {
     return null;
   }
@@ -45,7 +46,7 @@ export const getAuthUser = async (): Promise<AuthUserContext | null> => {
     companyName: typeof metadata.company_name === "string" ? metadata.company_name : "Independent",
     role: toRole(metadata.role),
   };
-};
+});
 
 export const requireAuthUser = async () => {
   const user = await getAuthUser();
