@@ -58,6 +58,15 @@ export async function POST(request: Request) {
   const { data: project } = await supabase.from("projects").select("id").eq("id", projectId).eq("user_id", user.id).maybeSingle();
   if (!project) return Response.json({ error: "Invalid project context." }, { status: 403 });
 
+  const { count: analysisCount, error: analysisCountError } = await supabase
+    .from("onboarding_analyses")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id);
+  if (analysisCountError) return Response.json({ error: "Unable to verify AI usage right now." }, { status: 500 });
+  if ((analysisCount ?? 0) >= 3) {
+    return Response.json({ error: "Upgrade required", redirect: "/pricing" }, { status: 402 });
+  }
+
   try {
     const response = await fetch("https://api.openai.com/v1/chat/completions", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` }, body: JSON.stringify({ model: "gpt-4.1-mini", temperature: 0.2, response_format: { type: "json_schema", json_schema: ANALYSIS_JSON_SCHEMA }, messages: [{ role: "system", content: "You are PMFreak AI. Return only valid JSON that matches the provided schema. Keep bullets practical and concise." }, { role: "user", content: `Analyze this project scope and produce a complete structured assessment.\n\nProject Name: ${projectName}\n\nExtracted Scope Text:\n${extractedScopeText.slice(0, 16000)}` }] }) });
     const body = (await response.json()) as { choices?: Array<{ message?: { content?: string } }>; error?: { message?: string } };
@@ -77,7 +86,7 @@ export async function POST(request: Request) {
 
     const enrichedResponse: AIAnalysisResponse = { ...analysis, similar_projects: intelligence.similarProjects, historical_risks: intelligence.historicalRisks, estimated_relative_complexity: intelligence.estimatedRelativeComplexity };
     await supabase.from("onboarding_analyses").insert({ company_id: user.companyId, user_id: user.id, workspace: "project", role: user.role, project_type: "project_analysis", problem: projectName, analysis: JSON.stringify(enrichedResponse), source: "onboarding", project_id: projectId });
-    return Response.json(enrichedResponse);
+    return Response.json(enrichedResponse, { headers: { "X-Usage-Remaining": String(Math.max(0, 3 - ((analysisCount ?? 0) + 1))) } });
   } catch {
     return Response.json({ error: "Unable to run AI analysis right now. Please retry shortly." }, { status: 502 });
   }
