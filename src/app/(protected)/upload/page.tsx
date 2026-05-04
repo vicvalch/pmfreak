@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { DragEvent, useEffect, useMemo, useState } from "react";
 import { utils, writeFileXLSX } from "xlsx";
 import { jsPDF } from "jspdf";
@@ -18,6 +19,10 @@ type UploadResponse = {
   files: UploadResponseFile[];
 };
 
+type ProjectContextResponse = {
+  id: string;
+  name: string;
+};
 
 
 type BillingStateResponse = {
@@ -477,7 +482,11 @@ function AnalysisCard({ title, items, accent, description }: AnalysisCardProps) 
 }
 
 export default function UploadPage() {
+  const searchParams = useSearchParams();
+  const selectedProjectId = searchParams.get("projectId")?.trim() ?? "";
+
   const [projectName, setProjectName] = useState("");
+  const [projectContextError, setProjectContextError] = useState<string | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -495,11 +504,40 @@ export default function UploadPage() {
   const projectNameIsValid = projectName.trim().length > 0;
 
   const canUpload = useMemo(
-    () => projectNameIsValid && selectedFiles.length > 0 && !isUploading,
-    [projectNameIsValid, selectedFiles.length, isUploading],
+    () => Boolean(selectedProjectId) && projectNameIsValid && selectedFiles.length > 0 && !isUploading,
+    [selectedProjectId, projectNameIsValid, selectedFiles.length, isUploading],
   );
 
 
+
+  useEffect(() => {
+    if (!selectedProjectId) {
+      setProjectName("");
+      setProjectContextError("Project context is required. Open Upload from a project.");
+      return;
+    }
+
+    const loadProjectContext = async () => {
+      try {
+        const response = await fetch(`/api/projects/${selectedProjectId}`);
+        const payload = (await response.json()) as ProjectContextResponse | { error: string };
+
+        if (!response.ok || "error" in payload) {
+          setProjectName("");
+          setProjectContextError("Unable to load project context. Re-open this page from Projects.");
+          return;
+        }
+
+        setProjectName(payload.name);
+        setProjectContextError(null);
+      } catch {
+        setProjectName("");
+        setProjectContextError("Unable to load project context. Re-open this page from Projects.");
+      }
+    };
+
+    void loadProjectContext();
+  }, [selectedProjectId]);
 
   useEffect(() => {
     const loadBillingState = async () => {
@@ -595,7 +633,13 @@ export default function UploadPage() {
       return;
     }
 
+    if (!selectedProjectId) {
+      setUploadError("Project context is required. Open Upload from a project.");
+      return;
+    }
+
     const formData = new FormData();
+    formData.append("projectId", selectedProjectId);
     formData.append("projectName", projectName.trim());
 
     selectedFiles.forEach((file) => {
