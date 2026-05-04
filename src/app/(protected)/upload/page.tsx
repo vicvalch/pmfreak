@@ -65,6 +65,7 @@ type AIAnalysisResult = {
   historical_risks: string[];
   estimated_relative_complexity: string;
 };
+type AIAnalysisErrorResponse = { error: string; redirect?: string };
 
 type DisplayAnalysisResult = {
   executiveSummary: string;
@@ -486,6 +487,7 @@ export default function UploadPage() {
   const [uploadResult, setUploadResult] = useState<UploadResponse | null>(null);
   const [aiAnalysisResult, setAiAnalysisResult] = useState<AIAnalysisResult | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [aiLimitRedirect, setAiLimitRedirect] = useState<string | null>(null);
   const [billingState, setBillingState] = useState<BillingStateResponse | null>(null);
   const [billingError, setBillingError] = useState<string | null>(null);
 
@@ -566,6 +568,7 @@ export default function UploadPage() {
     setUploadResult(null);
     setAiAnalysisResult(null);
     setAiError(null);
+    setAiLimitRedirect(null);
     setSelectedFiles(validFiles);
   };
 
@@ -618,6 +621,7 @@ export default function UploadPage() {
       setUploadResult(payload);
       setAiAnalysisResult(null);
       setAiError(null);
+      setAiLimitRedirect(null);
     } catch {
       setUploadError("Unable to upload right now. Please try again.");
       setUploadResult(null);
@@ -627,12 +631,13 @@ export default function UploadPage() {
   };
 
   const handleRunAiAnalysis = async () => {
-    if (!uploadResult || isAiAnalyzing || !billingState?.limits.canRunAiAnalysis) {
+    if (!uploadResult || isAiAnalyzing) {
       return;
     }
 
     setIsAiAnalyzing(true);
     setAiError(null);
+    setAiLimitRedirect(null);
 
     try {
       const extractedScopeText = uploadResult.files
@@ -651,10 +656,16 @@ export default function UploadPage() {
         }),
       });
 
-      const payload = (await response.json()) as AIAnalysisResult | { error: string };
+      const payload = (await response.json()) as AIAnalysisResult | AIAnalysisErrorResponse;
 
       if (!response.ok || "error" in payload) {
         setAiAnalysisResult(null);
+        if (response.status === 402) {
+          const redirect = "error" in payload ? payload.redirect : undefined;
+          setAiError("You’ve reached your free limit of 3 AI analyses. Upgrade to continue.");
+          setAiLimitRedirect(redirect ?? "/pricing");
+          return;
+        }
         setAiError(
           "error" in payload
             ? payload.error
@@ -907,22 +918,27 @@ export default function UploadPage() {
               <button
                 type="button"
                 onClick={handleRunAiAnalysis}
-                disabled={isAiAnalyzing || !billingState?.limits.canRunAiAnalysis}
+                disabled={isAiAnalyzing || !uploadResult}
                 className="inline-flex h-10 items-center justify-center rounded-full bg-violet-300 px-5 text-sm font-semibold text-slate-900 transition hover:bg-violet-200 disabled:cursor-not-allowed disabled:bg-slate-500"
               >
-                {!billingState?.limits.canRunAiAnalysis ? "Upgrade to Pro for AI" : isAiAnalyzing ? "Running AI Analysis..." : "Run AI Analysis"}
+                {isAiAnalyzing ? "Running AI Analysis..." : "Run AI Analysis"}
               </button>
             </div>
             <p className="text-sm text-violet-100/90">
               Generate structured analysis with executive summary, risks, dependencies, and next steps.
             </p>
-            {!billingState?.limits.canRunAiAnalysis ? (
-              <p className="text-xs text-amber-100">AI analysis requires a Pro or Enterprise plan.</p>
-            ) : null}
             {aiError ? (
               <p className="rounded-xl border border-amber-300/40 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">
                 {aiError}
               </p>
+            ) : null}
+            {aiLimitRedirect ? (
+              <Link
+                href={aiLimitRedirect}
+                className="inline-flex h-9 items-center justify-center rounded-full border border-amber-200/70 bg-amber-300/20 px-4 text-xs font-semibold uppercase tracking-[0.12em] text-amber-100 transition hover:bg-amber-300/30"
+              >
+                Upgrade on Pricing
+              </Link>
             ) : null}
           </section>
         ) : null}
