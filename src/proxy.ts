@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/proxy";
 
-const protectedRoutes = ["/dashboard", "/onboarding", "/projects", "/upload", "/portfolio"];
+const protectedRoutes = ["/dashboard", "/onboarding", "/upload", "/portfolio"];
 const authRoutes = ["/login", "/signup"];
 
 export async function proxy(request: NextRequest) {
@@ -27,5 +27,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/onboarding/:path*", "/projects/:path*", "/upload/:path*", "/portfolio/:path*", "/login", "/signup"],
+  matcher: ["/dashboard/:path*", "/onboarding/:path*", "/upload/:path*", "/portfolio/:path*", "/login", "/signup"],
 };
