@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAuthUser } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -33,8 +34,16 @@ export default async function ProjectDetailPage({ params }: Props) {
         <p className="mt-2 text-xs uppercase tracking-wide text-slate-400">Status: {project.status}</p>
       </div>
 
-      <section className="rounded-2xl border border-white/10 bg-black/20 p-5">
-        <h2 className="text-lg font-semibold">Run PMFreak AI</h2>
+      <section className="rounded-2xl border border-white/10 bg-black/20 p-5 space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold">Run PMFreak AI</h2>
+          <Link
+            href={`/upload?projectId=${project.id}`}
+            className="rounded-xl border border-cyan-300/50 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-cyan-500/10"
+          >
+            Upload documents for this project
+          </Link>
+        </div>
         <form action="/api/analyze-ai" method="post" className="mt-3 space-y-3">
           <input type="hidden" name="projectId" value={project.id} />
           <input name="projectName" defaultValue={project.name} required className="w-full rounded-xl border border-white/15 bg-black/30 px-3 py-2 text-sm" />

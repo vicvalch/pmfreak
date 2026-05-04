@@ -1,4 +1,5 @@
 import { getAuthUser } from "@/lib/auth";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCompanySubscription } from "@/lib/billing";
 import { canUploadDocuments, getCompanyUsage, getUploadLimitForPlan, incrementUploadUsage } from "@/lib/usage-limits";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -56,11 +57,25 @@ export async function POST(request: Request) {
   const subscription = await getCompanySubscription(user.companyId);
   const usage = await getCompanyUsage(user.companyId);
 
+  const projectId = (formData.get("projectId") ?? "").toString().trim();
   const projectName = (formData.get("projectName") ?? "").toString().trim();
   const incomingFiles = formData.getAll("documents");
 
-  if (!projectName) {
-    return Response.json({ error: "Project name is required." }, { status: 400 });
+  if (!projectId) {
+    return Response.json({ error: "projectId is required." }, { status: 400 });
+  }
+
+
+  const supabase = await createSupabaseServerClient();
+  const { data: project } = await supabase
+    .from("projects")
+    .select("id, name")
+    .eq("id", projectId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!project) {
+    return Response.json({ error: "Invalid project context." }, { status: 403 });
   }
 
   if (incomingFiles.length === 0) {
@@ -86,7 +101,8 @@ export async function POST(request: Request) {
     );
   }
 
-  const projectSlug = sanitizeFileName(projectName.toLowerCase().replace(/\s+/g, "-"));
+  const resolvedProjectName = project.name.trim();
+  const projectSlug = sanitizeFileName(resolvedProjectName.toLowerCase().replace(/\s+/g, "-"));
   const uploadDir = path.join(process.cwd(), "uploads", projectSlug);
   await mkdir(uploadDir, { recursive: true });
 
@@ -122,7 +138,8 @@ export async function POST(request: Request) {
   await incrementUploadUsage(user.companyId, files.length);
 
   return Response.json({
-    projectName,
+    projectId: project.id,
+    projectName: resolvedProjectName,
     files: processedFiles,
   });
 }
