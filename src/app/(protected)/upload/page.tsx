@@ -955,14 +955,6 @@ export default function UploadPage() {
                 ) : null}
               </div>
             ) : null}
-            {aiLimitRedirect ? (
-              <Link
-                href={aiLimitRedirect}
-                className="inline-flex h-9 items-center justify-center rounded-full border border-amber-200/70 bg-amber-300/20 px-4 text-xs font-semibold uppercase tracking-[0.12em] text-amber-100 transition hover:bg-amber-300/30"
-              >
-                Upgrade on Pricing
-              </Link>
-            ) : null}
           </section>
         ) : null}
 
