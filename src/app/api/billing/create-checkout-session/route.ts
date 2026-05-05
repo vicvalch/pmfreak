@@ -3,7 +3,7 @@ import { getCompanySubscription, updateCompanySubscription } from "@/lib/billing
 import { getStripeServerClient } from "@/lib/stripe";
 
 type CheckoutPayload = {
-  plan?: "pro" | "enterprise";
+  plan?: "pro" | "pmo";
 };
 
 export async function POST(request: Request) {
@@ -23,17 +23,16 @@ export async function POST(request: Request) {
 
   const plan = payload.plan ?? "pro";
 
-  if (plan === "enterprise") {
-    return Response.json(
-      { error: "Enterprise billing is handled via sales. Please contact support." },
-      { status: 400 },
-    );
+  const stripeEnabled = Boolean(process.env.STRIPE_SECRET_KEY && process.env.STRIPE_WEBHOOK_SECRET);
+
+  if (!stripeEnabled) {
+    return Response.json({ error: "Billing is not configured yet. Please contact support to upgrade." }, { status: 503 });
   }
 
-  const priceId = process.env.STRIPE_PRO_PRICE_ID;
+  const priceId = plan === "pmo" ? process.env.STRIPE_PMO_PRICE_ID : process.env.STRIPE_PRO_PRICE_ID;
 
   if (!priceId) {
-    return Response.json({ error: "Missing STRIPE_PRO_PRICE_ID on the server." }, { status: 500 });
+    return Response.json({ error: `Missing price ID for ${plan} plan on the server.` }, { status: 500 });
   }
 
   try {
