@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { FormEvent, useMemo, useState } from "react";
 
 type BrainResponse = {
@@ -13,6 +13,7 @@ const roles = ["Founder", "Project Manager", "Operations Lead", "Executive", "Ot
 const projectTypes = ["Software projects", "Client implementations", "Internal operations", "PMO portfolio", "Other"];
 
 export default function OnboardingPage() {
+  const router = useRouter();
   const [workspace, setWorkspace] = useState("");
   const [role, setRole] = useState(roles[0]);
   const [projectType, setProjectType] = useState(projectTypes[0]);
@@ -85,6 +86,7 @@ export default function OnboardingPage() {
         }
 
         setIsInitialized(true);
+        router.push("/projects");
       } catch {
         setPersistenceWarning("Analysis completed, but we could not save it yet.");
       }
@@ -178,12 +180,7 @@ export default function OnboardingPage() {
       {isInitialized ? (
         <section className="rounded-3xl border-2 border-black bg-[#fff3fb] p-6 shadow-[6px_6px_0_#111]">
           <p className="text-xs font-black uppercase tracking-[0.14em] text-pink-700">Initialization</p>
-          <p className="mt-2 text-base font-black text-black">PMFreak is initialized.</p>
-          <div className="mt-4">
-            <Link href="/dashboard" className="inline-flex rounded-full border-2 border-black bg-pink-600 px-5 py-2 text-xs font-black uppercase tracking-[0.08em] text-white shadow-[4px_4px_0_#111] transition hover:-translate-y-0.5">
-              Go to Dashboard
-            </Link>
-          </div>
+          <p className="mt-2 text-base font-black text-black">PMFreak is initialized. Redirecting to Projects…</p>
         </section>
       ) : null}
 

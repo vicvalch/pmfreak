@@ -12,6 +12,7 @@ export type AuthUserContext = {
   companyId: string;
   companyName: string;
   role: UserRole;
+  onboardingCompleted: boolean;
 };
 
 const toRole = (role: unknown): UserRole => {
@@ -45,6 +46,7 @@ export const getAuthUser = cache(async (): Promise<AuthUserContext | null> => {
     companyId: typeof metadata.company_id === "string" ? metadata.company_id : user.id,
     companyName: typeof metadata.company_name === "string" ? metadata.company_name : "Independent",
     role: toRole(metadata.role),
+    onboardingCompleted: metadata.onboarding_completed === true,
   };
 });
 

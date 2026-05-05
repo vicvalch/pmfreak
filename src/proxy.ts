@@ -7,6 +7,7 @@ const authRoutes = ["/login", "/signup"];
 export async function proxy(request: NextRequest) {
   const { response, user } = await updateSession(request);
   const pathname = request.nextUrl.pathname;
+  const onboardingCompleted = user?.user_metadata?.onboarding_completed === true;
 
   const isProtected = protectedRoutes.some((route) => pathname.startsWith(route));
 
@@ -17,10 +18,22 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  if (isProtected && user) {
+    const isOnboardingRoute = pathname.startsWith("/onboarding");
+
+    if (!onboardingCompleted && !isOnboardingRoute) {
+      return NextResponse.redirect(new URL("/onboarding", request.url));
+    }
+
+    if (onboardingCompleted && isOnboardingRoute) {
+      return NextResponse.redirect(new URL("/projects", request.url));
+    }
+  }
+
   const isAuthRoute = authRoutes.some((route) => pathname.startsWith(route));
 
   if (isAuthRoute && user) {
-    return NextResponse.redirect(new URL("/onboarding", request.url));
+    return NextResponse.redirect(new URL(onboardingCompleted ? "/projects" : "/onboarding", request.url));
   }
 
   return response;

@@ -64,5 +64,13 @@ export async function POST(request: Request) {
     return Response.json({ error: "Unable to save onboarding analysis." }, { status: 500 });
   }
 
+  const { error: authError } = await supabase.auth.updateUser({
+    data: { onboarding_completed: true },
+  });
+
+  if (authError) {
+    return Response.json({ error: "Onboarding was saved, but completion state could not be updated." }, { status: 500 });
+  }
+
   return Response.json({ ok: true });
 }
