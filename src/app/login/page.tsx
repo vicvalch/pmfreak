@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
-import { createBrowserClient } from "@supabase/ssr";
+import { createBrowserClient } from "@supabase/auth-helpers-nextjs";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { getSupabaseEnv, hasSupabaseEnv } from "@/lib/supabase/env";
 
