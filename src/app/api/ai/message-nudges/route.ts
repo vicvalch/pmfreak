@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { getAuthUser } from "@/lib/auth";
+import { canUseAdvancedAi } from "@/lib/feature-gates";
 import { runAIModule } from "@/lib/ai/gateway";
 
 export async function GET() {
@@ -9,6 +11,19 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const user = await getAuthUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const advancedAiAccess = await canUseAdvancedAi(user.id);
+  if (!advancedAiAccess.ok) {
+    return NextResponse.json(
+      { error: advancedAiAccess.error, feature: advancedAiAccess.feature, requiredPlan: advancedAiAccess.requiredPlan },
+      { status: 402 },
+    );
+  }
+
   let payload: { rawMessage?: string; audience?: string; projectId?: string };
 
   try {

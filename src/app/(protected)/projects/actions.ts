@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { requireAuthUser } from "@/lib/auth";
+import { canCreateMoreProjects } from "@/lib/feature-gates";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function createProjectAction(formData: FormData) {
@@ -14,6 +15,11 @@ export async function createProjectAction(formData: FormData) {
 
   if (!name) {
     redirect("/projects?error=Project+name+is+required");
+  }
+
+  const projectAccess = await canCreateMoreProjects(user.id);
+  if (!projectAccess.ok) {
+    redirect(`/projects?error=${encodeURIComponent("upgrade_required")}&feature=${encodeURIComponent(projectAccess.feature)}&requiredPlan=${projectAccess.requiredPlan}`);
   }
 
   const { data, error } = await supabase

@@ -7,6 +7,7 @@ import {
   writeProjectMemory,
 } from "@/lib/project-memory";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { canCreateMoreProjects, canUseAdvancedAi } from "@/lib/feature-gates";
 import { canRunAiAnalysis, canUsePortfolioMemory } from "@/lib/usage-limits";
 
 const ANALYSIS_JSON_SCHEMA = { name: "pmfreak_ai_analysis", strict: true, schema: { type: "object", additionalProperties: false, properties: { executive_summary: { type: "string" }, functional_requirements: { type: "array", items: { type: "string" } }, non_functional_requirements: { type: "array", items: { type: "string" } }, risks: { type: "array", items: { type: "string" } }, dependencies: { type: "array", items: { type: "string" } }, ambiguities: { type: "array", items: { type: "string" } }, missing_information: { type: "array", items: { type: "string" } }, client_questions: { type: "array", items: { type: "string" } }, suggested_next_steps: { type: "array", items: { type: "string" } }, complexity: { type: "string", enum: ["Low", "Medium", "High"] } }, required: ["executive_summary", "functional_requirements", "non_functional_requirements", "risks", "dependencies", "ambiguities", "missing_information", "client_questions", "suggested_next_steps", "complexity"] } };
@@ -25,12 +26,21 @@ const coerceAnalysisResult = (value: unknown): AIAnalysisResult | null => {
 };
 
 export async function POST(request: Request) {
-  const FREE_ANALYSIS_LIMIT = 3;
   const user = await getAuthUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
+  const advancedAiAccess = await canUseAdvancedAi(user.id);
+  if (!advancedAiAccess.ok) {
+    return Response.json(
+      { error: advancedAiAccess.error, feature: advancedAiAccess.feature, requiredPlan: advancedAiAccess.requiredPlan },
+      { status: 402 },
+    );
+  }
+
   const subscription = await getCompanySubscription(user.companyId);
-  if (!canRunAiAnalysis(subscription.plan)) return Response.json({ error: "AI analysis is available on Pro and PMO plans." }, { status: 403 });
+  if (!canRunAiAnalysis(subscription.plan)) {
+    return Response.json({ error: "upgrade_required", feature: "advanced_ai", requiredPlan: "pro" }, { status: 402 });
+  }
 
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return Response.json({ error: "Missing OPENAI_API_KEY on the server." }, { status: 500 });
@@ -59,6 +69,14 @@ export async function POST(request: Request) {
   const { data: project } = await supabase.from("projects").select("id").eq("id", projectId).eq("user_id", user.id).maybeSingle();
   if (!project) return Response.json({ error: "Invalid project context." }, { status: 403 });
 
+  const projectAccess = await canCreateMoreProjects(user.id);
+  if (!projectAccess.ok) {
+    return Response.json(
+      { error: projectAccess.error, feature: projectAccess.feature, requiredPlan: projectAccess.requiredPlan },
+      { status: 402 },
+    );
+  }
+
   const { count: analysisCount, error: analysisCountError } = await supabase
     .from("onboarding_analyses")
     .select("*", { count: "exact", head: true })
@@ -66,9 +84,6 @@ export async function POST(request: Request) {
   if (analysisCountError) return Response.json({ error: "Unable to verify usage right now. Please retry shortly." }, { status: 500 });
 
   const currentUsageCount = analysisCount ?? 0;
-  if (currentUsageCount >= FREE_ANALYSIS_LIMIT) {
-    return Response.json({ error: "Upgrade required", redirect: "/pricing" }, { status: 402 });
-  }
 
   try {
     const response = await fetch("https://api.openai.com/v1/chat/completions", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` }, body: JSON.stringify({ model: "gpt-4.1-mini", temperature: 0.2, response_format: { type: "json_schema", json_schema: ANALYSIS_JSON_SCHEMA }, messages: [{ role: "system", content: "You are PMFreak AI. Return only valid JSON that matches the provided schema. Keep bullets practical and concise." }, { role: "user", content: `Analyze this project scope and produce a complete structured assessment.\n\nProject Name: ${projectName}\n\nExtracted Scope Text:\n${extractedScopeText.slice(0, 16000)}` }] }) });
@@ -89,7 +104,7 @@ export async function POST(request: Request) {
 
     const enrichedResponse: AIAnalysisResponse = { ...analysis, similar_projects: intelligence.similarProjects, historical_risks: intelligence.historicalRisks, estimated_relative_complexity: intelligence.estimatedRelativeComplexity };
     await supabase.from("onboarding_analyses").insert({ company_id: user.companyId, user_id: user.id, workspace: "project", role: user.role, project_type: "project_analysis", problem: projectName, analysis: JSON.stringify(enrichedResponse), source: "onboarding", project_id: projectId });
-    return Response.json(enrichedResponse, { headers: { "X-Usage-Remaining": String(FREE_ANALYSIS_LIMIT - (currentUsageCount + 1)) } });
+    return Response.json(enrichedResponse, { headers: { "X-Usage-Remaining": String(Math.max(0, projectAccess.projectLimit - (currentUsageCount + 1))) } });
   } catch {
     return Response.json({ error: "Unable to run AI analysis right now. Please retry shortly." }, { status: 502 });
   }
