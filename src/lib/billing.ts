@@ -1,7 +1,7 @@
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-export type SubscriptionPlan = "free" | "pro" | "enterprise";
+export type SubscriptionPlan = "free" | "pro" | "pmo";
 
 export type SubscriptionStatus =
   | "inactive"
@@ -31,7 +31,7 @@ const DEFAULT_STATE: CompanySubscriptionState = {
 };
 
 const toPlan = (plan: unknown): SubscriptionPlan => {
-  if (plan === "free" || plan === "pro" || plan === "enterprise") {
+  if (plan === "free" || plan === "pro" || plan === "pmo") {
     return plan;
   }
 

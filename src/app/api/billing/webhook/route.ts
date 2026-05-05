@@ -23,6 +23,13 @@ const planForSubscription = (subscription: Stripe.Subscription): SubscriptionPla
     return "pro";
   }
 
+  const pmoPriceId = process.env.STRIPE_PMO_PRICE_ID;
+  const hasPmoPrice = subscription.items.data.some((item) => item.price.id === pmoPriceId);
+
+  if (hasPmoPrice) {
+    return "pmo";
+  }
+
   return "free";
 };
 

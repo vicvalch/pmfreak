@@ -30,7 +30,7 @@ export async function POST(request: Request) {
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const subscription = await getCompanySubscription(user.companyId);
-  if (!canRunAiAnalysis(subscription.plan)) return Response.json({ error: "AI analysis is available on Pro and Enterprise plans." }, { status: 403 });
+  if (!canRunAiAnalysis(subscription.plan)) return Response.json({ error: "AI analysis is available on Pro and PMO plans." }, { status: 403 });
 
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return Response.json({ error: "Missing OPENAI_API_KEY on the server." }, { status: 500 });
@@ -84,7 +84,7 @@ export async function POST(request: Request) {
     const portfolioEnabled = canUsePortfolioMemory(subscription.plan);
     const previousProjects = portfolioEnabled ? await readProjectMemory(user.companyId) : [];
     const recordBase: Omit<StoredProjectAnalysis, "similarProjects" | "historicalRisks" | "estimatedRelativeComplexity"> = { id: crypto.randomUUID(), projectName, uploadDate: new Date().toISOString(), executiveSummary: analysis.executive_summary, requirements: [...analysis.functional_requirements, ...analysis.non_functional_requirements], risks: analysis.risks, dependencies: analysis.dependencies, ambiguities: analysis.ambiguities, complexity: analysis.complexity, sourceFileNames };
-    const intelligence = portfolioEnabled ? enrichWithPortfolioIntelligence(recordBase, previousProjects) : { similarProjects: [] as string[], historicalRisks: [] as string[], estimatedRelativeComplexity: "Portfolio memory is available on Enterprise plan." };
+    const intelligence = portfolioEnabled ? enrichWithPortfolioIntelligence(recordBase, previousProjects) : { similarProjects: [] as string[], historicalRisks: [] as string[], estimatedRelativeComplexity: "Portfolio memory is available on PMO plan." };
     if (portfolioEnabled) await writeProjectMemory(user.companyId, [{ ...recordBase, ...intelligence }, ...previousProjects]);
 
     const enrichedResponse: AIAnalysisResponse = { ...analysis, similar_projects: intelligence.similarProjects, historical_risks: intelligence.historicalRisks, estimated_relative_complexity: intelligence.estimatedRelativeComplexity };
