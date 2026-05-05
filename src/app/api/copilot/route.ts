@@ -1,5 +1,6 @@
 import { getAuthUser, type UserRole } from "@/lib/auth";
 import { getCompanySubscription, type SubscriptionPlan } from "@/lib/billing";
+import { canUseAdvancedAi } from "@/lib/feature-gates";
 import { canRunAiAnalysis, canUsePortfolioMemory } from "@/lib/plan-access";
 import { readProjectMemory, type StoredProjectAnalysis } from "@/lib/project-memory";
 
@@ -113,6 +114,14 @@ const createFallbackResponse = (message: string, methodology: CopilotResponse["m
 export async function POST(request: Request) {
   const user = await getAuthUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  const advancedAiAccess = await canUseAdvancedAi(user.id);
+  if (!advancedAiAccess.ok) {
+    return Response.json(
+      { error: advancedAiAccess.error, feature: advancedAiAccess.feature, requiredPlan: advancedAiAccess.requiredPlan },
+      { status: 402 },
+    );
+  }
 
   let payload: CopilotRequest;
   try {
