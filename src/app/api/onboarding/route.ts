@@ -1,5 +1,6 @@
 import { getAuthUser } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { ensurePersonalWorkspaceForUser } from "@/lib/workspaces";
 
 type OnboardingPayload = {
   workspace: string;
@@ -25,7 +26,7 @@ export async function POST(request: Request) {
   try {
     payload = (await request.json()) as Partial<OnboardingPayload>;
   } catch {
-    return Response.json({ error: "Invalid request body." }, { status: 400 });
+    return Response.json({ error: "Invalid JSON payload." }, { status: 400 });
   }
 
   const workspace = normalize(payload.workspace);
@@ -33,14 +34,13 @@ export async function POST(request: Request) {
   const projectType = normalize(payload.projectType);
   const problem = normalize(payload.problem);
   const analysis = normalize(payload.analysis);
-  const source = payload.source;
-
-  if (!workspace || !role || !projectType || !problem || !analysis || source !== "onboarding") {
-    return Response.json({ error: "Missing required onboarding fields." }, { status: 400 });
-  }
-
+  const source = payload.source === "onboarding" ? payload.source : "onboarding";
   const createdAt = normalize(payload.createdAt);
   const parsedCreatedAt = createdAt ? new Date(createdAt) : new Date();
+
+  if (!workspace || !role || !projectType || !problem || !analysis) {
+    return Response.json({ error: "Missing required onboarding fields." }, { status: 400 });
+  }
 
   if (Number.isNaN(parsedCreatedAt.getTime())) {
     return Response.json({ error: "Invalid createdAt timestamp." }, { status: 400 });
@@ -64,6 +64,8 @@ export async function POST(request: Request) {
     return Response.json({ error: "Unable to save onboarding analysis." }, { status: 500 });
   }
 
+  await ensurePersonalWorkspaceForUser(user.id);
+
   const { error: authError } = await supabase.auth.updateUser({
     data: { onboarding_completed: true },
   });
@@ -72,5 +74,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "Onboarding was saved, but completion state could not be updated." }, { status: 500 });
   }
 
-  return Response.json({ ok: true });
+  const { data: sessionData } = await supabase.auth.getSession();
+
+  return Response.json({ ok: true, session: sessionData });
 }
