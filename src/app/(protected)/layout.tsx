@@ -8,10 +8,12 @@ export default async function ProtectedLayout({
   children: React.ReactNode;
 }) {
   const user = await requireAuthUser();
+  const showNavigation = user.onboardingCompleted;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white">
       <div className="mx-auto flex w-full max-w-7xl gap-6 px-5 py-6 md:px-8 md:py-8">
+        {showNavigation ? (
         <aside className="sticky top-6 hidden h-[calc(100vh-3rem)] w-80 flex-col rounded-3xl border border-white/10 bg-white/5 p-5 shadow-2xl backdrop-blur-xl lg:flex">
           <div>
             <p className="text-xs uppercase tracking-[0.28em] text-cyan-300">Privana PMFreak</p>
@@ -43,9 +45,11 @@ export default async function ProtectedLayout({
             </Link>
           </div>
         </aside>
+        ) : null}
 
         
         <div className="flex-1 space-y-4">
+          {showNavigation ? (
           <nav className="flex gap-2 overflow-x-auto rounded-2xl border border-white/10 bg-white/5 p-2 lg:hidden">
             {PM_MODULES.map((item) => (
               <Link
@@ -57,6 +61,7 @@ export default async function ProtectedLayout({
               </Link>
             ))}
           </nav>
+          ) : null}
           <main className="min-w-0">{children}</main>
         </div>
 
