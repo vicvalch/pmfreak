@@ -3,7 +3,7 @@ import { cache } from "react";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-export type UserRole = "admin" | "pm" | "viewer";
+export type UserRole = "owner" | "admin" | "pm" | "viewer";
 
 export type AuthUserContext = {
   id: string;
@@ -16,7 +16,7 @@ export type AuthUserContext = {
 };
 
 const toRole = (role: unknown): UserRole => {
-  if (role === "admin" || role === "pm" || role === "viewer") {
+  if (role === "owner" || role === "admin" || role === "pm" || role === "viewer") {
     return role;
   }
 
