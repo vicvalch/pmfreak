@@ -6,6 +6,7 @@ type ProjectOption = { id: string; projectName: string; uploadDate: string };
 type CopilotCard = { type: "Risks" | "Next Actions" | "Draft Email" | "RACI" | "Checklist"; title: string; items: string[] };
 type CopilotResponse = { answer: string; cards: CopilotCard[]; plan: "free" | "pro" | "enterprise"; aiPowered: boolean };
 type ChatMessage = { role: "user" | "assistant"; text: string; response?: CopilotResponse };
+type AmbientMemory = { blockers: string[]; recentDecisions: string[]; stakeholderPressure: string[]; criticalRisks: string[]; concerns: string[] };
 
 const QUICK_NUDGES = [
   "What changed in stakeholder sentiment this week?",
@@ -23,6 +24,7 @@ export default function CopilotPage() {
   const [error, setError] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<string[]>([]);
+  const [ambientMemory, setAmbientMemory] = useState<AmbientMemory>({ blockers: [], recentDecisions: [], stakeholderPressure: [], criticalRisks: [], concerns: [] });
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -33,6 +35,14 @@ export default function CopilotPage() {
   }, []);
 
   const selectedProject = useMemo(() => projects.find((p) => p.id === selectedProjectId), [projects, selectedProjectId]);
+
+  useEffect(() => {
+    const query = selectedProjectId ? `?projectId=${encodeURIComponent(selectedProjectId)}` : "";
+    void fetch(`/api/copilot/memory${query}`)
+      .then((r) => r.json())
+      .then((d: AmbientMemory) => setAmbientMemory(d))
+      .catch(() => setAmbientMemory({ blockers: [], recentDecisions: [], stakeholderPressure: [], criticalRisks: [], concerns: [] }));
+  }, [selectedProjectId]);
 
   const send = async (preset?: string) => {
     const message = (preset ?? input).trim();
@@ -137,8 +147,11 @@ export default function CopilotPage() {
 
         <aside className="space-y-3 rounded-3xl border border-white/10 bg-white/5 p-4">
           <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-200">Ambient context</h2>
-          <article className="rounded-2xl border border-white/10 bg-black/20 p-3 text-xs text-slate-200"><p className="text-cyan-200">Detected blockers</p><p className="mt-1 text-slate-300">Delivery timeline pressure rising for active client workstream.</p></article>
-          <article className="rounded-2xl border border-white/10 bg-black/20 p-3 text-xs text-slate-200"><p className="text-cyan-200">Stakeholder signals</p><p className="mt-1 text-slate-300">Legal + finance dependencies are unresolved across current milestones.</p></article>
+          <article className="rounded-2xl border border-white/10 bg-black/20 p-3 text-xs text-slate-200"><p className="text-cyan-200">Active blockers</p><ul className="mt-1 list-disc pl-4 text-slate-300">{(ambientMemory.blockers.length ? ambientMemory.blockers : ["No blockers detected yet."]).map((item) => <li key={item}>{item}</li>)}</ul></article>
+          <article className="rounded-2xl border border-white/10 bg-black/20 p-3 text-xs text-slate-200"><p className="text-cyan-200">Recent decisions</p><ul className="mt-1 list-disc pl-4 text-slate-300">{(ambientMemory.recentDecisions.length ? ambientMemory.recentDecisions : ["No decisions captured yet."]).map((item) => <li key={item}>{item}</li>)}</ul></article>
+          <article className="rounded-2xl border border-white/10 bg-black/20 p-3 text-xs text-slate-200"><p className="text-cyan-200">Stakeholder pressure</p><ul className="mt-1 list-disc pl-4 text-slate-300">{(ambientMemory.stakeholderPressure.length ? ambientMemory.stakeholderPressure : ["No pressure patterns detected yet."]).map((item) => <li key={item}>{item}</li>)}</ul></article>
+          <article className="rounded-2xl border border-white/10 bg-black/20 p-3 text-xs text-slate-200"><p className="text-cyan-200">Critical risks</p><ul className="mt-1 list-disc pl-4 text-slate-300">{(ambientMemory.criticalRisks.length ? ambientMemory.criticalRisks : ["No critical risks detected yet."]).map((item) => <li key={item}>{item}</li>)}</ul></article>
+          <article className="rounded-2xl border border-white/10 bg-black/20 p-3 text-xs text-slate-200"><p className="text-cyan-200">AI-detected concerns</p><ul className="mt-1 list-disc pl-4 text-slate-300">{(ambientMemory.concerns.length ? ambientMemory.concerns : ["No concerns detected."]).map((item) => <li key={item}>{item}</li>)}</ul></article>
           <article className="rounded-2xl border border-white/10 bg-black/20 p-3 text-xs text-slate-200"><p className="text-cyan-200">Recent uploads</p><ul className="mt-1 list-disc pl-4 text-slate-300">{uploadedFiles.length ? uploadedFiles.map((name) => <li key={name}>{name}</li>) : <li>No files yet. Drop docs into chat.</li>}</ul></article>
         </aside>
       </main>
