@@ -16,4 +16,5 @@ export const PM_MODULES: PMModule[] = [
   { href: "/operational-memory", label: "Op Memory", shortLabel: "Memory", description: "Structured domain memory with traceable facts.", status: "New" },
   { href: "/command-center", label: "Command Center", shortLabel: "Command", description: "Mission-control orchestration for live execution risk.", status: "New" },
   { href: "/team", label: "Team", shortLabel: "Team", description: "Seats, roles, and invitation pressure.", status: "New" },
+  { href: "/change-detection", label: "Change Detection", shortLabel: "Changes", description: "Temporal operational monitoring, deterioration tracking, and escalation transitions.", status: "New" },
 ];
