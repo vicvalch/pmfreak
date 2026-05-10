@@ -46,7 +46,7 @@ export default function PricingPage() {
         setError(payload.error ?? "Unable to start checkout.");
         return;
       }
-      window.location.href = payload.url;
+      window.location.assign(payload.url);
     } catch {
       setError("Unable to start checkout.");
     } finally {

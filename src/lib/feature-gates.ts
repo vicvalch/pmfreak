@@ -175,7 +175,7 @@ export async function canUseAdvancedAi(userId: string) {
   const companyId = await getCompanyIdByUserId(userId);
   if (!companyId) return upgradeRequired("advanced_ai", "pro");
   const gate = await requireFeatureAccess(companyId, "advanced_ai_actions");
-  return gate.ok ? { ok: true as const, plan: gate.plan } : upgradeRequired("advanced_ai", gate.requiredPlan);
+  return gate.ok ? { ok: true as const, plan: gate.plan } : upgradeRequired("advanced_ai", gate.requiredPlan === "free" ? "pro" : gate.requiredPlan);
 }
 
 export async function canCreatePmoWorkspace(userId: string) {

@@ -5,8 +5,8 @@ import { createBrowserClient } from "@supabase/ssr";
 import { getSupabaseEnv } from "@/lib/supabase/env";
 
 export default function DebugSessionPage() {
-  const [clientSession, setClientSession] = useState<any>(null);
-  const [serverAuth, setServerAuth] = useState<any>(null);
+  const [clientSession, setClientSession] = useState<Record<string, unknown> | null>(null);
+  const [serverAuth, setServerAuth] = useState<unknown>(null);
   const [cookies, setCookies] = useState("");
 
   useEffect(() => {

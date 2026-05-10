@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+
 import useSWR from "swr";
 import type { AIResponseEnvelope, MemoryEvent } from "@/lib/ai/types";
 
@@ -19,10 +19,7 @@ export function ProjectMemoryClient({ endpoint }: { endpoint: string }) {
     errorRetryCount: 3,
   });
 
-  const lastRefreshed = useMemo(() => {
-    if (!data?.generatedAt) return null;
-    return new Date(data.generatedAt).toLocaleString();
-  }, [data?.generatedAt]);
+  const lastRefreshed = data?.generatedAt ? new Date(data.generatedAt).toLocaleString() : null;
 
   if (isLoading) {
     return <section className="rounded-2xl border border-white/10 bg-black/20 p-5 text-sm text-slate-300">Loading project memory…</section>;

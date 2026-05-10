@@ -486,7 +486,6 @@ export default function UploadPage() {
   const selectedProjectId = searchParams.get("projectId")?.trim() ?? "";
 
   const [projectName, setProjectName] = useState("");
-  const [projectContextError, setProjectContextError] = useState<string | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -512,8 +511,6 @@ export default function UploadPage() {
 
   useEffect(() => {
     if (!selectedProjectId) {
-      setProjectName("");
-      setProjectContextError("Project context is required. Open Upload from a project.");
       return;
     }
 
@@ -524,15 +521,12 @@ export default function UploadPage() {
 
         if (!response.ok || "error" in payload) {
           setProjectName("");
-          setProjectContextError("Unable to load project context. Re-open this page from Projects.");
           return;
         }
 
         setProjectName(payload.name);
-        setProjectContextError(null);
       } catch {
         setProjectName("");
-        setProjectContextError("Unable to load project context. Re-open this page from Projects.");
       }
     };
 
