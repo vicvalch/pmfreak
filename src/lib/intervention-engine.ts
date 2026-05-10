@@ -281,3 +281,38 @@ export function buildInterventionSnapshot(projectId: string | null, snapshot: Pr
     escalations,
   };
 }
+
+export type ExecutiveInterventionRecommendation = {
+  id: string;
+  action: string;
+  severity: "low" | "medium" | "high" | "critical";
+  whyTriggered: string;
+  relatedDomains: Array<"stakeholder_intelligence" | "delivery_intelligence" | "risk_intelligence" | "pmo_governance" | "team_health" | "executive_context" | "operational_memory">;
+  confidenceLevel: number;
+  operationalImpact: "low" | "medium" | "high";
+};
+
+const clampExecutive = (value: number) => Math.max(0, Math.min(100, Math.round(value)));
+
+export function buildExecutiveInterventions(input: {
+  escalationLevel: "low" | "medium" | "high" | "critical";
+  stakeholderPressure: number;
+  deliveryRisk: number;
+  pmFatigue: number;
+  governanceGap: boolean;
+}): ExecutiveInterventionRecommendation[] {
+  const recommendations: ExecutiveInterventionRecommendation[] = [];
+  if (input.stakeholderPressure >= 60 && input.deliveryRisk >= 55) {
+    recommendations.push({ id: "align-sponsor-expectations", action: "Align sponsor expectations with current delivery constraints and tradeoffs.", severity: input.escalationLevel, whyTriggered: "Stakeholder pressure and delivery risk are elevated together.", relatedDomains: ["stakeholder_intelligence", "delivery_intelligence", "executive_context"], confidenceLevel: clampExecutive((input.stakeholderPressure + input.deliveryRisk) / 2), operationalImpact: "high" });
+  }
+  if (input.governanceGap) {
+    recommendations.push({ id: "escalate-governance-gap", action: "Escalate governance gap and request missing operational artifacts.", severity: "high", whyTriggered: "Governance completeness and traceability are below threshold.", relatedDomains: ["pmo_governance", "operational_memory"], confidenceLevel: 82, operationalImpact: "high" });
+  }
+  if (input.pmFatigue >= 55) {
+    recommendations.push({ id: "reduce-pm-overload", action: "Reduce PM coordination burden by consolidating recurring meetings and delegating ownership.", severity: input.escalationLevel === "critical" ? "high" : "medium", whyTriggered: "PM fatigue indicators are increasing with coordination load.", relatedDomains: ["team_health", "stakeholder_intelligence"], confidenceLevel: clampExecutive(input.pmFatigue), operationalImpact: "medium" });
+  }
+  if (!recommendations.length) {
+    recommendations.push({ id: "maintain-cadence", action: "Maintain current cadence and monitor thresholds for cross-domain degradation.", severity: "low", whyTriggered: "No deterministic threshold breach currently requires intervention.", relatedDomains: ["operational_memory"], confidenceLevel: 70, operationalImpact: "low" });
+  }
+  return recommendations;
+}
