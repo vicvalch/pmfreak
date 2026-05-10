@@ -58,7 +58,6 @@ export async function POST(request: Request) {
   const usage = await getCompanyUsage(user.companyId);
 
   const projectId = (formData.get("projectId") ?? "").toString().trim();
-  const projectName = (formData.get("projectName") ?? "").toString().trim();
   const incomingFiles = formData.getAll("documents");
 
   if (!projectId) {
