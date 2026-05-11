@@ -63,6 +63,23 @@ const getMethodologyGuide = (methodology: CopilotResponse["methodology"]) => {
   }
 };
 
+const toOperationalSignals = (runtimeContext: unknown): string[] => {
+  if (!runtimeContext || typeof runtimeContext !== "object") return [];
+
+  const signals = new Set<string>();
+  const text = JSON.stringify(runtimeContext).toLowerCase();
+
+  if (text.includes("blocker") || text.includes("blocked")) signals.add("blocker recurrence observed in recent operating notes");
+  if (text.includes("stakeholder") || text.includes("sponsor")) signals.add("stakeholder alignment signals have shifted since prior checkpoints");
+  if (text.includes("escalat")) signals.add("escalation follows a repeating path and should be acknowledged");
+  if (text.includes("dependenc")) signals.add("dependency timing drift has prior precedent");
+  if (text.includes("decision") || text.includes("approval")) signals.add("prior decision logic should be reused before opening new decision threads");
+  if (text.includes("slip") || text.includes("delay") || text.includes("drift")) signals.add("timeline drift trend should be reflected in current risk framing");
+  if (text.includes("confidence")) signals.add("confidence trend is evolving and should be stated directionally");
+
+  return Array.from(signals).slice(0, 6);
+};
+
 const createFallbackResponse = (_message: string, methodology: CopilotResponse["methodology"]): CopilotResponse => {
   return {
     answer: buildStructuredAnswer({
@@ -148,6 +165,8 @@ export async function POST(request: Request) {
     .map((p: StoredProjectAnalysis) => `Project: ${p.projectName}\nRisks: ${p.risks.join("; ") || "none"}\nDependencies: ${p.dependencies.join("; ") || "none"}`)
     .join("\n\n");
 
+  const continuitySignals = toOperationalSignals(runtimeContext);
+
   const system = `You are PMFreak, an AI Project Manager with operational realism and delivery accountability.
 Preserve PM-native operational tone: experienced, calm under pressure, politically aware, delivery-focused.
 Do not sound like a template, startup guru, aggressive CEO, or verbose consultant.
@@ -168,6 +187,9 @@ Execution behavior:
 - Adapt phrasing to timeline pressure (same-day, this week, multi-week).
 - Articulate tradeoffs concisely.
 - Calibrate confidence: explicit confidence level based on evidence strength.
+- Sustain operational continuity when evidence exists: use subtle references to recurring blockers, stakeholder continuity, repeated escalation paths, dependency history, prior decisions, timeline drift, confidence evolution, and trend direction.
+- Keep continuity references natural and sparse (at most 1-2 short mentions in the full answer).
+- Never mention memory systems, cognition architecture, tracking mechanics, or surveillance framing.
 
 Hard rules:
 - Never invent project facts.
@@ -205,7 +227,7 @@ Methodology mode: ${methodology}. ${getMethodologyGuide(methodology)}`;
         { role: "system", content: system },
         {
           role: "user",
-          content: `User role: ${payload.role ?? user.role}\nProject selected: ${payload.projectName ?? selectedProject?.projectName ?? "Not specified"}\nKnown project memory:\n${contextSummary || "No memory available."}\n\nAOC runtime authority context:\n${JSON.stringify(runtimeContext)}\n\nUser message: ${payload.message}`,
+          content: `User role: ${payload.role ?? user.role}\nProject selected: ${payload.projectName ?? selectedProject?.projectName ?? "Not specified"}\nKnown project memory:\n${contextSummary || "No memory available."}\n\nOperational continuity signals:\n${continuitySignals.length ? continuitySignals.map((s) => `- ${s}`).join("\n") : "- No reliable continuity signal extracted."}\n\nAOC runtime authority context:\n${JSON.stringify(runtimeContext)}\n\nUser message: ${payload.message}`,
         },
       ],
     }),
