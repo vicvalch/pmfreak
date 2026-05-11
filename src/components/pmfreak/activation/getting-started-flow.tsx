@@ -301,8 +301,8 @@ export function GettingStartedFlow() {
   return (
     <main className="space-y-8 pb-12">
       <header className="rounded-3xl border border-white/10 bg-white/5 p-6">
-        <p className="text-xs uppercase tracking-[0.24em] text-cyan-300">PMFreak Activation</p>
-        <h1 className="mt-2 text-3xl font-semibold">Guided Project Activation</h1>
+        <p className="text-xs uppercase tracking-[0.24em] text-cyan-300">Getting Started</p>
+        <h1 className="mt-2 text-3xl font-semibold">Set up PMFreak in minutes</h1>
       </header>
 
       <section className="rounded-3xl border border-white/10 bg-white/5 p-6">
