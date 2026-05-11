@@ -7,7 +7,7 @@ type TemplateInput = { domain: OperationalDomain; title: string; text: string };
 export async function POST(request: Request) {
   const user = await getAuthUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
-  const body = await request.json() as { form: Record<string, string>; templates: TemplateInput[]; loadDemo?: boolean };
+  const body = await request.json() as { form: Record<string, string> & { storageStrategy?: "cloud" | "local" | "self_hosted" }; templates: TemplateInput[]; loadDemo?: boolean };
   const supabase = await createSupabaseServerClient();
 
   const projectName = body.loadDemo ? "PMFreak Demo Launch Recovery" : body.form.projectName || "First Activated Project";
@@ -28,6 +28,7 @@ export async function POST(request: Request) {
     await saveOperationalMemory({ companyId: user.companyId, projectId: project.id, domain: t.domain, title: t.title, text: t.text, sourceRef: body.loadDemo ? "activation-demo" : "activation" });
   }
 
-  await supabase.auth.updateUser({ data: { onboarding_completed: true, company_name: body.form.companyName || user.companyName } });
+  await supabase.auth.updateUser({ data: { onboarding_completed: true, company_name: body.form.companyName || user.companyName, storage_strategy: body.form.storageStrategy || "cloud" } });
+  // TODO: Persist storage strategy in a dedicated company settings table once enterprise vault providers are wired server-side.
   return Response.json({ ok: true, projectId: project.id });
 }
