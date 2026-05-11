@@ -42,7 +42,7 @@ export function CommandCenterClient() {
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-cyan-300">PMFreak Command Center</p>
             <h1 className="mt-2 text-3xl font-semibold text-white">Project Health Overview</h1>
-            <p className="mt-2 max-w-3xl text-sm text-slate-300">Live project visibility across risks, blockers, delivery confidence, and team alignment.</p>
+            <p className="mt-2 max-w-3xl text-sm text-slate-300">Live project signals for risks, drift, delivery confidence, and stakeholder pressure.</p>
           </div>
           <button onClick={refreshAll} className="rounded-xl border border-cyan-300/50 px-4 py-2 text-sm text-cyan-100 hover:bg-cyan-400/10">Refresh</button>
         </div>
@@ -77,7 +77,7 @@ export function CommandCenterClient() {
           </div>
         </StakeholderPressureCard>
 
-        <OperationalHealthCard title="Projects Losing Alignment" level={interventions.data?.intervention?.operationalDriftSignal?.driftSeverity as string}>
+        <OperationalHealthCard title="Project Drift Detection" level={interventions.data?.intervention?.operationalDriftSignal?.driftSeverity as string}>
           <ul className="space-y-2 text-sm text-slate-200">
             <li>Blocker accumulation: {String(interventions.data?.intervention?.operationalDriftSignal?.blockerAccumulation ?? "n/a")}</li>
             <li>Execution silence: {String(interventions.data?.intervention?.operationalDriftSignal?.executionSilence ?? "n/a")}</li>

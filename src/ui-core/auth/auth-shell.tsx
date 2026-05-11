@@ -20,13 +20,13 @@ export function AuthShell({
             </p>
 
             <h2 className="mt-4 text-3xl font-black leading-tight">
-              The calm AI teammate
+              Keep projects aligned.
               <br />
-              every project manager needs.
+              Lead with clarity.
             </h2>
 
             <p className="mt-4 text-sm font-medium text-black/70">
-              PMFreak keeps project updates, risks, and next steps in one place so you can lead with confidence.
+              PMFreak helps you spot risks early, align stakeholders, and move projects forward with confidence.
             </p>
           </div>
 
