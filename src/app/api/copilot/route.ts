@@ -2,6 +2,7 @@ import { getAuthUser, type UserRole } from "@/lib/auth";
 import { getCompanySubscription, type SubscriptionPlan } from "@/lib/billing";
 import { canUseAdvancedAi, requireFeatureAccess } from "@/lib/feature-gates";
 import { canUsePortfolioMemory } from "@/lib/plan-access";
+import { buildPmNativeResponse } from "@/lib/pm-response-shaping";
 import { readProjectMemory, type StoredProjectAnalysis } from "@/lib/project-memory";
 import { getRuntimeAuthorityView } from "@/lib/aoc/runtime-observability";
 
@@ -178,7 +179,7 @@ Hard rules:
 
 Output contract:
 - Return compact JSON only.
-- Return keys: answer, diagnosis, immediateAction, reinforcement, nextStep, facts, bestPractices, assumptions.
+- Return keys: answer, diagnosis, immediateAction, reinforcement, nextStep, facts, bestPractices, assumptions, tradeoffs, dependencies, escalationPath.
 - "answer" must use this exact markdown section format:
   ### Situation
   ### Escalation logic
@@ -188,6 +189,8 @@ Output contract:
 - "Escalation logic" should include severity, timeline pressure, and confidence in one tight statement.
 - "Decision now" must include one decisive action.
 - Also include arrays for "facts", "bestPractices", and "assumptions".
+- Keep each section 1-2 short lines.
+- Also include arrays for "facts", "bestPractices", "assumptions", "tradeoffs", "dependencies", and "escalationPath".
 
 Methodology mode: ${methodology}. ${getMethodologyGuide(methodology)}`;
 
@@ -222,28 +225,26 @@ Methodology mode: ${methodology}. ${getMethodologyGuide(methodology)}`;
   }
 
   const result: CopilotResponse = {
-    answer:
-      typeof parsed.answer === "string" && hasRequiredSections(parsed.answer)
-        ? parsed.answer
-        : buildStructuredAnswer({
-            diagnosis:
-              typeof parsed.diagnosis === "string"
-                ? parsed.diagnosis
-                : "You are missing a single execution owner, so decisions stall and delivery drifts.",
-            immediateAction:
-              typeof parsed.immediateAction === "string"
-                ? parsed.immediateAction
-                : "You: assign one accountable owner to the next deliverable today, publish the owner and due date in writing before end of day.",
-            reinforcement:
-              typeof parsed.reinforcement === "string"
-                ? parsed.reinforcement
-                : "If you don’t lock ownership now, the next deadline will slip for the same reason.",
-            nextStep:
-              typeof parsed.nextStep === "string"
-                ? parsed.nextStep
-                : "Within 24 hours, review active tasks and remove every shared owner.",
-          }),
-    cards: Array.isArray(parsed.cards) ? parsed.cards.slice(0, 5) as CopilotResponse["cards"] : [],
+    answer: buildPmNativeResponse({
+      diagnosis: typeof parsed.diagnosis === "string" ? parsed.diagnosis : "Single-thread accountability is missing; decisions are waiting in queue.",
+      immediateAction:
+        typeof parsed.immediateAction === "string"
+          ? parsed.immediateAction
+          : "Program lead assigns one accountable owner for the next milestone and publishes due date before end of day.",
+      reinforcement:
+        typeof parsed.reinforcement === "string"
+          ? parsed.reinforcement
+          : "Without an owner reset, escalation load and timeline variance both increase this week.",
+      nextStep:
+        typeof parsed.nextStep === "string"
+          ? parsed.nextStep
+          : "Within 24 hours, clear shared ownership on active workstreams and confirm dependency handoffs.",
+    }),
+    diagnosis: typeof parsed.diagnosis === "string" ? parsed.diagnosis : undefined,
+    immediateAction: typeof parsed.immediateAction === "string" ? parsed.immediateAction : undefined,
+    reinforcement: typeof parsed.reinforcement === "string" ? parsed.reinforcement : undefined,
+    nextStep: typeof parsed.nextStep === "string" ? parsed.nextStep : undefined,
+    cards: Array.isArray(parsed.cards) ? (parsed.cards.slice(0, 5) as CopilotResponse["cards"]) : [],
     facts: safeList(Array.isArray(parsed.facts) ? parsed.facts : []),
     bestPractices: safeList(Array.isArray(parsed.bestPractices) ? parsed.bestPractices : []),
     assumptions: safeList(Array.isArray(parsed.assumptions) ? parsed.assumptions : []),
@@ -254,5 +255,15 @@ Methodology mode: ${methodology}. ${getMethodologyGuide(methodology)}`;
     methodology,
   };
 
+  if (!hasRequiredSections(result.answer)) {
+    result.answer = buildPmNativeResponse({
+      diagnosis: result.diagnosis ?? "Execution signal quality is insufficient for decision velocity.",
+      immediateAction: result.immediateAction ?? "PM assigns accountable owner and due date on top risk item today.",
+      reinforcement: result.reinforcement ?? "If governance is delayed again, stakeholder confidence will degrade further.",
+      nextStep: result.nextStep ?? "Run a 15-minute dependency review in the next working block.",
+    });
+  }
+
+  return Response.json(result);
   return Response.json({ ...result, runtimeContext });
 }
