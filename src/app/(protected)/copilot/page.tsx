@@ -22,10 +22,12 @@ type CopilotResponse = {
 };
 
 type ChatMessage = {
+  id: string;
   role: "user" | "assistant";
   text: string;
   response?: CopilotResponse;
   ingestion?: IngestionMetadata;
+  state?: "streaming" | "complete" | "error";
 };
 
 type AmbientMemory = { blockers: string[]; recentDecisions: string[]; stakeholderPressure: string[]; criticalRisks: string[]; concerns: string[] };
@@ -82,7 +84,10 @@ export default function CopilotPage() {
   const [memoryDomain, setMemoryDomain] = useState<(typeof MEMORY_DOMAINS)[number]>("operational_memory");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
+  const [thinkingState, setThinkingState] = useState<"idle" | "triaging" | "reasoning" | "validating">("idle");
   const [error, setError] = useState<string | null>(null);
+  const [lastFailedMessage, setLastFailedMessage] = useState<string | null>(null);
+  const [activeFollowUps, setActiveFollowUps] = useState<string[]>(QUICK_NUDGES);
   const [dragActive, setDragActive] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<string[]>([]);
   const [ambientMemory, setAmbientMemory] = useState<AmbientMemory>({ blockers: [], recentDecisions: [], stakeholderPressure: [], criticalRisks: [], concerns: [] });
@@ -91,6 +96,12 @@ export default function CopilotPage() {
   const [intervention, setIntervention] = useState<InterventionSnapshot | null>(null);
   const [coordination, setCoordination] = useState<CoordinationSnapshot | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const messageIdRef = useRef(0);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [messages, loading]);
 
   useEffect(() => {
     void fetch("/api/copilot/context")
@@ -141,15 +152,35 @@ export default function CopilotPage() {
       .catch(() => setStakeholderIntel(null));
   }, [selectedProjectId]);
 
+  const streamAssistant = async (messageId: string, text: string) => {
+    const chunks = text.split(" ");
+    for (let i = 0; i < chunks.length; i += 1) {
+      const partial = `${chunks.slice(0, i + 1).join(" ")} `;
+      setMessages((prev) => prev.map((msg) => (msg.id === messageId ? { ...msg, text: partial, state: "streaming" } : msg)));
+      await new Promise((resolve) => setTimeout(resolve, Math.max(16, Math.min(80, 640 / chunks.length))));
+    }
+  };
+
   const send = async (preset?: string) => {
     const message = (preset ?? input).trim();
     if (!message || loading) return;
 
+    messageIdRef.current += 1;
+    const userMessageId = `user-${messageIdRef.current}`;
+    messageIdRef.current += 1;
+    const assistantMessageId = `assistant-${messageIdRef.current}`;
     setError(null);
-    setMessages((p) => [...p, { role: "user", text: message }]);
+    setLastFailedMessage(null);
+    setMessages((p) => [
+      ...p,
+      { id: userMessageId, role: "user", text: message, state: "complete" },
+      { id: assistantMessageId, role: "assistant", text: "", state: "streaming" },
+    ]);
     setInput("");
     setLoading(true);
+    setThinkingState("triaging");
     try {
+      setTimeout(() => setThinkingState("reasoning"), 280);
       const response = await fetch("/api/copilot", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -162,9 +193,25 @@ export default function CopilotPage() {
       });
       const payload = (await response.json()) as CopilotResponse & { error?: string };
       if (!response.ok) throw new Error(payload.error ?? "Unable to get PMFreak Copilot response.");
+      setThinkingState("validating");
+      await streamAssistant(assistantMessageId, payload.answer);
+      setMessages((prev) => prev.map((msg) => (msg.id === assistantMessageId ? { ...msg, text: payload.answer, response: payload, state: "complete" } : msg)));
+      setActiveFollowUps([
+        payload.contextGapQuestions?.[0] || "Which dependency is now most likely to slip delivery this week?",
+        "Draft my next sponsor update from this response.",
+        selectedProject ? `What is the next highest-impact action for ${selectedProject.projectName}?` : "What should I escalate in the next 24 hours?",
+      ]);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Unable to get PMFreak Copilot response.");
+      const failure = e instanceof Error ? e.message : "Unable to get PMFreak Copilot response.";
+      setError(failure);
+      setLastFailedMessage(message);
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === assistantMessageId ? { ...msg, text: "PMFreak lost signal while compiling guidance. Retry to continue continuity.", state: "error" } : msg,
+        ),
+      );
     } finally {
+      setThinkingState("idle");
       setLoading(false);
     }
   };
@@ -210,7 +257,7 @@ export default function CopilotPage() {
           </header>
 
           <div className="mb-3 flex flex-wrap gap-2">
-            {QUICK_NUDGES.map((prompt) => <button key={prompt} onClick={() => void send(prompt)} className="rounded-full border border-white/20 px-3 py-1 text-xs text-slate-200 hover:border-cyan-300/40 hover:bg-cyan-300/10">{prompt}</button>)}
+            {activeFollowUps.map((prompt) => <button key={prompt} onClick={() => void send(prompt)} className="rounded-full border border-white/20 px-3 py-1 text-xs text-slate-200 transition hover:-translate-y-0.5 hover:border-cyan-300/40 hover:bg-cyan-300/10">{prompt}</button>)}
           </div>
 
           <div
@@ -220,14 +267,17 @@ export default function CopilotPage() {
             className={`min-h-[520px] rounded-2xl border p-4 transition ${dragActive ? "border-cyan-300/50 bg-cyan-400/5" : "border-white/10 bg-white/20"}`}
           >
             <div className="space-y-3">
-              {messages.length === 0 ? <p className="text-sm text-slate-300">Start with a natural update, like “The client is pressuring us again.”</p> : null}
-              {messages.map((msg, i) => (
-                <article key={i} className={`max-w-3xl rounded-2xl p-3 text-sm ${msg.role === "user" ? "ml-auto bg-cyan-500/20" : "bg-slate-800/70"}`}>
+              {messages.length === 0 ? <p className="text-sm text-slate-300">No active conversation thread. Start with a live project tension, decision, or escalation signal.</p> : null}
+              {messages.map((msg) => (
+                <article key={msg.id} className={`max-w-3xl rounded-2xl p-3 text-sm transition-all ${msg.role === "user" ? "ml-auto bg-cyan-500/20" : "bg-slate-800/70"} ${msg.state === "streaming" ? "ring-1 ring-cyan-300/30" : ""}`}>
                   <p>{msg.text}</p>
+                  {msg.role === "assistant" && msg.state === "streaming" ? <p className="mt-2 text-[11px] text-cyan-200 animate-pulse">typing operational guidance…</p> : null}
+                  {msg.role === "assistant" && msg.state === "error" ? <p className="mt-2 text-[11px] text-rose-200">degraded AI state — conversation memory retained</p> : null}
                 </article>
               ))}
-              {loading ? <p className="text-sm text-slate-300">Thinking…</p> : null}
+              {loading ? <p className="text-sm text-slate-300 animate-pulse">Thinking: {thinkingState === "triaging" ? "triaging operational signals" : thinkingState === "reasoning" ? "running PM reasoning pass" : "validating intervention quality"}…</p> : null}
               {error ? <p className="text-sm text-rose-200">{error}</p> : null}
+              <div ref={messagesEndRef} />
             </div>
           </div>
 
@@ -237,6 +287,11 @@ export default function CopilotPage() {
               <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Message PMFreak…" className="flex-1 rounded-xl border border-white/10 bg-white/30 px-4 py-3 text-sm" />
               <button onClick={() => void send()} disabled={loading} className="rounded-xl border border-cyan-300/50 px-4 py-2 text-sm font-semibold">Send</button>
             </div>
+            {lastFailedMessage ? (
+              <button onClick={() => void send(lastFailedMessage)} className="rounded-xl border border-amber-300/40 bg-amber-400/10 px-3 py-2 text-xs text-amber-100">
+                Retry last prompt with memory continuity
+              </button>
+            ) : null}
             <div className="flex items-center gap-2 text-xs">
               <select value={memoryDomain} onChange={(e) => setMemoryDomain(e.target.value as (typeof MEMORY_DOMAINS)[number])} className="rounded-lg border border-white/15 bg-white/30 px-2 py-1">
                 {MEMORY_DOMAINS.map((domain) => <option key={domain} value={domain}>{domain}</option>)}
@@ -314,6 +369,10 @@ export default function CopilotPage() {
           <article className="rounded-2xl border border-white/10 bg-white/20 p-3 text-xs text-slate-200"><p className="text-cyan-200">Stakeholder pressure</p><ul className="mt-1 list-disc pl-4 text-slate-300">{(ambientMemory.stakeholderPressure.length ? ambientMemory.stakeholderPressure : ["No pressure patterns detected yet."]).map((item) => <li key={item}>{item}</li>)}</ul></article>
           <article className="rounded-2xl border border-white/10 bg-white/20 p-3 text-xs text-slate-200"><p className="text-cyan-200">Critical risks</p><ul className="mt-1 list-disc pl-4 text-slate-300">{(ambientMemory.criticalRisks.length ? ambientMemory.criticalRisks : ["No critical risks detected yet."]).map((item) => <li key={item}>{item}</li>)}</ul></article>
           <article className="rounded-2xl border border-white/10 bg-white/20 p-3 text-xs text-slate-200"><p className="text-cyan-200">AI-detected concerns</p><ul className="mt-1 list-disc pl-4 text-slate-300">{(ambientMemory.concerns.length ? ambientMemory.concerns : ["No concerns detected."]).map((item) => <li key={item}>{item}</li>)}</ul></article>
+          <article className="rounded-2xl border border-cyan-300/20 bg-cyan-950/20 p-3 text-xs text-cyan-100">
+            <p className="text-cyan-200">Memory continuity signal</p>
+            <p className="mt-1">{selectedProject ? `Persistent thread linked to ${selectedProject.projectName}.` : "Cross-project continuity mode active."}</p>
+          </article>
           <article className="rounded-2xl border border-white/10 bg-white/20 p-3 text-xs text-slate-200"><p className="text-cyan-200">Recent uploads</p><ul className="mt-1 list-disc pl-4 text-slate-300">{uploadedFiles.length ? uploadedFiles.map((name) => <li key={name}>{name}</li>) : <li>No files yet. Drop docs into chat.</li>}</ul></article>
           <article className="rounded-2xl border border-emerald-300/20 bg-emerald-950/20 p-3 text-xs text-emerald-100">
             <p className="text-emerald-200">Coordination urgency</p>
