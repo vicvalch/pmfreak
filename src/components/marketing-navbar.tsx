@@ -31,7 +31,7 @@ export function MarketingNavbar() {
         </nav>
 
         <div className="hidden items-center gap-3 md:flex">
-          <Link href="/login" className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm font-medium text-slate-100 hover:border-cyan-300/70 hover:text-cyan-100">
+          <Link href="/login" className="/5 px-4 py-2 text-sm font-medium text-slate-100 hover:border-cyan-300/70 hover:text-cyan-100">
             Sign In
           </Link>
           <Link href="/signup" className="rounded-full border border-fuchsia-300/70 bg-gradient-to-r from-fuchsia-400 to-cyan-300 px-5 py-2 text-sm font-semibold text-slate-950 shadow-[0_0_25px_rgba(232,121,249,0.45)] hover:brightness-110">
@@ -39,7 +39,7 @@ export function MarketingNavbar() {
           </Link>
         </div>
 
-        <button type="button" className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/15 bg-white/5 text-slate-100 md:hidden" aria-label="Toggle menu" aria-controls="mobile-main-menu" aria-expanded={isOpen} onClick={() => setIsOpen((v) => !v)}>
+        <button type="button" className="inline-flex h-10 w-10 items-center justify-center /5 text-slate-100 md:hidden" aria-label="Toggle menu" aria-controls="mobile-main-menu" aria-expanded={isOpen} onClick={() => setIsOpen((v) => !v)}>
           <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <path d="M4 7h16M4 12h16M4 17h16" />
           </svg>
@@ -48,9 +48,9 @@ export function MarketingNavbar() {
 
       <div id="mobile-main-menu" className={`grid transition-all duration-300 md:hidden ${isOpen ? "grid-rows-[1fr] opacity-100" : "pointer-events-none grid-rows-[0fr] opacity-0"}`}>
         <div className="overflow-hidden border-t border-white/10 bg-[#090b10]/95 px-4 pb-4">
-          <div className="mt-3 flex flex-col gap-2 rounded-2xl border border-white/10 bg-white/5 p-3 backdrop-blur-xl">
+          <div className="mt-3 flex flex-col gap-2 /5 p-3 backdrop-blur-xl">
             {navLinks.map((link) => (
-              <Link key={link.label} href={link.href} className="rounded-lg px-3 py-2.5 text-sm font-medium text-slate-200 hover:bg-white/10" onClick={() => setIsOpen(false)}>
+              <Link key={link.label} href={link.href} className="/10" onClick={() => setIsOpen(false)}>
                 {link.label}
               </Link>
             ))}
