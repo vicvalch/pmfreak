@@ -2,233 +2,218 @@ import { MarketingNavbar } from "@/components/marketing-navbar";
 import Link from "next/link";
 
 const painSignals = [
-  "Execution chaos across cross-functional teams",
-  "Stakeholder pressure surfacing too late",
-  "Invisible escalations hidden in status updates",
-  "PM overload concentrated on a few critical people",
-  "Delivery instability that compounds week-over-week",
-  "Organizational drift between strategy and delivery",
-  "Reactive operations replacing deliberate intervention",
+  "You hear about risks when they are already urgent",
+  "Stakeholder tension shows up right before key meetings",
+  "Important decisions get lost across chats and docs",
+  "Updates are scattered and hard to turn into action",
+  "Teams drift out of sync without anyone noticing early",
+  "You spend more time chasing status than moving delivery",
 ];
 
 const failureMetrics = [
-  { label: "Delayed escalations", value: "48-96 hrs", detail: "Average lag before critical issues reach decision makers." },
-  { label: "Executive blind spots", value: "37%", detail: "Programs reporting green while recovery actions are already overdue." },
-  { label: "PM burnout exposure", value: "2.4x", detail: "Higher risk in portfolios with unresolved coordination debt." },
-  { label: "Recovery cost", value: "3.1x", detail: "Cost multiplier once intervention starts after delivery rupture." },
-  { label: "Coordination drag", value: "26%", detail: "Weekly execution time lost to status chasing and translation." },
-  { label: "Stakeholder instability", value: "+41%", detail: "Escalation volatility when communication confidence drops." },
-  { label: "Delivery collapse risk", value: "18%", detail: "Portfolio segments entering multi-stream failure conditions." },
+  { label: "Escalation delay", value: "48-96 hrs", detail: "How long critical issues can sit before the right decision maker sees them." },
+  { label: "False green status", value: "37%", detail: "Programs that look healthy on paper while recovery work is already overdue." },
+  { label: "PM burnout risk", value: "2.4x", detail: "Higher burnout exposure when project context lives in too many places." },
+  { label: "Manual update chasing", value: "26%", detail: "Weekly PM time lost gathering and translating updates by hand." },
 ];
 
 const capabilities = [
-  ["Escalation Intelligence", "Detects early escalation signatures across meetings, updates, and delivery telemetry before issues become political."],
-  ["Stakeholder Intelligence", "Maps confidence, pressure, and influence drift so intervention plans account for human execution dynamics."],
-  ["Intervention Orchestration", "Creates sequence-based recovery plans with ownership, timing, and expected operational impact."],
-  ["Coordination Infrastructure", "Converts fragmented team signals into one shared operational context for delivery leadership."],
-  ["Recovery Systems", "Runs playbooks for stalled initiatives, unstable launches, and failing transformation tracks."],
-  ["Executive Telemetry", "Provides live visibility into execution stability, not just milestone completion."],
-  ["Operational Replay", "Reconstructs failure timelines so leaders can understand what broke, when, and why."],
-  ["Portfolio Instability Detection", "Identifies systemic risk propagation across programs before it cascades."],
+  ["Know what is about to go wrong", "PMFreak spots early warning signs in project updates, meetings, and delivery patterns before they become fire drills."],
+  ["Know who needs attention", "See which stakeholders are getting tense, misaligned, or likely to escalate so you can step in early."],
+  ["Get clearer next steps", "PMFreak turns messy project signals into practical actions with owner, timing, and expected impact."],
+  ["Keep everyone working from the same reality", "Bring scattered notes, chats, and status updates into one view your team can trust."],
+  ["Prepare better status updates", "Walk into weekly and executive reviews with the risks, decisions, and talking points already organized."],
+  ["Never lose the thread", "PMFreak remembers decisions, blockers, risks, and commitments across your projects."],
 ] as const;
 
-const buyers = [
-  "CIO",
-  "COO",
-  "PMO Director",
-  "Enterprise Transformation Lead",
-  "Delivery Executive",
-  "Crisis Recovery Teams",
+const howItWorks = [
+  "Collect updates from your usual tools",
+  "Connect decisions, risks, and owners automatically",
+  "Highlight what needs attention first",
+  "Generate talking points and next steps",
+  "Keep a clean memory of what changed and why",
 ];
 
 const comparisonRows = [
-  ["Passive dashboards", "Operational orchestration"],
-  ["Reactive PM effort", "Escalation awareness"],
-  ["Static reporting", "Intervention intelligence"],
-  ["Fragmented coordination", "Execution recovery systems"],
-  ["Invisible pressure", "Live operational visibility"],
+  ["Passive dashboards", "Clear next actions"],
+  ["Reactive follow-up", "Early risk warning"],
+  ["Status-only reporting", "Decision-ready updates"],
+  ["Scattered project context", "Shared project memory"],
+  ["Last-minute surprises", "Prepared meetings"],
 ] as const;
+
+const trustPoints = [
+  "Clear reasoning behind each recommendation",
+  "Secure setup options for enterprise environments",
+  "Audit-ready history of risks, decisions, and actions",
+  "Human review before critical escalations",
+  "Consistent logic across projects and portfolios",
+  "Evidence trail from update to action",
+];
+
+const buyers = ["Junior PM", "Senior PM", "Technical PM", "Non-Technical PM", "PMO Leader", "Delivery Manager", "Founder"];
+
+const nextStepBenefits = [
+  "Stop chasing updates manually",
+  "Avoid surprises before meetings",
+  "Get clearer next steps each week",
+  "Keep stakeholders aligned as pressure rises",
+  "Prepare status updates in less time",
+  "Lead like a more senior PM",
+];
 
 export default function Home() {
   return (
     <>
       <MarketingNavbar />
 
-      <main className="min-h-screen bg-[#07080b] px-5 py-8 text-[#e7e9ee] md:px-8 md:py-12">
+      <main className="min-h-screen bg-white px-5 py-8 text-zinc-950 md:px-8 md:py-12">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-7">
-          <section className="relative overflow-hidden rounded-3xl border border-[#262a33] bg-[radial-gradient(circle_at_top_left,#1b2030_0%,#0b0d13_45%,#07080b_100%)] p-7 shadow-[0_30px_100px_rgba(0,0,0,0.55)] md:p-12">
-            <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#8ca2ff]">Operational Intelligence System for Enterprise Execution</p>
-            <h1 className="mt-4 max-w-4xl text-4xl font-black leading-tight text-white md:text-6xl">
-              When execution starts failing, PMFreak becomes your operational command infrastructure.
-            </h1>
-            <p className="mt-6 max-w-3xl text-base font-medium leading-relaxed text-[#c5c9d3] md:text-lg">
-              Enterprises do not fail from missing dashboards. They fail when escalation is late, ownership is unclear, and recovery is uncoordinated. PMFreak detects pressure, orchestrates intervention, and stabilizes delivery before drift becomes collapse.
+          <section className="relative overflow-hidden rounded-3xl border border-zinc-200 bg-zinc-950 p-7 shadow-[0_30px_100px_rgba(15,23,42,0.18)] md:p-12">
+            <p className="text-xs font-bold uppercase tracking-[0.24em] text-cyan-200">Built for real-world project delivery</p>
+            <h1 className="mt-4 max-w-4xl text-4xl font-black leading-tight text-white md:text-6xl">See project problems before they blow up.</h1>
+            <p className="mt-6 max-w-3xl text-base font-medium leading-relaxed text-zinc-200 md:text-lg">
+              PMFreak helps you track risks, decisions, stakeholders, and next steps so you can lead with confidence instead of reacting late.
             </p>
 
             <div className="mt-8 grid gap-3 md:grid-cols-2">
               {painSignals.map((pain) => (
-                <div key={pain} className="rounded-2xl border border-[#313748] bg-[#0e1119]/90 p-4 text-sm font-semibold text-[#d8dced]">
+                <div key={pain} className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm font-semibold text-zinc-100">
                   {pain}
                 </div>
               ))}
             </div>
 
             <div className="mt-9 flex flex-wrap gap-3">
-              <Link href="/signup" className="rounded-full border border-[#93a6ff] bg-[#7d90ff] px-6 py-3 text-sm font-bold text-[#06070a] transition hover:bg-[#95a6ff]">
-                Book Executive Demo
+              <Link href="/signup" className="rounded-full bg-[#ff008c] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#db0078]">
+                Start Free
               </Link>
-              <Link href="/demo" className="rounded-full border border-[#3b4358] bg-[#121623] px-6 py-3 text-sm font-bold text-[#dde3ff] transition hover:border-[#6273a8]">
-                Simulate Operational Collapse
+              <Link href="/demo" className="rounded-full border border-white/20 bg-white/10 px-6 py-3 text-sm font-bold text-white transition hover:bg-white/15">
+                Try the Live Demo
               </Link>
-              <Link href="/interactive-demo" className="rounded-full border border-[#3b4358] bg-[#121623] px-6 py-3 text-sm font-bold text-[#dde3ff] transition hover:border-[#6273a8]">
-                See PMFreak Recover a Failing Program
+              <Link href="/interactive-demo" className="rounded-full border border-white/20 bg-white/10 px-6 py-3 text-sm font-bold text-white transition hover:bg-white/15">
+                See a Project Recovery Walkthrough
               </Link>
             </div>
           </section>
 
-          <section id="why-pmfreak" className="rounded-3xl border border-[#262a33] bg-[#0b0d13] p-7 md:p-10">
-            <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#8ca2ff]">Why PMFreak Exists</p>
-            <h2 className="mt-3 text-3xl font-black text-white md:text-4xl">Dashboards report. PMFreak coordinates recovery.</h2>
+          <section id="why-pmfreak" className="rounded-3xl border border-zinc-200 bg-white p-7 shadow-sm md:p-10">
+            <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#ff008c]">Why PMFreak Exists</p>
+            <h2 className="mt-3 text-3xl font-black text-zinc-950 md:text-4xl">Stop chasing updates. Start driving outcomes.</h2>
             <div className="mt-6 grid gap-4 md:grid-cols-2">
-              <article className="rounded-2xl border border-[#2c3140] bg-[#0f121b] p-5">
-                <h3 className="text-lg font-black text-white">What enterprises already have</h3>
-                <ul className="mt-3 space-y-2 text-sm text-[#c4cad8]">
-                  <li>• Dashboard visibility without intervention logic</li>
-                  <li>• Status reporting without escalation understanding</li>
-                  <li>• KPI snapshots without pressure detection</li>
-                  <li>• Portfolio views without coordinated recovery motion</li>
+              <article className="rounded-2xl border border-zinc-200 bg-zinc-50 p-5">
+                <h3 className="text-lg font-black text-zinc-950">What most PM teams deal with</h3>
+                <ul className="mt-3 space-y-2 text-sm text-zinc-700">
+                  <li>• Reports that describe the past, not what to do now</li>
+                  <li>• Risks discovered late in the week</li>
+                  <li>• Stakeholder shifts that are easy to miss</li>
+                  <li>• Important decisions buried in messages and notes</li>
                 </ul>
               </article>
-              <article className="rounded-2xl border border-[#3a4562] bg-[#111828] p-5">
+              <article className="rounded-2xl border border-zinc-200 bg-zinc-950 p-5">
                 <h3 className="text-lg font-black text-white">What PMFreak changes</h3>
-                <ul className="mt-3 space-y-2 text-sm text-[#d6ddf3]">
-                  <li>• Detects escalation before reporting cycles catch up</li>
-                  <li>• Understands stakeholder pressure and confidence shifts</li>
-                  <li>• Orchestrates intervention across teams and decision layers</li>
-                  <li>• Coordinates recovery actions until execution stabilizes</li>
+                <ul className="mt-3 space-y-2 text-sm text-zinc-200">
+                  <li>• Know what is about to go wrong before escalation</li>
+                  <li>• Spot stakeholder tension early</li>
+                  <li>• Remember every decision, risk, blocker, and commitment</li>
+                  <li>• Walk into meetings with clear talking points and actions</li>
                 </ul>
               </article>
             </div>
           </section>
 
-          <section className="rounded-3xl border border-[#262a33] bg-[#0b0d13] p-7 md:p-10">
-            <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#8ca2ff]">The Cost of Invisible Execution Failure</p>
+          <section className="rounded-3xl border border-zinc-200 bg-white p-7 shadow-sm md:p-10">
+            <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#ff008c]">The Cost of Finding Out Too Late</p>
             <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {failureMetrics.map((metric) => (
-                <article key={metric.label} className="rounded-2xl border border-[#2f3546] bg-[#10131d] p-5">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#9ea9cf]">{metric.label}</p>
-                  <p className="mt-2 text-3xl font-black text-white">{metric.value}</p>
-                  <p className="mt-2 text-xs leading-relaxed text-[#bbc2d7]">{metric.detail}</p>
+                <article key={metric.label} className="rounded-2xl border border-zinc-200 bg-zinc-50 p-5">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">{metric.label}</p>
+                  <p className="mt-2 text-3xl font-black text-zinc-950">{metric.value}</p>
+                  <p className="mt-2 text-xs leading-relaxed text-zinc-700">{metric.detail}</p>
                 </article>
               ))}
             </div>
           </section>
 
-          <section id="intelligence" className="rounded-3xl border border-[#262a33] bg-[#0b0d13] p-7 md:p-10">
-            <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#8ca2ff]">Enterprise Capability Layer</p>
-            <h2 className="mt-3 text-3xl font-black text-white md:text-4xl">Operational intelligence built for high-pressure execution systems.</h2>
+          <section id="intelligence" className="rounded-3xl border border-zinc-200 bg-white p-7 shadow-sm md:p-10">
+            <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#ff008c]">How PMFreak helps day to day</p>
+            <h2 className="mt-3 text-3xl font-black text-zinc-950 md:text-4xl">Practical support for every kind of PM.</h2>
             <div className="mt-6 grid gap-4 md:grid-cols-2">
               {capabilities.map(([title, text]) => (
-                <article key={title} className="rounded-2xl border border-[#2f3546] bg-[#10131d] p-5">
-                  <h3 className="text-lg font-black text-white">{title}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-[#c2c8da]">{text}</p>
+                <article key={title} className="rounded-2xl border border-zinc-200 bg-zinc-50 p-5">
+                  <h3 className="text-lg font-black text-zinc-950">{title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-zinc-700">{text}</p>
                 </article>
               ))}
             </div>
           </section>
 
-          <section className="rounded-3xl border border-[#262a33] bg-[#0b0d13] p-7 md:p-10">
-            <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#8ca2ff]">Explainable AI</p>
-            <h2 className="mt-3 text-3xl font-black text-white md:text-4xl">Enterprise trust requires deterministic operational reasoning.</h2>
+          <section className="rounded-3xl border border-zinc-200 bg-white p-7 shadow-sm md:p-10">
+            <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#ff008c]">How it works</p>
+            <h2 className="mt-3 text-3xl font-black text-zinc-950 md:text-4xl">From scattered updates to confident action.</h2>
             <div className="mt-5 grid gap-4 md:grid-cols-5">
-              {[
-                "Deterministic outputs",
-                "Source signal attribution",
-                "Intervention rationale",
-                "Confidence indications",
-                "Operational auditability",
-              ].map((item) => (
-                <div key={item} className="rounded-2xl border border-[#2f3546] bg-[#10131d] p-4 text-sm font-semibold text-[#d3daf0]">
+              {howItWorks.map((item) => (
+                <div key={item} className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4 text-sm font-semibold text-zinc-800">
                   {item}
                 </div>
               ))}
             </div>
           </section>
 
-          <section className="rounded-3xl border border-[#262a33] bg-[#0b0d13] p-7 md:p-10">
-            <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#8ca2ff]">PMFreak vs Traditional PM Tools</p>
-            <div className="mt-5 overflow-hidden rounded-2xl border border-[#2f3546]">
-              <div className="grid grid-cols-2 bg-[#131827] text-sm font-black uppercase tracking-[0.12em] text-[#dbe2ff]">
-                <div className="border-r border-[#2f3546] p-4">Traditional PM Tools</div>
+          <section className="rounded-3xl border border-zinc-200 bg-white p-7 shadow-sm md:p-10">
+            <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#ff008c]">PMFreak vs Traditional PM Tools</p>
+            <div className="mt-5 overflow-hidden rounded-2xl border border-zinc-200">
+              <div className="grid grid-cols-2 bg-zinc-950 text-sm font-black uppercase tracking-[0.12em] text-white">
+                <div className="border-r border-white/10 p-4">Traditional PM Tools</div>
                 <div className="p-4">PMFreak</div>
               </div>
               {comparisonRows.map(([legacy, modern]) => (
-                <div key={legacy} className="grid grid-cols-2 border-t border-[#2f3546] text-sm">
-                  <div className="border-r border-[#2f3546] bg-[#0f121c] p-4 text-[#b6bdd2]">{legacy}</div>
-                  <div className="bg-[#101624] p-4 font-semibold text-[#dce3ff]">{modern}</div>
+                <div key={legacy} className="grid grid-cols-2 border-t border-zinc-200 text-sm">
+                  <div className="border-r border-zinc-200 bg-zinc-50 p-4 text-zinc-600">{legacy}</div>
+                  <div className="bg-white p-4 font-semibold text-zinc-950">{modern}</div>
                 </div>
               ))}
             </div>
           </section>
 
-          <section className="rounded-3xl border border-[#262a33] bg-[#0b0d13] p-7 md:p-10">
-            <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#8ca2ff]">Architecture Visualization</p>
-            <h2 className="mt-3 text-3xl font-black text-white md:text-4xl">Execution intelligence architecture</h2>
-            <div className="mt-6 grid gap-3 md:grid-cols-5">
-              {["Telemetry Ingestion", "Orchestration Engine", "Intervention Engine", "Coordination Intelligence", "Executive Visibility Layer"].map((layer, index) => (
-                <div key={layer} className="rounded-2xl border border-[#2f3546] bg-[#10131d] p-4 text-center">
-                  <p className="text-xs font-bold text-[#8ca2ff]">Layer {index + 1}</p>
-                  <p className="mt-2 text-sm font-semibold text-[#dce2f5]">{layer}</p>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <section id="trust" className="rounded-3xl border border-[#262a33] bg-[#0b0d13] p-7 md:p-10">
-            <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#8ca2ff]">Enterprise Trust Layer</p>
+          <section id="trust" className="rounded-3xl border border-zinc-200 bg-white p-7 shadow-sm md:p-10">
+            <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#ff008c]">Trust for teams and leadership</p>
             <div className="mt-5 grid gap-4 md:grid-cols-3">
-              {[
-                "Governance direction for enterprise operating models",
-                "Deterministic reasoning for operational decisions",
-                "Secure deployment direction aligned to enterprise controls",
-                "Auditable intervention timelines and recovery paths",
-                "Human-in-the-loop orchestration at every critical step",
-                "Explainability from signal to action",
-              ].map((item) => (
-                <div key={item} className="rounded-2xl border border-[#2f3546] bg-[#10131d] p-4 text-sm font-semibold text-[#ced4e8]">
+              {trustPoints.map((item) => (
+                <div key={item} className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4 text-sm font-semibold text-zinc-800">
                   {item}
                 </div>
               ))}
             </div>
           </section>
 
-          <section id="who-buys" className="rounded-3xl border border-[#262a33] bg-[#0b0d13] p-7 md:p-10">
-            <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#8ca2ff]">Who Buys PMFreak</p>
+          <section id="who-buys" className="rounded-3xl border border-zinc-200 bg-white p-7 shadow-sm md:p-10">
+            <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#ff008c]">Built for every PM role</p>
             <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {buyers.map((buyer) => (
-                <div key={buyer} className="rounded-2xl border border-[#2f3546] bg-[#10131d] p-4 text-base font-bold text-white">
+                <div key={buyer} className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4 text-base font-bold text-zinc-950">
                   {buyer}
                 </div>
               ))}
             </div>
           </section>
 
-          <section className="rounded-3xl border border-[#2c3350] bg-[linear-gradient(120deg,#141b2f_0%,#0e1220_55%,#0a0d16_100%)] p-7 shadow-[0_20px_80px_rgba(0,0,0,0.45)] md:p-10">
-            <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#8ca2ff]">Enterprise Roadmap</p>
+          <section className="rounded-3xl border border-zinc-200 bg-zinc-950 p-7 shadow-[0_20px_80px_rgba(15,23,42,0.18)] md:p-10">
+            <p className="text-xs font-bold uppercase tracking-[0.24em] text-cyan-200">What you can do next</p>
             <div className="mt-5 grid gap-3 md:grid-cols-2">
-              {["Slack/Teams ingestion", "Jira integration", "Autonomous PM agents", "Org-wide execution graphs", "Portfolio coordination", "AI execution infrastructure"].map((item) => (
-                <div key={item} className="rounded-2xl border border-[#3a435f] bg-[#10162a] p-4 text-sm font-semibold text-[#dce3ff]">
+              {nextStepBenefits.map((item) => (
+                <div key={item} className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm font-semibold text-zinc-100">
                   {item}
                 </div>
               ))}
             </div>
 
             <div className="mt-8 flex flex-wrap gap-3">
-              <Link href="/signup" className="rounded-full border border-[#a2b3ff] bg-[#8da0ff] px-6 py-3 text-sm font-bold text-[#05070c] transition hover:bg-[#9daeff]">
-                Explore Enterprise Execution Intelligence
+              <Link href="/signup" className="rounded-full bg-[#ff008c] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#db0078]">
+                Start Free
               </Link>
-              <Link href="/demo" className="rounded-full border border-[#3b4358] bg-[#121623] px-6 py-3 text-sm font-bold text-[#dde3ff] transition hover:border-[#6273a8]">
-                Book Executive Demo
+              <Link href="/demo" className="rounded-full border border-white/20 bg-white/10 px-6 py-3 text-sm font-bold text-white transition hover:bg-white/15">
+                Try the Live Demo
               </Link>
             </div>
           </section>
