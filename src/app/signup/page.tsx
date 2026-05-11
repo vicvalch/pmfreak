@@ -12,8 +12,8 @@ export default async function SignupPage({
 
   return (
     <AuthShell
-      title="Create your workspace"
-      subtitle="Start fixing your execution today."
+      title="Set up your PMFreak workspace"
+      subtitle="Get project visibility and meeting prep support in minutes."
     >
       {params.error && (
         <p className="mb-4 text-sm text-red-600">{params.error}</p>

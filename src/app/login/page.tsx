@@ -9,7 +9,7 @@ export default async function LoginPage({
   const params = await searchParams;
 
   return (
-    <AuthShell title="Welcome back" subtitle="Pick up where you left off.">
+    <AuthShell title="Welcome back" subtitle="Continue where you left off and stay ahead this week.">
       {params.error ? <p className="mb-4 text-sm text-red-600">{params.error}</p> : null}
 
       <form action="/api/login" method="post" className="space-y-4">
@@ -26,7 +26,7 @@ export default async function LoginPage({
       </p>
 
       <p className="mt-6 text-sm">
-        No account? <Link href="/signup" className="font-bold">Create one</Link>
+        No account? <Link href="/signup" className="font-bold">Start Free</Link>
       </p>
     </AuthShell>
   );

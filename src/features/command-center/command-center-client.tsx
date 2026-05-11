@@ -44,9 +44,9 @@ export function CommandCenterClient() {
             <h1 className="mt-2 text-3xl font-semibold text-white">Project Health Overview</h1>
             <p className="mt-2 max-w-3xl text-sm text-slate-300">Live project signals for risks, drift, delivery confidence, and stakeholder pressure.</p>
           </div>
-          <button onClick={refreshAll} className="rounded-xl border border-cyan-300/50 px-4 py-2 text-sm text-cyan-100 hover:bg-cyan-400/10">Manual Refresh</button>
+          <button onClick={refreshAll} className="rounded-xl border border-cyan-300/50 px-4 py-2 text-sm text-cyan-100 hover:bg-cyan-400/10">Refresh</button>
         </div>
-        <p className="mt-4 text-xs text-slate-400">{loading ? "Syncing intelligence..." : `Last sync: ${lastSync ? new Date(lastSync as string).toLocaleString() : "Awaiting first sync"}`}</p>
+        <p className="mt-4 text-xs text-slate-400">{loading ? "Refreshing project insights..." : `Last sync: ${lastSync ? new Date(lastSync as string).toLocaleString() : "Awaiting first sync"}`}</p>
       </header>
 
       <RiskCard title="Executive Risk Banner" level={risk.data?.overallRisk as string}>
@@ -63,7 +63,7 @@ export function CommandCenterClient() {
       </RiskCard>
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <CoordinationQueueCard title="Priority Action Queue" level={coordination.data?.coordination_conflict_risk?.level as string}>
+        <CoordinationQueueCard title="Suggested Actions" level={coordination.data?.coordination_conflict_risk?.level as string}>
           <div className="space-y-3">{actions.slice(0, 5).map((action, idx) => <div key={String(action.actionId ?? idx)} className="rounded-xl border border-white/10 bg-white/25 p-3 text-sm"><p className="font-semibold text-white">#{idx + 1} {String(action.type ?? "action")}</p><p className="text-slate-300">Owner: {String(action.targetStakeholder ?? "unknown")} · Urgency: {String(action.urgency ?? "n/a")} · Timing: {String((action.executionWindow as AnyRecord)?.label ?? "n/a")}</p><p className="mt-1 text-slate-400">Dependency chain: {((action.dependencyChain as AnyRecord[] | undefined) ?? []).map((d) => String(d.reason)).join("; ") || "No blockers"}</p></div>)}</div>
         </CoordinationQueueCard>
 
@@ -99,7 +99,7 @@ export function CommandCenterClient() {
 
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <OperationalHealthCard title="Live Telemetry Stream" level={"elevated"}>
+        <OperationalHealthCard title="Live Project Activity" level={"elevated"}>
           <div className="space-y-2 text-sm text-slate-200">
             <p>Project mode: <span className="font-semibold">{String(liveOps.data?.mode ?? "offline")}</span></p>
             <p>Timeline events: <span className="font-semibold">{String(liveOps.data?.timeline?.events?.length ?? 0)}</span></p>
@@ -113,7 +113,7 @@ export function CommandCenterClient() {
               <div key={idx} className="rounded-lg border border-white/10 bg-white/20 p-2">
                 <p>Rationale: {String(item.coordinationRationale ?? "n/a")}</p>
                 <p>Triggering conditions: {((item.triggeringConditions as string[] | undefined) ?? []).join(", ")}</p>
-                <p>Confidence: {String(item.operationalConfidence ?? "n/a")}</p>
+                <p>Recommendation confidence: {String(item.operationalConfidence ?? "n/a")}</p>
               </div>
             ))}
           </div>
