@@ -3,9 +3,10 @@ import {
   SupabaseCapabilityProvider,
   SupabaseMemoryProvider,
   SupabasePolicyProvider,
+  SupabasePortableMemoryProvider,
   SupabaseVaultProvider,
 } from "@/lib/aoc/providers/supabase";
-import type { AuditProvider, CapabilityProvider, MemoryProvider, PolicyProvider, VaultProvider } from "@/lib/aoc/providers/types";
+import type { AuditProvider, CapabilityProvider, MemoryProvider, PolicyProvider, PortableMemoryExportProvider, VaultProvider } from "@/lib/aoc/providers/types";
 import type { OperationalDomain } from "@/lib/operational-memory";
 
 export type AocProviders = {
@@ -14,6 +15,7 @@ export type AocProviders = {
   policyProvider: PolicyProvider;
   auditProvider: AuditProvider;
   capabilityProvider: CapabilityProvider;
+  portableMemoryExportProvider: PortableMemoryExportProvider;
 };
 
 export const createDefaultAocProviders = (extractFacts: (domain: OperationalDomain, text: string) => { data: Record<string, string>; extractedFacts: string[]; completionScore: number; missingFields: string[]; confidenceScore: number }): AocProviders => {
@@ -24,6 +26,7 @@ export const createDefaultAocProviders = (extractFacts: (domain: OperationalDoma
     vaultProvider: new SupabaseVaultProvider(),
     policyProvider: new SupabasePolicyProvider(capabilityProvider),
     auditProvider: new SupabaseAuditProvider(),
+    portableMemoryExportProvider: new SupabasePortableMemoryProvider(),
   };
 };
 
