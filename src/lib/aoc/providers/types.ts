@@ -66,6 +66,76 @@ export type CapabilityEvaluation = {
   evaluatedCapability: GovernanceCapability;
 };
 
+
+
+export type PortableMemoryPackageScope = "organization" | "workspace" | "project";
+
+export type PortableMemoryExportPackage = {
+  metadata: {
+    schemaVersion: string;
+    exportScope: PortableMemoryPackageScope;
+    exportedAt: string;
+    exportSource: { type: "supabase"; sourceId: string };
+    runtimeVersion: string;
+    governanceRuntimeVersion: string;
+    exportedByActorRef: string;
+  };
+  governanceSnapshot: {
+    source: string;
+    roleCapabilityGrants: Record<ActorRole, GovernanceCapability[]>;
+    machineCapabilityGrants: Record<string, { role: ActorRole; capabilities: GovernanceCapability[] }>;
+    scopeCapabilityRules: Array<{
+      capability: GovernanceCapability;
+      deniedInScopes?: Array<"organization" | "workspace" | "project">;
+      requireOrganizationScope?: boolean;
+      reason: string;
+    }>;
+    domainWritePolicies: Record<OperationalDomain, { requiredCapability: GovernanceCapability; reason: string }>;
+    exportedAt: string;
+    attribution: string;
+  };
+  namespaceStructure: MemoryNamespace[];
+  operationalMemory: Array<OperationalMemoryRecord & { namespaceKey: string; companyId: string; projectId: string | null; timelineOrder: number }>;
+  auditHistory: Array<{
+    id: string;
+    namespaceKey: string;
+    namespaceScope: string;
+    companyId: string;
+    projectId: string | null;
+    eventType: string;
+    actorRef: string;
+    actorType: ActorType;
+    actorRole: string;
+    machineId: string | null;
+    payload: Record<string, unknown>;
+    occurredAt: string;
+    timelineOrder: number;
+  }>;
+  organizationalTopology: {
+    companyId: string;
+    workspaceIds: string[];
+    projectIds: string[];
+    vaults: Array<{ namespaceKey: string; scope: VaultScope; governanceScope: MemoryNamespace["governanceScope"] }>;
+  };
+};
+
+export type PortableMemoryImportValidationResult = {
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+  compatibility: {
+    schemaVersion: string;
+    governanceRuntimeVersion: string;
+    compatible: boolean;
+  };
+};
+
+export interface PortableMemoryExportProvider {
+  exportOrganizationMemory(input: { companyId: string; exportedByActorRef: string }): Promise<PortableMemoryExportPackage>;
+  exportWorkspaceMemory(input: { companyId: string; workspaceId: string; exportedByActorRef: string }): Promise<PortableMemoryExportPackage>;
+  exportProjectMemory(input: { companyId: string; projectId: string; exportedByActorRef: string }): Promise<PortableMemoryExportPackage>;
+}
+
 export interface CapabilityProvider {
   hasCapability(input: { namespace: MemoryNamespace; actor: GovernanceActor; capability: GovernanceCapability }): Promise<boolean>;
   evaluateCapability(input: { namespace: MemoryNamespace; actor: GovernanceActor; capability: GovernanceCapability }): Promise<CapabilityEvaluation>;

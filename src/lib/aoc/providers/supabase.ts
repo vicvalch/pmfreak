@@ -11,13 +11,18 @@ import type {
   PolicyProvider,
   SaveOperationalMemoryInput,
   VaultProvider,
+  PortableMemoryExportProvider,
+  PortableMemoryExportPackage,
 } from "@/lib/aoc/providers/types";
 import { evaluateCapabilityPolicy, requiredWriteCapability } from "@/lib/aoc/providers/governance";
+import { createPortableExportPackage } from "@/lib/aoc/providers/portable-memory";
 
 type SourceTrace = { sourceType: "chat" | "document" | "system"; sourceRef: string; excerpt?: string };
 
 type OperationalMemoryRow = {
   id: string;
+  company_id: string;
+  project_id: string | null;
   domain: OperationalDomain;
   title: string;
   data: Record<string, string> | null;
@@ -137,3 +142,109 @@ export class SupabaseCapabilityProvider implements CapabilityProvider {
   }
 }
 
+
+
+type GovernanceAuditEventRow = {
+  id: string;
+  company_id: string;
+  project_id: string | null;
+  namespace_key: string;
+  namespace_scope: string;
+  event_type: string;
+  actor_ref: string;
+  actor_type: "human" | "machine";
+  actor_role: string;
+  machine_id: string | null;
+  payload: Record<string, unknown>;
+  occurred_at: string;
+};
+
+export class SupabasePortableMemoryProvider implements PortableMemoryExportProvider {
+  async exportOrganizationMemory(input: { companyId: string; exportedByActorRef: string }): Promise<PortableMemoryExportPackage> {
+    return this.buildExportPackage({ companyId: input.companyId, projectId: null, scope: "organization", sourceId: input.companyId, exportedByActorRef: input.exportedByActorRef });
+  }
+
+  async exportWorkspaceMemory(input: { companyId: string; workspaceId: string; exportedByActorRef: string }): Promise<PortableMemoryExportPackage> {
+    return this.buildExportPackage({ companyId: input.companyId, projectId: null, scope: "workspace", sourceId: input.workspaceId, exportedByActorRef: input.exportedByActorRef });
+  }
+
+  async exportProjectMemory(input: { companyId: string; projectId: string; exportedByActorRef: string }): Promise<PortableMemoryExportPackage> {
+    return this.buildExportPackage({ companyId: input.companyId, projectId: input.projectId, scope: "project", sourceId: input.projectId, exportedByActorRef: input.exportedByActorRef });
+  }
+
+  private async buildExportPackage(input: { companyId: string; projectId: string | null; scope: "organization" | "workspace" | "project"; sourceId: string; exportedByActorRef: string }): Promise<PortableMemoryExportPackage> {
+    const supabase = createSupabaseServerClient();
+
+    let memoryQuery = supabase.from("operational_memory_records").select("*").eq("company_id", input.companyId).order("updated_at", { ascending: true });
+    let auditQuery = supabase.from("governance_audit_events").select("*").eq("company_id", input.companyId).order("occurred_at", { ascending: true });
+
+    if (input.projectId) {
+      memoryQuery = memoryQuery.eq("project_id", input.projectId);
+      auditQuery = auditQuery.eq("project_id", input.projectId);
+    }
+
+    const [memoryResult, auditResult, workspaceResult, projectResult] = await Promise.all([
+      memoryQuery,
+      auditQuery,
+      supabase.from("workspace_invitations").select("workspace_id").eq("company_id", input.companyId),
+      supabase.from("project_memories").select("project_id").eq("company_id", input.companyId),
+    ]);
+
+    if (memoryResult.error) throw new Error(`Unable to export operational memory: ${memoryResult.error.message}`);
+    if (auditResult.error) throw new Error(`Unable to export audit history: ${auditResult.error.message}`);
+
+    const memoryRows = (memoryResult.data ?? []) as OperationalMemoryRow[];
+    const namespaces = new Map<string, MemoryNamespace>();
+    const operationalMemory = memoryRows.map((row, index) => {
+      const namespaceKey = `${input.companyId}:${row.project_id ?? "org"}:${row.project_id ? "workspace_vault" : "organizational_vault"}`;
+      namespaces.set(namespaceKey, {
+        companyId: input.companyId,
+        projectId: row.project_id,
+        scope: row.project_id ? "workspace_vault" : "organizational_vault",
+        governanceScope: row.project_id ? "project" : "organization",
+        namespaceKey,
+      });
+      return { ...mapRecord(row), namespaceKey, companyId: input.companyId, projectId: row.project_id, timelineOrder: index + 1 };
+    });
+
+    const auditRows = (auditResult.data ?? []) as GovernanceAuditEventRow[];
+    auditRows.forEach((row) => {
+      if (!namespaces.has(row.namespace_key)) {
+        namespaces.set(row.namespace_key, {
+          companyId: row.company_id,
+          projectId: row.project_id,
+          scope: row.project_id ? "workspace_vault" : "organizational_vault",
+          governanceScope: row.project_id ? "project" : "organization",
+          namespaceKey: row.namespace_key,
+        });
+      }
+    });
+
+    return createPortableExportPackage({
+      context: { scope: input.scope, sourceId: input.sourceId, exportedByActorRef: input.exportedByActorRef },
+      namespaces: Array.from(namespaces.values()),
+      operationalMemory,
+      auditHistory: auditRows.map((row, index) => ({
+        id: row.id,
+        namespaceKey: row.namespace_key,
+        namespaceScope: row.namespace_scope,
+        companyId: row.company_id,
+        projectId: row.project_id,
+        eventType: row.event_type,
+        actorRef: row.actor_ref,
+        actorType: row.actor_type,
+        actorRole: row.actor_role,
+        machineId: row.machine_id,
+        payload: row.payload ?? {},
+        occurredAt: row.occurred_at,
+        timelineOrder: index + 1,
+      })),
+      organizationalTopology: {
+        companyId: input.companyId,
+        workspaceIds: Array.from(new Set((workspaceResult.data ?? []).map((row: { workspace_id: string }) => row.workspace_id))),
+        projectIds: Array.from(new Set((projectResult.data ?? []).map((row: { project_id: string }) => row.project_id))),
+        vaults: Array.from(namespaces.values()).map((namespace) => ({ namespaceKey: namespace.namespaceKey, scope: namespace.scope, governanceScope: namespace.governanceScope })),
+      },
+    });
+  }
+}
