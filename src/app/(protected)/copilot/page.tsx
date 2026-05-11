@@ -4,6 +4,21 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 type ProjectOption = { id: string; projectName: string; uploadDate: string };
 type CopilotCard = { type: "Risks" | "Next Actions" | "Draft Email" | "RACI" | "Checklist"; title: string; items: string[] };
+type CopilotResponse = {
+  answer: string;
+  cards: CopilotCard[];
+  plan: "free" | "pro" | "enterprise";
+  aiPowered: boolean;
+  ingestion?: IngestionMetadata;
+};
+
+type ChatMessage = {
+  role: "user" | "assistant";
+  text: string;
+  response?: CopilotResponse;
+  ingestion?: IngestionMetadata;
+};
+
 type AmbientMemory = { blockers: string[]; recentDecisions: string[]; stakeholderPressure: string[]; criticalRisks: string[]; concerns: string[] };
 type ExecutionRiskSnapshot = {
   deliveryConfidence: "low" | "medium" | "high" | "critical";
