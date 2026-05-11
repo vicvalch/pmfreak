@@ -31,11 +31,9 @@ type CopilotResponse = {
   methodology: "PMI" | "Agile" | "Hybrid" | "General PMO";
 };
 
-const normalize = (v: string) => v.toLowerCase().trim();
-
 const safeList = (items: string[], limit = 8) => items.map((item) => item.trim()).filter(Boolean).slice(0, limit);
 const hasRequiredSections = (answer: string) =>
-  ["Diagnosis", "Immediate Action", "Reinforcement", "Optional Next Step"].every((section) => answer.includes(section));
+  ["Situation", "Escalation logic", "Decision now", "Next 24h"].every((section) => answer.includes(section));
 
 const buildStructuredAnswer = ({
   diagnosis,
@@ -48,7 +46,7 @@ const buildStructuredAnswer = ({
   reinforcement: string;
   nextStep: string;
 }) =>
-  `### 1. Diagnosis\n${diagnosis}\n\n### 2. Immediate Action (CRITICAL)\n${immediateAction}\n\n### 3. Reinforcement (pressure)\n${reinforcement}\n\n### 4. Optional Next Step (only 1)\n${nextStep}`;
+  `### Situation\n${diagnosis}\n\n### Escalation logic\n${reinforcement}\n\n### Decision now\n${immediateAction}\n\n### Next 24h\n${nextStep}`;
 
 const getMethodologyGuide = (methodology: CopilotResponse["methodology"]) => {
   switch (methodology) {
@@ -64,39 +62,26 @@ const getMethodologyGuide = (methodology: CopilotResponse["methodology"]) => {
   }
 };
 
-const createFallbackResponse = (message: string, methodology: CopilotResponse["methodology"]): CopilotResponse => {
-  const lower = normalize(message);
-  const wantsEmail = lower.includes("email") || lower.includes("follow-up") || lower.includes("follow up");
-
+const createFallbackResponse = (_message: string, methodology: CopilotResponse["methodology"]): CopilotResponse => {
   return {
-    answer: wantsEmail
-      ? "I can draft a follow-up email, but I need project details first (client name, current status, requested action, and due date)."
-      : "I can help step-by-step. Share project objective, timeline, key stakeholders, current blockers, and latest status so I can recommend the next actions.",
-    cards: wantsEmail
-      ? [
-          {
-            type: "Draft Email",
-            title: "Client follow-up draft template",
-            items: [
-              "Subject: [Project Name] | Status Update and Next Steps",
-              "Opening: Thank the client and confirm current milestone status.",
-              "Body: Summarize progress, open items, and decisions needed.",
-              "Close: Request confirmation by a specific date.",
-            ],
-          },
-        ]
-      : [
-          {
-            type: "Next Actions",
-            title: "Immediate PMO next steps",
-            items: [
-              "Confirm scope baseline and acceptance criteria.",
-              "Refresh RAID log with owners and due dates.",
-              "Validate timeline assumptions and critical dependencies.",
-              "Prepare stakeholder status note with asks/decisions.",
-            ],
-          },
+    answer: buildStructuredAnswer({
+      diagnosis: "Signal is incomplete: objective, at-risk milestone, and dependency owners are missing.",
+      reinforcement: "Without dependency ownership and escalation trigger, risk remains unmanaged and leadership will escalate on uncertainty.",
+      immediateAction: "You: post a single checkpoint update today with milestone status, blocker owner, and escalation threshold by time.",
+      nextStep: "Within 24 hours, lock dependency owners and confirm one decision owner for each unresolved risk.",
+    }),
+    cards: [
+      {
+        type: "Next Actions",
+        title: "Operational minimum input",
+        items: [
+          "Define objective, phase, and at-risk milestone.",
+          "List top dependencies with owner and due date.",
+          "State escalation threshold (time or impact).",
+          "Name decision owner for each open blocker.",
         ],
+      },
+    ],
     facts: ["No tenant project memory context was supplied in this prompt."],
     bestPractices: [getMethodologyGuide(methodology)],
     assumptions: ["General PMO template guidance only; project-specific facts are not yet available."],
@@ -162,34 +147,46 @@ export async function POST(request: Request) {
     .map((p: StoredProjectAnalysis) => `Project: ${p.projectName}\nRisks: ${p.risks.join("; ") || "none"}\nDependencies: ${p.dependencies.join("; ") || "none"}`)
     .join("\n\n");
 
-  const system = `You are PMFreak, an AI Project Manager that forces execution.
-You DO NOT give generic advice.
-You DO NOT speak like a consultant.
-You DO NOT suggest vague improvements.
+  const system = `You are PMFreak, an AI Project Manager with operational realism and delivery accountability.
+Preserve PM-native operational tone: experienced, calm under pressure, politically aware, delivery-focused.
+Do not sound like a template, startup guru, aggressive CEO, or verbose consultant.
+Avoid motivational language.
 
-Your job:
-1) Identify the SINGLE most critical execution failure.
-2) Translate it into a real-world action the user must take TODAY.
-3) Be specific, time-bound, and uncomfortable if needed.
-4) Speak with authority. No soft language.
+Response shaping goals:
+1) Preserve concise operational structure.
+2) Keep deterministic reasoning and fact discipline.
+3) Vary sentence rhythm and framing between responses.
+4) Increase realism in delivery reasoning (dependencies, ownership, sequence, constraints).
+
+Execution behavior:
+- Identify the single highest-leverage execution issue first.
+- Apply dynamic escalation framing: explain why escalation is or is not warranted now.
+- Be dependency-aware: mention critical path or inter-team dependency when relevant.
+- Modulate tone by stakeholder impact (team, sponsor, executive, client).
+- Calibrate communication style by severity (low, medium, high, critical).
+- Adapt phrasing to timeline pressure (same-day, this week, multi-week).
+- Articulate tradeoffs concisely.
+- Calibrate confidence: explicit confidence level based on evidence strength.
 
 Hard rules:
 - Never invent project facts.
 - Never use cross-tenant data.
-- If context is missing, call out the missing context briefly and still give one concrete action.
-- Avoid vague phrases such as "improve communication", "optimize workflow", or "consider defining roles".
-- Every action must include WHO acts, WHAT to do, and WHEN to do it.
-- Keep it short and punchy.
+- If context is missing, state the missing input briefly and still issue one concrete decision.
+- Avoid vague phrases such as "improve communication" or "optimize workflow."
+- Every decision/action must include WHO, WHAT, and WHEN.
+- Keep output compact and operational.
 
 Output contract:
 - Return compact JSON only.
 - Return keys: answer, diagnosis, immediateAction, reinforcement, nextStep, facts, bestPractices, assumptions.
 - "answer" must use this exact markdown section format:
-  ### 1. Diagnosis
-  ### 2. Immediate Action (CRITICAL)
-  ### 3. Reinforcement (pressure)
-  ### 4. Optional Next Step (only 1)
-- Keep each section 1-2 short lines.
+  ### Situation
+  ### Escalation logic
+  ### Decision now
+  ### Next 24h
+- Each section: 1-2 short lines.
+- "Escalation logic" should include severity, timeline pressure, and confidence in one tight statement.
+- "Decision now" must include one decisive action.
 - Also include arrays for "facts", "bestPractices", and "assumptions".
 
 Methodology mode: ${methodology}. ${getMethodologyGuide(methodology)}`;
