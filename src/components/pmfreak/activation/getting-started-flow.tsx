@@ -24,25 +24,9 @@ const onboardingSteps: Array<{ id: StepId; title: string; subtitle: string }> = 
 ];
 
 const storageOptions: StorageOption[] = [
-  {
-    id: "cloud",
-    title: "PMFreak Managed Cloud",
-    description: "Fastest setup with fully managed operational infrastructure, governance, and encrypted storage.",
-    note: "Recommended for most teams.",
-    badge: "Recommended",
-  },
-  {
-    id: "local",
-    title: "Local Encrypted Storage",
-    description: "Keep operational memory stored locally on company-controlled infrastructure and devices.",
-  },
-  {
-    id: "self_hosted",
-    title: "Enterprise Deployment",
-    description: "Deploy PMFreak within your own infrastructure, governance environment, and compliance architecture.",
-    note: "Contact sales for deployment configuration.",
-    badge: "Enterprise",
-  },
+  { id: "cloud", title: "PMFreak Cloud", description: "Fastest setup. Fully managed by PMFreak. Recommended for most teams.", badge: "Recommended" },
+  { id: "local", title: "Local Encrypted Storage", description: "Keep project history and team context on company-controlled devices." },
+  { id: "self_hosted", title: "Enterprise / Self-Hosted", description: "Deploy PMFreak in your own environment with full control of project knowledge.", badge: "Coming Soon", disabled: true },
 ];
 
 const templates: DomainTemplate[] = [
@@ -134,92 +118,27 @@ export function GettingStartedFlow() {
   return (
     <main className="space-y-8 pb-12">
       <header className="rounded-3xl border border-white/10 bg-white/5 p-6">
-        <p className="text-xs uppercase tracking-[0.24em] text-cyan-300">PMFreak Activation</p>
-        <h1 className="mt-2 text-3xl font-semibold">Guided Project Activation</h1>
+        <p className="text-xs uppercase tracking-[0.24em] text-cyan-300">Getting Started</p>
+        <h1 className="mt-2 text-3xl font-semibold">Set up PMFreak in minutes</h1>
       </header>
 
       <section className="rounded-3xl border border-white/10 bg-white/5 p-6">
-        <div className="mb-6 grid gap-2 md:grid-cols-5">
-          {onboardingSteps.map((item) => (
-            <button key={item.id} onClick={() => setStep(item.id)} className={`rounded-2xl border px-3 py-2 text-left transition-all ${step === item.id ? "border-cyan-300/60 bg-cyan-400/15" : "border-white/10 bg-white/5 hover:border-white/20"}`}>
-              <p className="text-[11px] uppercase tracking-[0.18em] text-cyan-200/90">Step {item.id}</p>
-              <p className="text-sm font-medium text-slate-100">{item.title}</p>
-              <p className="text-xs text-slate-400">{item.subtitle}</p>
-            </button>
-          ))}
-        </div>
-
-        <div className="mb-6 h-1.5 overflow-hidden rounded-full bg-white/10">
-          <div className="h-full rounded-full bg-gradient-to-r from-cyan-400/80 via-cyan-300/80 to-violet-300/70 transition-all duration-500" style={{ width: `${(step / onboardingSteps.length) * 100}%` }} />
-        </div>
-
-        {step === 1 ? (
-          <div className="grid gap-4 md:grid-cols-2">{([ ["companyName", "Company name"], ["pmoMaturity", "PMO maturity"], ["industry", "Industry"], ["deliveryModel", "Delivery model"], ["teamSize", "Team size"], ["activeProjects", "Active projects"] ] as const).map(([k, l]) => <label key={k} className="text-xs text-slate-300">{l}<input value={form[k]} onChange={(e) => setForm({ ...form, [k]: e.target.value })} className="mt-1 w-full rounded-xl border border-white/15 bg-white/30 px-3 py-2" /></label>)}</div>
-        ) : null}
-
-        {step === 2 ? (
-          <div className="grid gap-4 md:grid-cols-2">{([ ["projectName", "Project name"], ["sponsor", "Sponsor"], ["pm", "PM"], ["timeline", "Timeline"], ["deliveryConfidence", "Delivery confidence"], ["projectType", "Project type"] ] as const).map(([k, l]) => <label key={k} className="text-xs text-slate-300">{l}<input value={form[k]} onChange={(e) => setForm({ ...form, [k]: e.target.value })} className="mt-1 w-full rounded-xl border border-white/15 bg-white/30 px-3 py-2" /></label>)}</div>
-        ) : null}
-
-        {step === 3 ? (
-          <section className="space-y-7 rounded-3xl border border-cyan-200/20 bg-gradient-to-b from-cyan-400/[0.05] via-white/[0.03] to-transparent p-6 md:p-8">
-            <div className="space-y-3">
-              <p className="text-xs uppercase tracking-[0.24em] text-cyan-200">Operational Governance Layer</p>
-              <h2 className="text-3xl font-semibold tracking-tight text-slate-100">Your Operational Vault</h2>
-              <p className="text-base text-slate-200">Your company data stays under your control.</p>
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-              <p className="text-sm leading-relaxed text-slate-300">PMFreak was designed to help organizations retain ownership over their operational intelligence.</p>
-              <p className="mt-3 text-sm leading-relaxed text-slate-300">Project conversations, stakeholder context, timelines, risks, decisions, and institutional memory can live inside a dedicated operational vault controlled by your organization.</p>
-              <p className="mt-3 text-sm font-medium text-cyan-100">Powered by AOC Protocol.</p>
-            </div>
-
-            <blockquote className="rounded-2xl border-l-4 border-cyan-300/80 bg-cyan-300/[0.08] px-5 py-4 text-base italic text-slate-100 shadow-[0_0_45px_-28px_rgba(34,211,238,0.9)]">
-              “Your operational memory should remain attached to your organization — not trapped inside disconnected tools.”
-            </blockquote>
-
-            <div className="h-px bg-gradient-to-r from-transparent via-cyan-200/60 to-transparent" />
-
-            <div className="grid gap-4 lg:grid-cols-3">{storageOptions.map((option) => <StorageOptionCard key={option.id} option={option} selected={form.storageStrategy === option.id} onSelect={(storageStrategy) => setForm({ ...form, storageStrategy })} />)}</div>
-          </section>
-        ) : null}
-
-        {step === 4 ? (
-          <div className="space-y-3">{rows.map((r, i) => <div key={r.domain} className="rounded-2xl border border-slate-700/80 bg-white/60 p-3"><input value={r.title} onChange={(e) => { const n = [...rows]; n[i] = { ...r, title: e.target.value }; setRows(n); }} className="w-full bg-transparent text-sm font-semibold" /><textarea value={r.text} onChange={(e) => { const n = [...rows]; n[i] = { ...r, text: e.target.value }; setRows(n); }} rows={2} className="mt-2 w-full rounded-lg border border-white/10 bg-slate-800/70 p-2 text-xs text-slate-300" /><p className="mt-2 text-[11px] text-slate-400">{r.why}</p></div>)}</div>
-        ) : null}
-
-        {step === 5 ? (
-          <section className="grid gap-4 lg:grid-cols-2">
-            <article className="rounded-2xl border border-cyan-300/30 bg-cyan-400/[0.06] p-5">
-              <p className="text-xs uppercase tracking-[0.2em] text-cyan-200">Activation Review</p>
-              <h3 className="mt-1 text-xl font-semibold text-slate-100">Operational readiness dashboard</h3>
-              <div className="mt-4 space-y-2 text-sm text-slate-200">
-                <p><span className="text-slate-400">Company:</span> {form.companyName || "Not provided"}</p>
-                <p><span className="text-slate-400">Project:</span> {form.projectName || "Not provided"}</p>
-                <p><span className="text-slate-400">Vault strategy:</span> {storageOptions.find((s) => s.id === form.storageStrategy)?.title}</p>
-                <p><span className="text-slate-400">Operational intelligence:</span> {readiness.templateCoverage}% complete</p>
-              </div>
-            </article>
-            <article className="rounded-2xl border border-white/10 bg-white/5 p-5">
-              <p className="text-sm font-semibold text-slate-100">Enterprise activation signals</p>
-              <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
-                <div className="rounded-xl border border-white/10 p-3"><p className="text-[11px] text-slate-400">Readiness score</p><p className="text-xl font-semibold text-cyan-200">{readiness.readinessScore}%</p></div>
-                <div className="rounded-xl border border-white/10 p-3"><p className="text-[11px] text-slate-400">Operational coherence</p><p className="text-xl font-semibold text-cyan-200">{readiness.operationalCoherence}%</p></div>
-                <div className="rounded-xl border border-white/10 p-3"><p className="text-[11px] text-slate-400">Governance completeness</p><p className="text-xl font-semibold text-cyan-200">{readiness.governanceCompleteness}%</p></div>
-              </div>
-            </article>
-          </section>
-        ) : null}
-
-        <div className="mt-7 flex flex-wrap items-center gap-3">
-          <button onClick={prevStep} disabled={step === 1} className="rounded-xl border border-white/20 px-4 py-2 text-sm disabled:opacity-40">Back</button>
-          {step < 5 ? <button onClick={nextStep} className="rounded-xl border border-cyan-300/60 px-4 py-2 text-sm">Continue</button> : null}
-        </div>
+        <div className="mb-4 flex flex-wrap gap-2 text-xs">{[1, 2, 3, 4].map((s) => <button key={s} onClick={() => setStep(s)} className={`rounded-full px-3 py-1 transition-colors ${step === s ? "bg-cyan-400/20 text-cyan-200" : "bg-white/5 text-slate-300"}`}>Step {s}</button>)}</div>
+        {step===1 && <div className="grid gap-3 md:grid-cols-2">{([ ["companyName","Company name"],["pmoMaturity","PMO maturity"],["industry","Industry"],["deliveryModel","Delivery model"],["teamSize","Team size"],["activeProjects","Active projects"] ] as const).map(([k,l])=><label key={k} className="text-xs text-slate-300">{l}<input value={form[k]} onChange={(e)=>setForm({...form,[k]:e.target.value})} className="mt-1 w-full rounded-xl border border-white/15 bg-white/30 px-3 py-2"/></label>)}</div>}
+        {step===2 && <div className="grid gap-3 md:grid-cols-2">{([ ["projectName","Project name"],["sponsor","Sponsor"],["pm","PM"],["timeline","Timeline"],["deliveryConfidence","Delivery confidence"],["projectType","Project type"] ] as const).map(([k,l])=><label key={k} className="text-xs text-slate-300">{l}<input value={form[k]} onChange={(e)=>setForm({...form,[k]:e.target.value})} className="mt-1 w-full rounded-xl border border-white/15 bg-white/30 px-3 py-2"/></label>)}</div>}
+        {step===3 && <OnboardingStep title="Your Project Memory Vault" subtitle="Keep project history safe and portable.">
+          <p className="max-w-3xl text-sm leading-relaxed text-slate-300">PMFreak keeps your company&apos;s project knowledge centralized so your team always has shared context.</p>
+          <p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-300">Project conversations, decisions, risks, blockers, and timelines stay in one secure place your team can rely on.</p>
+          <p className="mt-3 text-sm text-slate-200">You decide where that vault is stored.</p>
+          <div className="mt-5 grid gap-3 lg:grid-cols-3">{storageOptions.map((option)=><StorageOptionCard key={option.id} option={option} selected={form.storageStrategy===option.id} onSelect={(storageStrategy)=>setForm({...form,storageStrategy})}/>)}</div>
+          <p className="mt-5 text-sm font-medium text-slate-100">PMFreak does not sell your project data.</p>
+          <p className="mt-1 text-xs text-slate-400">You can change storage options later as your team grows.</p>
+        </OnboardingStep>}
+        {step===4 && <div className="space-y-3">{rows.map((r,i)=><div key={r.domain} className="rounded-2xl border border-slate-700/80 bg-white/60 p-3"><input value={r.title} onChange={(e)=>{const n=[...rows];n[i]={...r,title:e.target.value};setRows(n);}} className="w-full bg-transparent text-sm font-semibold"/><textarea value={r.text} onChange={(e)=>{const n=[...rows];n[i]={...r,text:e.target.value};setRows(n);}} rows={2} className="mt-2 w-full rounded-lg border border-white/10 bg-slate-800/70 p-2 text-xs text-slate-300"/><p className="mt-2 text-[11px] text-slate-400">{r.why}</p></div>)}</div>}
       </section>
 
       <section className="grid gap-4 lg:grid-cols-2">
-        <article className="rounded-2xl border border-white/10 bg-white/5 p-5"><p className="text-sm font-semibold">Intelligence completion</p><div className="mt-3 space-y-2">{completion.map((c) => <div key={c.domain} className="rounded-xl border border-white/10 p-3"><p className="text-xs text-slate-200">{c.title}</p><p className="text-[11px] text-slate-400">Completion {c.completionScore}% • Confidence {c.confidence}%</p><p className="text-[11px] text-amber-300">{c.missing}</p></div>)}</div></article>
+        <article className="rounded-2xl border border-white/10 bg-white/5 p-5"><p className="text-sm font-semibold">Setup progress</p><div className="mt-3 space-y-2">{completion.map((c)=><div key={c.domain} className="rounded-xl border border-white/10 p-3"><p className="text-xs text-slate-200">{c.title}</p><p className="text-[11px] text-slate-400">Completion {c.completionScore}% • Confidence {c.confidence}%</p><p className="text-[11px] text-amber-300">{c.missing}</p></div>)}</div></article>
       </section>
 
       <div className="flex flex-wrap gap-3">
