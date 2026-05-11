@@ -4,6 +4,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 type ProjectOption = { id: string; projectName: string; uploadDate: string };
 type CopilotCard = { type: "Risks" | "Next Actions" | "Draft Email" | "RACI" | "Checklist"; title: string; items: string[] };
+type IngestionMetadata = {
+  status: "skipped" | "ingested";
+  reason?: string;
+  indicators: string[];
+  domainsAffected: string[];
+  recordsPersisted: number;
+  signalCount: number;
+};
+
 type CopilotResponse = {
   answer: string;
   cards: CopilotCard[];
