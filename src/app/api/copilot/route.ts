@@ -4,6 +4,7 @@ import { canUseAdvancedAi, requireFeatureAccess } from "@/lib/feature-gates";
 import { canUsePortfolioMemory } from "@/lib/plan-access";
 import { buildPmNativeResponse } from "@/lib/pm-response-shaping";
 import { readProjectMemory, type StoredProjectAnalysis } from "@/lib/project-memory";
+import { getRuntimeAuthorityView } from "@/lib/aoc/runtime-observability";
 
 type CopilotRequest = {
   message?: string;
@@ -86,6 +87,13 @@ export async function POST(request: Request) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return Response.json({ error: "Missing OPENAI_API_KEY on the server." }, { status: 500 });
 
+  const runtimeContext = await getRuntimeAuthorityView({
+    companyId: user.companyId,
+    projectId: selectedProject?.id ?? null,
+    sourceRef: `user:${user.id}`,
+    domain: "operational_memory",
+  });
+
   const contextSummary = allowedMemory
     .slice(0, 6)
     .map((p: StoredProjectAnalysis) => `Project: ${p.projectName}\nRisks: ${p.risks.join("; ") || "none"}\nDependencies: ${p.dependencies.join("; ") || "none"}`)
@@ -134,7 +142,7 @@ Methodology mode: ${methodology}. ${getMethodologyGuide(methodology)}`;
         { role: "system", content: system },
         {
           role: "user",
-          content: `User role: ${payload.role ?? user.role}\nProject selected: ${payload.projectName ?? selectedProject?.projectName ?? "Not specified"}\nKnown project memory:\n${contextSummary || "No memory available."}\n\nUser message: ${payload.message}`,
+          content: `User role: ${payload.role ?? user.role}\nProject selected: ${payload.projectName ?? selectedProject?.projectName ?? "Not specified"}\nKnown project memory:\n${contextSummary || "No memory available."}\n\nAOC runtime authority context:\n${JSON.stringify(runtimeContext)}\n\nUser message: ${payload.message}`,
         },
       ],
     }),
@@ -194,4 +202,5 @@ Methodology mode: ${methodology}. ${getMethodologyGuide(methodology)}`;
   }
 
   return Response.json(result);
+  return Response.json({ ...result, runtimeContext });
 }
