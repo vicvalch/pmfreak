@@ -6,6 +6,7 @@ import { buildPmNativeResponse } from "@/lib/pm-response-shaping";
 import { readProjectMemory, type StoredProjectAnalysis } from "@/lib/project-memory";
 import { getRuntimeAuthorityView } from "@/lib/aoc/runtime-observability";
 import { appendOperationalMemory, buildContinuityContext, extractOperationalMemoryCandidates } from "@/lib/operational-memory-v1";
+import { AccessDeniedError, requireProjectAccess } from "@/lib/security/access-guards";
 
 type CopilotRequest = {
   message?: string;
@@ -138,6 +139,17 @@ export async function POST(request: Request) {
   if (!payload.message?.trim()) return Response.json({ error: "Message is required." }, { status: 400 });
   if (payload.companyId && payload.companyId !== user.companyId) {
     return Response.json({ error: "Tenant mismatch." }, { status: 403 });
+  }
+  if (payload.projectId?.trim()) {
+    try {
+      await requireProjectAccess(payload.projectId.trim());
+    } catch (error) {
+      if (error instanceof AccessDeniedError) {
+        console.warn("[security] copilot_project_access_denied", error.metadata);
+        return Response.json({ error: "Invalid project context." }, { status: 403 });
+      }
+      throw error;
+    }
   }
 
   const methodology = payload.methodology ?? "Hybrid";
