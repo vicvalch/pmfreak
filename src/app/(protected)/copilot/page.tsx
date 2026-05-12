@@ -20,6 +20,9 @@ type CopilotResponse = {
   aiPowered: boolean;
   ingestion?: IngestionMetadata;
 };
+type UploadApiResponse =
+  | { ok: true; uploadedFileNames: string[]; uploadedCount: number; ingestion: { extractedSignals: { risks: number; stakeholders: number } } }
+  | { ok: false; error: string; code: string };
 
 type ChatMessage = {
   id: string;
@@ -218,20 +221,27 @@ export default function CopilotPage() {
 
   const handleUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
+    if (!selectedProject?.id) {
+      setError("Select a project before uploading documents in Copilot.");
+      return;
+    }
 
-    const names = Array.from(files).map((file) => file.name);
-    setUploadedFiles((prev) => [...names, ...prev].slice(0, 6));
+    const body = new FormData();
+    body.append("projectId", selectedProject.id);
+    Array.from(files).forEach((file) => body.append("documents", file));
 
-    for (const file of Array.from(files)) {
-      const body = new FormData();
-      body.append("file", file);
-      if (selectedProject?.id) body.append("projectId", selectedProject.id);
-      try {
-        const response = await fetch("/api/upload", { method: "POST", body });
-        if (!response.ok) throw new Error("Upload failed");
-      } catch {
-        setError(`Could not upload ${file.name}. Please try again.`);
+    try {
+      const response = await fetch("/api/upload", { method: "POST", body });
+      const payload = (await response.json()) as UploadApiResponse;
+      if (!response.ok || !payload.ok) {
+        throw new Error(payload.ok ? "Upload failed." : payload.error);
       }
+      setUploadedFiles((prev) => [...payload.uploadedFileNames, ...prev].slice(0, 6));
+      setError(null);
+      const ingestionSummary = `Uploaded ${payload.uploadedCount} document(s). Detected ${payload.ingestion.extractedSignals.risks} risks and ${payload.ingestion.extractedSignals.stakeholders} stakeholders.`;
+      setMessages((prev) => [...prev, { id: `assistant-upload-${Date.now()}`, role: "assistant", text: ingestionSummary, state: "complete" }]);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Upload failed. Please try again.");
     }
   };
 

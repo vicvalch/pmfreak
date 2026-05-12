@@ -14,10 +14,20 @@ type UploadResponseFile = {
 };
 
 type UploadResponse = {
+  ok: true;
   projectId: string;
   projectName: string;
+  uploadedCount: number;
+  uploadedFileNames: string[];
+  ingestion: {
+    startedAt: string;
+    completedAt: string;
+    status: "completed";
+    extractedSignals: { risks: number; stakeholders: number };
+  };
   files: UploadResponseFile[];
 };
+type UploadErrorResponse = { ok: false; error: string; code: string };
 
 type ProjectContextResponse = {
   id: string;
@@ -649,11 +659,11 @@ export default function UploadPage() {
         body: formData,
       });
 
-      const payload = (await response.json()) as UploadResponse | { error: string };
+      const payload = (await response.json()) as UploadResponse | UploadErrorResponse;
 
-      if (!response.ok || "error" in payload) {
+      if (!response.ok || !payload.ok) {
         setUploadResult(null);
-        setUploadError("error" in payload ? payload.error : "Upload failed.");
+        setUploadError(payload.ok ? "Upload failed." : payload.error);
         return;
       }
 
@@ -950,6 +960,10 @@ export default function UploadPage() {
             <p className="text-sm text-emerald-50">
               Project: <span className="font-medium">{uploadResult.projectName}</span>
             </p>
+            <p className="text-sm text-emerald-100/90">
+              Uploaded {uploadResult.uploadedCount} document(s). Detected {uploadResult.ingestion.extractedSignals.risks} risks and {uploadResult.ingestion.extractedSignals.stakeholders} stakeholders.
+            </p>
+            <p className="text-xs text-emerald-100/80">Project memory updated. Next recommended action: Run AI Analysis or ask Copilot for a mitigation plan.</p>
             <div className="space-y-4">
               {uploadResult.files.map((file) => (
                 <article key={file.fileName} className="rounded-xl border border-white/20 bg-white/20 p-4">

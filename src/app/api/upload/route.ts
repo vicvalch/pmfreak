@@ -15,6 +15,40 @@ type ExtractedFile = {
   savedTo: string;
 };
 
+type UploadSuccessResponse = {
+  ok: true;
+  projectId: string;
+  projectName: string;
+  uploadedCount: number;
+  uploadedFileNames: string[];
+  ingestion: {
+    startedAt: string;
+    completedAt: string;
+    status: "completed";
+    extractedSignals: {
+      risks: number;
+      stakeholders: number;
+    };
+  };
+  files: ExtractedFile[];
+};
+
+type UploadErrorResponse = {
+  ok: false;
+  error: string;
+  code:
+    | "UNAUTHORIZED"
+    | "MALFORMED_MULTIPART"
+    | "INVALID_PROJECT"
+    | "MISSING_PROJECT"
+    | "MISSING_FILES"
+    | "INVALID_FILE_FIELD"
+    | "INVALID_FILE_TYPE"
+    | "FILE_TOO_LARGE"
+    | "UPLOAD_LIMIT_REACHED"
+    | "INGESTION_FAILED";
+};
+
 const ALLOWED_MIME_TYPES = new Set([
   "application/pdf",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -24,6 +58,11 @@ const ALLOWED_MIME_TYPES = new Set([
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 
 const sanitizeFileName = (input: string) => input.replace(/[^a-zA-Z0-9._-]/g, "_");
+const riskTerms = /\b(risk|blocker|delay|dependency|escalation)\b/gi;
+const stakeholderTerms = /\b(stakeholder|owner|sponsor|team|vendor|client)\b/gi;
+
+const errorResponse = (status: number, error: UploadErrorResponse["error"], code: UploadErrorResponse["code"]) =>
+  Response.json<UploadErrorResponse>({ ok: false, error, code }, { status });
 
 const extractTextFromFile = async (file: File, buffer: Buffer) => {
   if (file.type === "text/plain") {
@@ -49,10 +88,15 @@ export async function POST(request: Request) {
   const user = await getAuthUser();
 
   if (!user) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
+    return errorResponse(401, "Unauthorized", "UNAUTHORIZED");
   }
 
-  const formData = await request.formData();
+  let formData: FormData;
+  try {
+    formData = await request.formData();
+  } catch {
+    return errorResponse(400, "Malformed multipart/form-data payload.", "MALFORMED_MULTIPART");
+  }
 
   const subscription = await getCompanySubscription(user.companyId);
   const usage = await getCompanyUsage(user.companyId);
@@ -61,7 +105,7 @@ export async function POST(request: Request) {
   const incomingFiles = formData.getAll("documents");
 
   if (!projectId) {
-    return Response.json({ error: "projectId is required." }, { status: 400 });
+    return errorResponse(400, "projectId is required.", "MISSING_PROJECT");
   }
 
 
@@ -74,29 +118,25 @@ export async function POST(request: Request) {
     .maybeSingle();
 
   if (!project) {
-    return Response.json({ error: "Invalid project context." }, { status: 403 });
+    return errorResponse(403, "Invalid project context.", "INVALID_PROJECT");
   }
 
   if (incomingFiles.length === 0) {
-    return Response.json({ error: "At least one file is required." }, { status: 400 });
+    return errorResponse(400, "At least one file is required in `documents` field.", "MISSING_FILES");
   }
 
   const files = incomingFiles.filter((entry): entry is File => entry instanceof File);
 
   if (files.length === 0) {
-    return Response.json({ error: "No valid files found in request." }, { status: 400 });
+    return errorResponse(400, "No valid files found in `documents` field.", "INVALID_FILE_FIELD");
   }
 
   if (!canUploadDocuments(subscription.plan, usage.uploadCount, files.length)) {
     const limit = getUploadLimitForPlan(subscription.plan);
-    return Response.json(
-      {
-        error:
-          limit === null
-            ? "Upload limit reached."
-            : `Free plan limit reached (${limit} uploads/month). Upgrade to Pro for unlimited uploads.`,
-      },
-      { status: 403 },
+    return errorResponse(
+      403,
+      limit === null ? "Upload limit reached." : `Free plan limit reached (${limit} uploads/month). Upgrade to Pro for unlimited uploads.`,
+      "UPLOAD_LIMIT_REACHED",
     );
   }
 
@@ -106,14 +146,18 @@ export async function POST(request: Request) {
   await mkdir(uploadDir, { recursive: true });
 
   const processedFiles: ExtractedFile[] = [];
+  const ingestionStartedAt = new Date().toISOString();
+  console.info("[upload] upload_started", { userId: user.id, companyId: user.companyId, projectId, fileCount: files.length, fileNames: files.map((f) => f.name) });
 
   for (const file of files) {
     if (!ALLOWED_MIME_TYPES.has(file.type)) {
-      return Response.json({ error: `Unsupported file type: ${file.name}` }, { status: 400 });
+      console.warn("[upload] upload_failed", { reason: "invalid_file_type", projectId, fileName: file.name, fileType: file.type });
+      return errorResponse(400, `Unsupported file type: ${file.name}`, "INVALID_FILE_TYPE");
     }
 
     if (file.size > MAX_FILE_SIZE_BYTES) {
-      return Response.json({ error: `File too large: ${file.name}` }, { status: 400 });
+      console.warn("[upload] upload_failed", { reason: "file_too_large", projectId, fileName: file.name, fileSize: file.size });
+      return errorResponse(400, `File too large: ${file.name}`, "FILE_TOO_LARGE");
     }
 
     const arrayBuffer = await file.arrayBuffer();
@@ -123,7 +167,13 @@ export async function POST(request: Request) {
 
     await writeFile(filePath, buffer);
 
-    const extractedText = await extractTextFromFile(file, buffer);
+    let extractedText = "";
+    try {
+      extractedText = await extractTextFromFile(file, buffer);
+    } catch (error) {
+      console.error("[upload] ingestion_failed", { projectId, fileName: file.name, error: error instanceof Error ? error.message : "unknown" });
+      return errorResponse(500, `Ingestion failed for ${file.name}.`, "INGESTION_FAILED");
+    }
 
     processedFiles.push({
       fileName: file.name,
@@ -135,10 +185,31 @@ export async function POST(request: Request) {
   }
 
   await incrementUploadUsage(user.companyId, files.length);
+  const allExtractedText = processedFiles.map((file) => file.extractedText).join("\n");
+  const riskCount = (allExtractedText.match(riskTerms) ?? []).length;
+  const stakeholderCount = (allExtractedText.match(stakeholderTerms) ?? []).length;
+  const ingestionCompletedAt = new Date().toISOString();
+  console.info("[upload] ingestion_completed", {
+    userId: user.id,
+    companyId: user.companyId,
+    projectId,
+    uploadedCount: processedFiles.length,
+    uploadedFileNames: processedFiles.map((file) => file.fileName),
+    extractedSignals: { risks: riskCount, stakeholders: stakeholderCount },
+  });
 
-  return Response.json({
+  return Response.json<UploadSuccessResponse>({
+    ok: true,
     projectId: project.id,
     projectName: resolvedProjectName,
+    uploadedCount: processedFiles.length,
+    uploadedFileNames: processedFiles.map((file) => file.fileName),
+    ingestion: {
+      startedAt: ingestionStartedAt,
+      completedAt: ingestionCompletedAt,
+      status: "completed",
+      extractedSignals: { risks: riskCount, stakeholders: stakeholderCount },
+    },
     files: processedFiles,
   });
 }
