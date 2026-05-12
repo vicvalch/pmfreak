@@ -39,33 +39,14 @@ type CopilotResponse = {
 const safeList = (items: string[], limit = 8) => items.map((item) => item.trim()).filter(Boolean).slice(0, limit);
 const hasRequiredSections = (answer: string) =>
   ["Situation", "Escalation logic", "Decision now", "Next 24h"].every((section) => answer.includes(section));
-
-const buildStructuredAnswer = ({
-  diagnosis,
-  immediateAction,
-  reinforcement,
-  nextStep,
-}: {
-  diagnosis: string;
-  immediateAction: string;
-  reinforcement: string;
-  nextStep: string;
-}) =>
-  `### Situation\n${diagnosis}\n\n### Escalation logic\n${reinforcement}\n\n### Decision now\n${immediateAction}\n\n### Next 24h\n${nextStep}`;
-
-const getMethodologyGuide = (methodology: CopilotResponse["methodology"]) => {
-  switch (methodology) {
-    case "PMI":
-      return "Use predictive project controls, baselines, RAID log discipline, integrated change control, and formal stage gates.";
-    case "Agile":
-      return "Use iterative planning, backlog prioritization, sprint cadence, demos, retrospectives, and fast feedback loops.";
-    case "General PMO":
-      return "Use practical cross-industry PMO guidance with clear governance, stakeholder communication, and risk controls.";
-    case "Hybrid":
-    default:
-      return "Blend predictive governance (RAID, baselines, change control) with adaptive delivery cadence and continuous reprioritization.";
-  }
-};
+const getMethodologyGuide = (methodology: CopilotResponse["methodology"]) =>
+  methodology === "PMI"
+    ? "Bias to governance cadence, formal risk controls, and explicit ownership."
+    : methodology === "Agile"
+      ? "Bias to iterative delivery, backlog clarity, and rapid decision loops."
+      : methodology === "General PMO"
+        ? "Use neutral PMO language with practical governance and stakeholder framing."
+        : "Blend governance rigor with iterative execution pressure and clear escalation boundaries.";
 
 const toOperationalSignals = (runtimeContext: unknown): string[] => {
   if (!runtimeContext || typeof runtimeContext !== "object") return [];
@@ -84,40 +65,6 @@ const toOperationalSignals = (runtimeContext: unknown): string[] => {
   return Array.from(signals).slice(0, 6);
 };
 
-const createFallbackResponse = (_message: string, methodology: CopilotResponse["methodology"]): CopilotResponse => {
-  return {
-    answer: buildStructuredAnswer({
-      diagnosis: "Signal is incomplete: objective, at-risk milestone, and dependency owners are missing.",
-      reinforcement: "Without dependency ownership and escalation trigger, risk remains unmanaged and leadership will escalate on uncertainty.",
-      immediateAction: "You: post a single checkpoint update today with milestone status, blocker owner, and escalation threshold by time.",
-      nextStep: "Within 24 hours, lock dependency owners and confirm one decision owner for each unresolved risk.",
-    }),
-    cards: [
-      {
-        type: "Next Actions",
-        title: "Operational minimum input",
-        items: [
-          "Define objective, phase, and at-risk milestone.",
-          "List top dependencies with owner and due date.",
-          "State escalation threshold (time or impact).",
-          "Name decision owner for each open blocker.",
-        ],
-      },
-    ],
-    facts: ["No tenant project memory context was supplied in this prompt."],
-    bestPractices: [getMethodologyGuide(methodology)],
-    assumptions: ["General PMO template guidance only; project-specific facts are not yet available."],
-    requiresMoreContext: true,
-    contextGapQuestions: [
-      "What is the exact project objective and current phase?",
-      "Which milestone is currently at risk?",
-      "What client decision or dependency is blocking progress?",
-    ],
-    plan: "free",
-    aiPowered: false,
-    methodology,
-  };
-};
 
 export async function POST(request: Request) {
   const user = await getAuthUser();

@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
-import { requireAuthUser } from "@/lib/auth";
+import { isFounderOrInternalUser, requireAuthUser } from "@/lib/auth";
 import { createEarlyAccessInvite } from "@/lib/early-access";
 
 export async function POST(request: Request) {
   const user = await requireAuthUser();
+  if (!isFounderOrInternalUser(user)) return NextResponse.json({ error: "Founder access is required." }, { status: 403 });
   const body = await request.json();
 
   const invite = await createEarlyAccessInvite({

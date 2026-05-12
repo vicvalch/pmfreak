@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireAuthUser } from "@/lib/auth";
+import { isFounderOrInternalUser, requireAuthUser } from "@/lib/auth";
 import { computeRemainingTrialDays } from "@/lib/early-access";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/admin";
 
@@ -7,7 +7,7 @@ export async function GET() {
   await requireAuthUser();
   const supabase = createSupabaseServiceRoleClient({ routeId: "/api/early-access/summary", operation: "service_role_query", reason: "existing_privileged_flow", systemActor: "system" });
 
-  await supabase.rpc("execute_sql", { query: "update trial_licenses set trial_status='expired' where trial_status='active' and trial_end_at < now();" }).catch(() => null);
+  await supabase.rpc("execute_sql", { query: "update trial_licenses set trial_status='expired' where trial_status='active' and trial_end_at < now();" });
 
   const [{ data: invites }, { data: trials }, { data: activations }, { data: events }] = await Promise.all([
     supabase.from("early_access_invites").select("id, invite_email, expires_at, accepted_at, revoked_at, created_at").order("created_at", { ascending: false }).limit(50),

@@ -19,6 +19,7 @@ type CopilotResponse = {
   plan: "free" | "pro" | "enterprise";
   aiPowered: boolean;
   ingestion?: IngestionMetadata;
+  contextGapQuestions?: string[];
 };
 type UploadApiResponse =
   | { ok: true; uploadedFileNames: string[]; uploadedCount: number; ingestion: { extractedSignals: { risks: number; stakeholders: number } } }
