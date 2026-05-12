@@ -1,4 +1,6 @@
 import { getAuthUser } from "@/lib/auth";
+import { AccessDeniedError, requireWorkspaceMembership } from "@/lib/security/access-guards";
+import { denyFromAccessError, denyResponse } from "@/lib/security/deny-response";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { ensurePersonalWorkspaceForUser } from "@/lib/workspaces";
 
@@ -18,7 +20,15 @@ export async function POST(request: Request) {
   const user = await getAuthUser();
 
   if (!user) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
+    return denyResponse({ status: 401, routeId: "/api/onboarding", message: "Unauthorized", reason: "unauthorized" });
+  }
+  const workspaceId = request.headers.get("x-pmf-workspace-id");
+  if (!workspaceId) return denyResponse({ status: 403, routeId: "/api/onboarding", message: "Workspace context required.", reason: "workspace_missing", eventType: "workspace_scope_violation", actorUserId: user.id });
+  try {
+    await requireWorkspaceMembership(workspaceId);
+  } catch (error) {
+    if (error instanceof AccessDeniedError) return denyFromAccessError(error, { status: 403, routeId: "/api/onboarding", message: "Invalid workspace context.", actorUserId: user.id, workspaceId, eventType: "workspace_scope_violation" });
+    throw error;
   }
 
   let payload: Partial<OnboardingPayload>;

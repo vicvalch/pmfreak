@@ -1,11 +1,12 @@
 import { getAuthUser } from "@/lib/auth";
 import { getCompanySubscription } from "@/lib/billing";
 import { canCreatePmoWorkspace, canInviteTeamMembers, canUseAdvancedAi, getPlanCapabilities, getSeatLimit, getUploadLimit } from "@/lib/feature-gates";
+import { denyResponse } from "@/lib/security/deny-response";
 import { getCompanyUsage } from "@/lib/usage-limits";
 
 export async function GET() {
   const user = await getAuthUser();
-  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return denyResponse({ status: 401, routeId: "/api/billing/state", message: "Unauthorized", reason: "unauthorized" });
 
   const subscription = await getCompanySubscription(user.companyId);
   const usage = await getCompanyUsage(user.companyId);

@@ -11,7 +11,13 @@ export type SecurityEventType =
   | "suspicious_permission_escalation"
   | "revoked_agent_access"
   | "governance_violation"
-  | "denied_permission";
+  | "denied_permission"
+  | "invalid_attestation"
+  | "expired_attestation"
+  | "malformed_attestation"
+  | "unsafe_agent_attempt"
+  | "external_scope_violation"
+  | "billing_governance_denied";
 
 type SecurityEventPayload = {
   workspaceId?: string | null;

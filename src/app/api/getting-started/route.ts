@@ -1,4 +1,6 @@
 import { getAuthUser } from "@/lib/auth";
+import { AccessDeniedError, requireWorkspaceMembership } from "@/lib/security/access-guards";
+import { denyFromAccessError, denyResponse } from "@/lib/security/deny-response";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { saveOperationalMemory, type OperationalDomain } from "@/lib/operational-memory";
 
@@ -6,7 +8,15 @@ type TemplateInput = { domain: OperationalDomain; title: string; text: string };
 
 export async function POST(request: Request) {
   const user = await getAuthUser();
-  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return denyResponse({ status: 401, routeId: "/api/getting-started", message: "Unauthorized", reason: "unauthorized" });
+  const workspaceId = request.headers.get("x-pmf-workspace-id");
+  if (!workspaceId) return denyResponse({ status: 403, routeId: "/api/getting-started", message: "Workspace context required.", reason: "workspace_missing", actorUserId: user.id, eventType: "workspace_scope_violation" });
+  try {
+    await requireWorkspaceMembership(workspaceId);
+  } catch (error) {
+    if (error instanceof AccessDeniedError) return denyFromAccessError(error, { status: 403, routeId: "/api/getting-started", message: "Invalid workspace context.", actorUserId: user.id, workspaceId, eventType: "workspace_scope_violation" });
+    throw error;
+  }
   const body = await request.json() as { form: Record<string, string> & { storageStrategy?: "cloud" | "local" | "self_hosted" }; templates: TemplateInput[]; loadDemo?: boolean };
   const supabase = await createSupabaseServerClient();
 

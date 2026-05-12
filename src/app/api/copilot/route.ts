@@ -8,6 +8,7 @@ import { getRuntimeAuthorityView } from "@/lib/aoc/runtime-observability";
 import { appendOperationalMemory, buildContinuityContext, extractOperationalMemoryCandidates } from "@/lib/operational-memory-v1";
 import { AccessDeniedError, requireProjectAccess } from "@/lib/security/access-guards";
 import { verifyAgentAttestation } from "@/lib/security/agent-attestation";
+import { denyResponse } from "@/lib/security/deny-response";
 
 type CopilotRequest = {
   message?: string;
@@ -120,7 +121,7 @@ const createFallbackResponse = (_message: string, methodology: CopilotResponse["
 
 export async function POST(request: Request) {
   const user = await getAuthUser();
-  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return denyResponse({ status: 401, routeId: "/api/copilot", message: "Unauthorized", reason: "unauthorized" });
 
   const advancedAiAccess = await canUseAdvancedAi(user.id);
   if (!advancedAiAccess.ok) {
@@ -138,20 +139,16 @@ export async function POST(request: Request) {
   }
 
   if (!payload.message?.trim()) return Response.json({ error: "Message is required." }, { status: 400 });
-  if (payload.companyId && payload.companyId !== user.companyId) {
-    return Response.json({ error: "Tenant mismatch." }, { status: 403 });
-  }
+  if (payload.companyId && payload.companyId !== user.companyId) return denyResponse({ status: 403, routeId: "/api/copilot", message: "Tenant mismatch.", reason: "tenant_mismatch", actorUserId: user.id, eventType: "suspicious_cross_scope_attempt" });
   const agentToken = request.headers.get("x-pmf-agent-token");
   const agentId = request.headers.get("x-pmf-agent-id");
   const workspaceId = request.headers.get("x-pmf-workspace-id");
-  if (agentToken || agentId || workspaceId) {
-    if (!agentToken || !agentId || !workspaceId) return Response.json({ error: "Incomplete agent attestation headers." }, { status: 400 });
-    try {
-      await verifyAgentAttestation({ token: agentToken, expectedAgentId: agentId, workspaceId, permission: "read", projectId: payload.projectId?.trim() || undefined });
-    } catch (error) {
-      if (error instanceof AccessDeniedError) return Response.json({ error: "Agent attestation denied." }, { status: 403 });
-      throw error;
-    }
+  if (!agentToken || !agentId || !workspaceId) return denyResponse({ status: 403, routeId: "/api/copilot", message: "Agent attestation required.", reason: "missing_attestation_headers", actorUserId: user.id, eventType: "malformed_attestation" });
+  try {
+    await verifyAgentAttestation({ token: agentToken, expectedAgentId: agentId, workspaceId, permission: "execute_ai_action", projectId: payload.projectId?.trim() || undefined });
+  } catch (error) {
+    if (error instanceof AccessDeniedError) return denyResponse({ status: 403, routeId: "/api/copilot", message: "Agent attestation denied.", reason: String(error.metadata.reason ?? "agent_denied"), actorUserId: user.id, actorAgentId: agentId, workspaceId, projectId: payload.projectId?.trim() || null, requestedPermission: "execute_ai_action", deniedPermission: "execute_ai_action", eventType: "invalid_attestation" });
+    throw error;
   }
 
   if (payload.projectId?.trim()) {
