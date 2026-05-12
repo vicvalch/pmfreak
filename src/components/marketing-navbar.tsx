@@ -39,8 +39,8 @@ export function MarketingNavbar() {
           </Link>
         </div>
 
-        <button type="button" className="inline-flex h-10 w-10 items-center justify-center /5 text-slate-100 md:hidden" aria-label="Toggle menu" aria-controls="mobile-main-menu" aria-expanded={isOpen} onClick={() => setIsOpen((v) => !v)}>
-          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+        <button type="button" className="mr-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl text-black md:hidden" aria-label="Toggle menu" aria-controls="mobile-main-menu" aria-expanded={isOpen} onClick={() => setIsOpen((v) => !v)}>
+          <svg viewBox="0 0 24 24" className="h-8 w-8 stroke-[3]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <path d="M4 7h16M4 12h16M4 17h16" />
           </svg>
         </button>
