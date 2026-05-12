@@ -6,6 +6,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import mammoth from "mammoth";
 import { PDFParse } from "pdf-parse";
+import { appendOperationalMemory, extractOperationalMemoryCandidates } from "@/lib/operational-memory-v1";
 
 type ExtractedFile = {
   fileName: string;
@@ -189,6 +190,18 @@ export async function POST(request: Request) {
   const riskCount = (allExtractedText.match(riskTerms) ?? []).length;
   const stakeholderCount = (allExtractedText.match(stakeholderTerms) ?? []).length;
   const ingestionCompletedAt = new Date().toISOString();
+
+  const uploadSource = processedFiles.map((file) => file.fileName).join(", ") || "upload";
+  const extracted = extractOperationalMemoryCandidates({
+    text: allExtractedText,
+    sourceType: "upload",
+    sourceReference: `upload:${uploadSource}`,
+  });
+  await appendOperationalMemory({
+    companyId: user.companyId,
+    projectId: project.id,
+    entries: extracted,
+  });
   console.info("[upload] ingestion_completed", {
     userId: user.id,
     companyId: user.companyId,

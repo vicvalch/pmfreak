@@ -5,6 +5,7 @@ import { canUsePortfolioMemory } from "@/lib/plan-access";
 import { buildPmNativeResponse } from "@/lib/pm-response-shaping";
 import { readProjectMemory, type StoredProjectAnalysis } from "@/lib/project-memory";
 import { getRuntimeAuthorityView } from "@/lib/aoc/runtime-observability";
+import { appendOperationalMemory, buildContinuityContext, extractOperationalMemoryCandidates } from "@/lib/operational-memory-v1";
 
 type CopilotRequest = {
   message?: string;
@@ -166,6 +167,7 @@ export async function POST(request: Request) {
     .join("\n\n");
 
   const continuitySignals = toOperationalSignals(runtimeContext);
+  const continuity = await buildContinuityContext(user.companyId, selectedProject?.id ?? null);
 
   const system = `You are PMFreak, an AI Project Manager with operational realism and delivery accountability.
 Preserve PM-native operational tone: experienced, calm under pressure, politically aware, delivery-focused.
@@ -227,7 +229,7 @@ Methodology mode: ${methodology}. ${getMethodologyGuide(methodology)}`;
         { role: "system", content: system },
         {
           role: "user",
-          content: `User role: ${payload.role ?? user.role}\nProject selected: ${payload.projectName ?? selectedProject?.projectName ?? "Not specified"}\nKnown project memory:\n${contextSummary || "No memory available."}\n\nOperational continuity signals:\n${continuitySignals.length ? continuitySignals.map((s) => `- ${s}`).join("\n") : "- No reliable continuity signal extracted."}\n\nAOC runtime authority context:\n${JSON.stringify(runtimeContext)}\n\nUser message: ${payload.message}`,
+          content: `User role: ${payload.role ?? user.role}\nProject selected: ${payload.projectName ?? selectedProject?.projectName ?? "Not specified"}\nKnown project memory:\n${contextSummary || "No memory available."}\n\nOperational continuity signals:\n${continuitySignals.length ? continuitySignals.map((s) => `- ${s}`).join("\n") : "- No reliable continuity signal extracted."}\n\nPersisted unresolved operational memory:\n${continuity.unresolved.map((item) => `- [${item.memoryType}] ${item.memoryText} (source: ${item.sourceType}:${item.sourceReference})`).join("\n") || "- No unresolved memory yet."}\n\nAOC runtime authority context:\n${JSON.stringify(runtimeContext)}\n\nUser message: ${payload.message}`,
         },
       ],
     }),
@@ -276,6 +278,19 @@ Methodology mode: ${methodology}. ${getMethodologyGuide(methodology)}`;
     aiPowered: true,
     methodology,
   };
+
+
+  const extractedFromMessage = extractOperationalMemoryCandidates({
+    text: payload.message,
+    sourceType: "copilot_message",
+    sourceReference: `copilot:${new Date().toISOString()}`,
+  });
+
+  await appendOperationalMemory({
+    companyId: user.companyId,
+    projectId: selectedProject?.id ?? null,
+    entries: extractedFromMessage,
+  });
 
   if (!hasRequiredSections(result.answer)) {
     result.answer = buildPmNativeResponse({
