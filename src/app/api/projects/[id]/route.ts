@@ -1,6 +1,7 @@
 import { getAuthUser } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { AccessDeniedError, requireProjectAccess } from "@/lib/security/access-guards";
+import { AccessDeniedError, requireProjectPermission } from "@/lib/security/access-guards";
+import { logSecurityEvent } from "@/lib/security/telemetry";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -19,9 +20,10 @@ export async function GET(_request: Request, { params }: Params) {
 
   const supabase = await createSupabaseServerClient();
   try {
-    await requireProjectAccess(projectId);
+    await requireProjectPermission(projectId, "read");
   } catch (error) {
     if (error instanceof AccessDeniedError) {
+      void logSecurityEvent("denied_permission", { actorUserId: user.id, projectId, routeId: "api.projects.id.get", requested_permission: "read", denied_permission: "read" });
       console.warn("[security] project_route_access_denied", error.metadata);
       return Response.json({ error: "Invalid project context." }, { status: 403 });
     }

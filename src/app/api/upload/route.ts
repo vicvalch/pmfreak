@@ -7,7 +7,7 @@ import path from "node:path";
 import mammoth from "mammoth";
 import { PDFParse } from "pdf-parse";
 import { appendOperationalMemory, extractOperationalMemoryCandidates } from "@/lib/operational-memory-v1";
-import { AccessDeniedError, requireProjectAccess } from "@/lib/security/access-guards";
+import { AccessDeniedError, requireProjectPermission } from "@/lib/security/access-guards";
 
 type ExtractedFile = {
   fileName: string;
@@ -113,7 +113,7 @@ export async function POST(request: Request) {
 
   const supabase = await createSupabaseServerClient();
   try {
-    await requireProjectAccess(projectId);
+    await requireProjectPermission(projectId, "upload_documents");
   } catch (error) {
     if (error instanceof AccessDeniedError) {
       console.warn("[security] upload_project_access_denied", error.metadata);
