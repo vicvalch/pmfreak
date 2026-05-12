@@ -78,6 +78,17 @@ export type SecurityEventType =
   | "independent_claim_rejected"
   | "independent_verifier_metadata_fetched"
   | "independent_verifier_keys_fetched"
+  | "trust_event_created"
+  | "trust_event_signed"
+  | "trust_event_verified"
+  | "trust_event_imported"
+  | "trust_event_rejected"
+  | "revocation_registered"
+  | "revocation_applied"
+  | "trust_graph_edge_created"
+  | "trust_graph_edge_revoked"
+  | "issuer_distrust_propagated"
+  | "verifier_trust_updated"
 ;
 
 type SecurityEventPayload = {

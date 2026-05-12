@@ -1,5 +1,6 @@
 import { createHmac, createHash, createPrivateKey, createPublicKey, sign, timingSafeEqual, verify } from "node:crypto";
 import { evaluateVerifierPolicy, getActiveAsymmetricSigningKey, getActiveSigningKey, resolvePublicVerificationKey, resolveVerificationKey, verifyIssuerTrust } from "@/lib/security/trust-domains";
+import { getRevocationReason } from "@/lib/security/trust-coordination";
 import { logSecurityEvent } from "@/lib/security/telemetry";
 
 export const CAPABILITY_CLAIM_VERSION = "pmfreak-capability-claim-v1" as const;
@@ -35,6 +36,8 @@ export async function verifyCapabilityClaim(claim: CapabilityClaim, expected: an
   const trustDomain = claim.proof.trustDomain ?? claim.issuer.trustDomain ?? "pmfreak-local";
   const trust = await verifyIssuerTrust({ trustDomain, issuerApp: claim.issuer.app, expectedTrustDomain: expected.expectedTrustDomain }); if (!trust.ok) return { valid: false, reason: trust.reason, claimHash, trustDomain };
   const key = await resolveVerificationKey({ trustDomainId: trust.trustDomain.id, keyId: claim.proof.keyId }); if (!key) return { valid: false, reason: "unknown_key", claimHash, trustDomain };
+  const revocationReason = await getRevocationReason({ trustDomain, keyId: claim.proof.keyId, claimHash, delegationId: claim.lineage.parentDelegationId, grantId: claim.lineage.parentGrantId });
+  if (revocationReason) return { valid: false, reason: revocationReason, claimHash, trustDomain, keyId: key.key_id };
   if (!["HMAC-SHA256", "Ed25519"].includes(claim.proof.algorithm)) return { valid: false, reason: "unsupported_algorithm", claimHash, trustDomain, keyId: key.key_id };
   if (key.algorithm !== claim.proof.algorithm || key.status === "revoked") return { valid: false, reason: key.status === "revoked" ? "revoked_key" : "unsupported_algorithm", claimHash, trustDomain, keyId: key.key_id };
   const unsigned = { ...claim, proof: undefined } as unknown as Omit<CapabilityClaim, "proof">;
