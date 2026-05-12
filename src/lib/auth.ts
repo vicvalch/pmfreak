@@ -57,3 +57,8 @@ export const requireAuthUser = async () => {
   }
   return user;
 };
+
+export const isFounderOrInternalUser = (user: AuthUserContext) => {
+  const internalDomain = user.email.toLowerCase().endsWith("@pmfreak.ai");
+  return user.role === "owner" || user.role === "admin" || internalDomain;
+};

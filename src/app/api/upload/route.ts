@@ -64,7 +64,7 @@ const riskTerms = /\b(risk|blocker|delay|dependency|escalation)\b/gi;
 const stakeholderTerms = /\b(stakeholder|owner|sponsor|team|vendor|client)\b/gi;
 
 const errorResponse = (status: number, error: UploadErrorResponse["error"], code: UploadErrorResponse["code"]) =>
-  Response.json<UploadErrorResponse>({ ok: false, error, code }, { status });
+  Response.json({ ok: false, error, code } satisfies UploadErrorResponse, { status });
 
 const extractTextFromFile = async (file: File, buffer: Buffer) => {
   if (file.type === "text/plain") {
@@ -217,7 +217,7 @@ export async function POST(request: Request) {
     extractedSignals: { risks: riskCount, stakeholders: stakeholderCount },
   });
 
-  return Response.json<UploadSuccessResponse>({
+  return Response.json({
     ok: true,
     projectId: project.id,
     projectName: resolvedProjectName,
@@ -230,5 +230,5 @@ export async function POST(request: Request) {
       extractedSignals: { risks: riskCount, stakeholders: stakeholderCount },
     },
     files: processedFiles,
-  });
+  } satisfies UploadSuccessResponse);
 }

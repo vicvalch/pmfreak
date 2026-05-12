@@ -66,7 +66,14 @@ export async function acceptEarlyAccessInvite(input: { inviteToken: string; user
   if (invite.revoked_at) throw new Error("Invite has been revoked.");
   if (invite.accepted_at) throw new Error("Invite has already been used.");
   if (new Date(invite.expires_at).getTime() < Date.now()) throw new Error("Invite has expired.");
-  if (invite.requires_approval && !invite.approved_at) throw new Error("Invite is pending founder approval.");
+  if (invite.requires_approval && !invite.approved_at) throw new Error("Founder approval is required.");
+
+  const { data: existingActivation } = await supabase
+    .from("workspace_activations")
+    .select("id")
+    .eq("invite_id", invite.id)
+    .maybeSingle();
+  if (existingActivation?.id) throw new Error("Invite has already been used.");
 
   const workspaceInsert = await supabase
     .from("workspaces")
@@ -77,7 +84,8 @@ export async function acceptEarlyAccessInvite(input: { inviteToken: string; user
 
   const workspaceId = workspaceInsert.data.id as string;
 
-  await supabase.from("workspace_memberships").insert({ workspace_id: workspaceId, user_id: input.userId, role: "owner" });
+  const { error: membershipError } = await supabase.from("workspace_memberships").insert({ workspace_id: workspaceId, user_id: input.userId, role: "owner" });
+  if (membershipError) throw new Error(`Unable to create workspace membership: ${membershipError.message}`);
 
   const trialStart = new Date();
   const trialEnd = new Date(trialStart.getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
@@ -130,4 +138,63 @@ export async function acceptEarlyAccessInvite(input: { inviteToken: string; user
   ]);
 
   return { workspaceId, trialEndsAt: trialEnd.toISOString() };
+}
+
+export async function approveEarlyAccessInvite(inviteId: string, actorUserId: string) {
+  const supabase = createSupabaseServiceRoleClient();
+  const approvedAt = new Date().toISOString();
+  const { data: invite, error } = await supabase
+    .from("early_access_invites")
+    .update({ approved_at: approvedAt })
+    .eq("id", inviteId)
+    .is("revoked_at", null)
+    .is("accepted_at", null)
+    .select("id")
+    .single();
+  if (error || !invite) throw new Error("Unable to approve invite.");
+  await supabase.from("early_access_events").insert({ invite_id: inviteId, event_type: "invite_approved", event_payload: { actorUserId } });
+}
+
+export async function revokeEarlyAccessInvite(inviteId: string, actorUserId: string) {
+  const supabase = createSupabaseServiceRoleClient();
+  const revokedAt = new Date().toISOString();
+  const { data: invite, error } = await supabase
+    .from("early_access_invites")
+    .update({ revoked_at: revokedAt })
+    .eq("id", inviteId)
+    .is("accepted_at", null)
+    .select("id")
+    .single();
+  if (error || !invite) throw new Error("Unable to revoke invite.");
+  await supabase.from("early_access_events").insert({ invite_id: inviteId, event_type: "invite_revoked", event_payload: { actorUserId } });
+}
+
+export async function revokeTrialLicense(trialId: string, actorUserId: string) {
+  const supabase = createSupabaseServiceRoleClient();
+  const { data: trial, error } = await supabase
+    .from("trial_licenses")
+    .update({ trial_status: "revoked", revoked_at: new Date().toISOString() })
+    .eq("id", trialId)
+    .neq("trial_status", "revoked")
+    .select("id, invite_id, workspace_id")
+    .single();
+  if (error || !trial) throw new Error("Unable to revoke trial.");
+  await supabase.from("early_access_events").insert({ invite_id: trial.invite_id, trial_license_id: trial.id, workspace_id: trial.workspace_id, event_type: "trial_revoked", event_payload: { actorUserId } });
+}
+
+export async function extendTrialLicense(trialId: string, extensionDays: number, actorUserId: string) {
+  if (extensionDays <= 0 || extensionDays > 60) throw new Error("Invalid trial extension window.");
+  const supabase = createSupabaseServiceRoleClient();
+  const { data: trial, error: trialError } = await supabase.from("trial_licenses").select("id, invite_id, workspace_id, trial_end_at, trial_status").eq("id", trialId).single();
+  if (trialError || !trial) throw new Error("Unable to load trial.");
+  if (trial.trial_status === "revoked") throw new Error("Trial is no longer active.");
+
+  const currentEnd = trial.trial_end_at ? new Date(trial.trial_end_at).getTime() : Date.now();
+  const baseEnd = Math.max(currentEnd, Date.now());
+  const nextEnd = new Date(baseEnd + extensionDays * 24 * 60 * 60 * 1000).toISOString();
+  const nextStatus: TrialStatus = trial.trial_status === "expired" ? "active" : trial.trial_status;
+
+  const { error } = await supabase.from("trial_licenses").update({ trial_end_at: nextEnd, trial_status: nextStatus }).eq("id", trialId);
+  if (error) throw new Error("Unable to extend trial.");
+  await supabase.from("early_access_events").insert({ invite_id: trial.invite_id, trial_license_id: trial.id, workspace_id: trial.workspace_id, event_type: "trial_extended", event_payload: { actorUserId, extensionDays, trialEndAt: nextEnd } });
 }

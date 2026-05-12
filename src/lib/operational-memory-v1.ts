@@ -1,5 +1,3 @@
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-
 export const MEMORY_TYPES = [
   "risks",
   "blockers",
@@ -89,6 +87,7 @@ export async function appendOperationalMemory(input: {
   entries: Array<{ memoryType: MemoryType; memoryText: string; sourceType: MemorySourceType; sourceReference: string; status: MemoryStatus }>;
 }) {
   if (input.entries.length === 0) return [];
+  const { createSupabaseServerClient } = await import("@/lib/supabase/server");
   const supabase = await createSupabaseServerClient();
 
   const incomingTexts = input.entries.map((item) => item.memoryText);
@@ -145,6 +144,7 @@ export async function getOperationalMemory(input: {
   unresolvedOnly?: boolean;
   limit?: number;
 }) {
+  const { createSupabaseServerClient } = await import("@/lib/supabase/server");
   const supabase = await createSupabaseServerClient();
   let query = supabase
     .from("operational_memory_entries")

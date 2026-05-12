@@ -2,8 +2,21 @@
 
 import { useState } from "react";
 import useSWR from "swr";
-import { MEMORY_TYPES, type MemoryType, type OperationalMemoryEntry } from "@/lib/operational-memory-v1";
+import type { OperationalMemoryEntry } from "@/lib/operational-memory-v1";
 import { OperationalMemoryTable } from "./operational-memory-table";
+
+const MEMORY_TYPES = [
+  "risks",
+  "blockers",
+  "decisions",
+  "stakeholders",
+  "action_items",
+  "unresolved_questions",
+  "dependencies",
+  "milestones",
+  "escalations",
+] as const;
+type MemoryType = (typeof MEMORY_TYPES)[number];
 
 const fetcher = async <T,>(url: string): Promise<T> => (await fetch(url)).json() as Promise<T>;
 

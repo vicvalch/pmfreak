@@ -33,3 +33,6 @@ export const createSupabasePublicServerClient = () => {
   if (!anonKey) throw new Error("Missing NEXT_PUBLIC_SUPABASE_ANON_KEY for unprivileged server client.");
   return createClient(requireUrl(), anonKey, { auth: { autoRefreshToken: false, persistSession: false } });
 };
+
+// Backward-compatible alias used across existing server codepaths.
+export const createSupabaseServerClient = createSupabasePublicServerClient;
