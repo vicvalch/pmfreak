@@ -13,3 +13,7 @@
 - No longer static-only RBAC.
 - Current implementation is an **early policy engine** and **governance-aware SaaS layer**.
 - Not protocol-ready yet (approval protocols and external policy exchange absent).
+
+
+## Phase 5.1 note
+- Approval-aware governance is now implemented as a minimal runtime layer; this is not AOC protocol integration yet.
