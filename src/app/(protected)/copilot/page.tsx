@@ -269,9 +269,9 @@ export default function CopilotPage() {
   };
 
   return (
-    <div className="min-h-[80vh]">
-      <main className="mx-auto grid w-full gap-4 xl:grid-cols-[1fr_280px]">
-        <section className="rounded-3xl border border-white/10 bg-white/5 p-4 md:p-6">
+    <div className="min-h-[82vh]">
+      <main className="mx-auto grid w-full gap-5 xl:grid-cols-[1fr_300px]">
+        <section className="rounded-3xl border border-white/10 bg-slate-900/55 p-4 shadow-[0_30px_70px_-50px_rgba(15,23,42,0.95)] backdrop-blur-xl md:p-6">
           <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-xs uppercase tracking-[0.2em] text-cyan-300">PMFreak Copilot</p>
@@ -291,12 +291,12 @@ export default function CopilotPage() {
           </header>
 
           {messages.length === 0 ? (
-            <section className="mb-4 rounded-2xl border border-cyan-300/35 bg-cyan-400/10 p-4">
+            <section className="mb-4 rounded-2xl border border-cyan-300/30 bg-cyan-400/[0.08] p-4">
               <p className="text-xs uppercase tracking-[0.2em] text-cyan-200">First-session guide</p>
               <h2 className="mt-1 text-lg font-semibold">Start with one real operational question</h2>
               <div className="mt-3 grid gap-3 md:grid-cols-2">
                 {Object.entries(FIRST_SESSION_PROMPTS).map(([group, prompts]) => (
-                  <div key={group} className="rounded-xl border border-white/15 bg-black/10 p-3">
+                  <div key={group} className="rounded-xl border border-white/10 bg-slate-950/55 p-3">
                     <p className="text-xs uppercase tracking-wide text-cyan-100">{group}</p>
                     <div className="mt-2 space-y-2">
                       {prompts.map((prompt) => (
@@ -313,19 +313,19 @@ export default function CopilotPage() {
 
 
           <div className="mb-4 flex flex-wrap gap-2">
-            {activeFollowUps.map((prompt) => <button key={prompt} onClick={() => void send(prompt)} className="rounded-full border border-white/20 px-3 py-1 text-xs text-slate-200 transition hover:-translate-y-0.5 hover:border-cyan-300/40 hover:bg-cyan-300/10">{prompt}</button>)}
+            {activeFollowUps.map((prompt) => <button key={prompt} onClick={() => void send(prompt)} className="rounded-full border border-white/15 bg-white/[0.02] px-3 py-1.5 text-xs text-slate-200 transition hover:border-cyan-300/35 hover:bg-cyan-300/[0.08]">{prompt}</button>)}
           </div>
 
           <div
             onDrop={(e) => { e.preventDefault(); setDragActive(false); void handleUpload(e.dataTransfer.files); }}
             onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
             onDragLeave={() => setDragActive(false)}
-            className={`min-h-[520px] rounded-2xl border p-4 transition ${dragActive ? "border-cyan-300/50 bg-cyan-400/5" : "border-white/10 bg-white/20"}`}
+            className={`min-h-[560px] rounded-2xl border p-4 transition ${dragActive ? "border-cyan-300/50 bg-cyan-400/5" : "border-white/10 bg-slate-950/50"}`}
           >
             <div className="space-y-3">
               {messages.length === 0 ? <p className="text-sm text-slate-300">Start with one question. PMFreak will surface only the highest-signal operational insight first.</p> : null}
               {messages.map((msg) => (
-                <article key={msg.id} className={`max-w-3xl rounded-2xl p-3 text-sm transition-all ${msg.role === "user" ? "ml-auto bg-cyan-500/20" : "bg-slate-800/70"} ${msg.state === "streaming" ? "ring-1 ring-cyan-300/30" : ""}`}>
+                <article key={msg.id} className={`max-w-3xl rounded-2xl p-3 text-sm transition-all ${msg.role === "user" ? "ml-auto border border-cyan-300/20 bg-cyan-400/[0.12]" : "border border-white/10 bg-slate-900/80"} ${msg.state === "streaming" ? "ring-1 ring-cyan-300/30" : ""}`}>
                   <p>{msg.text}</p>
                   {msg.role === "assistant" && msg.state === "streaming" ? <p className="mt-2 text-[11px] text-cyan-200 animate-pulse">typing operational guidance…</p> : null}
                   {msg.role === "assistant" && msg.state === "error" ? <p className="mt-2 text-[11px] text-rose-200">degraded AI state — conversation memory retained</p> : null}
@@ -340,8 +340,8 @@ export default function CopilotPage() {
           <div className="mt-4 space-y-2">
             <input ref={fileInputRef} type="file" multiple className="hidden" onChange={(e) => void handleUpload(e.target.files)} />
             <div className="flex gap-2">
-              <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Ask for the next decision, risk, or action…" className="flex-1 rounded-xl border border-white/10 bg-white/30 px-4 py-3 text-sm" />
-              <button onClick={() => void send()} disabled={loading} className="rounded-xl border border-cyan-300/50 px-4 py-2 text-sm font-semibold">Send</button>
+              <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Ask for the next decision, risk, or action…" className="flex-1 rounded-xl border border-white/15 bg-slate-950/75 px-4 py-3 text-sm text-slate-100 placeholder:text-slate-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300/70" />
+              <button onClick={() => void send()} disabled={loading} className="rounded-xl border border-cyan-200/45 bg-cyan-400/[0.08] px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/[0.16]">Send</button>
             </div>
             {lastFailedMessage ? (
               <button onClick={() => void send(lastFailedMessage)} className="rounded-xl border border-amber-300/40 bg-amber-400/10 px-3 py-2 text-xs text-amber-100">
@@ -358,7 +358,7 @@ export default function CopilotPage() {
           </div>
         </section>
 
-        <aside className="space-y-3 rounded-3xl border border-white/10 bg-white/5 p-4">
+        <aside className="space-y-3 rounded-3xl border border-white/10 bg-slate-900/55 p-4 backdrop-blur-xl">
           <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-200">Operational pulse</h2>
           <article className="rounded-2xl border border-cyan-300/25 bg-cyan-950/20 p-3 text-xs text-cyan-100">
             <p className="text-cyan-200">Hero insight</p>
@@ -366,19 +366,19 @@ export default function CopilotPage() {
           </article>
 
           <div className="grid grid-cols-2 gap-2">
-            <article className="rounded-xl border border-white/10 bg-white/20 p-3 text-xs text-slate-200">
+            <article className="rounded-xl border border-white/10 bg-slate-950/50 p-3 text-xs text-slate-200">
               <p className="text-slate-400">Delivery</p>
               <p className="mt-1 font-semibold uppercase">{executionRisk?.deliveryConfidence ?? "medium"}</p>
             </article>
-            <article className="rounded-xl border border-white/10 bg-white/20 p-3 text-xs text-slate-200">
+            <article className="rounded-xl border border-white/10 bg-slate-950/50 p-3 text-xs text-slate-200">
               <p className="text-slate-400">Escalation</p>
               <p className="mt-1 font-semibold uppercase">{executionRisk?.activeEscalationRisk ?? "watch"}</p>
             </article>
-            <article className="rounded-xl border border-white/10 bg-white/20 p-3 text-xs text-slate-200">
+            <article className="rounded-xl border border-white/10 bg-slate-950/50 p-3 text-xs text-slate-200">
               <p className="text-slate-400">Intervention</p>
               <p className="mt-1 font-semibold uppercase">{intervention?.interventionUrgency ?? "watch"}</p>
             </article>
-            <article className="rounded-xl border border-white/10 bg-white/20 p-3 text-xs text-slate-200">
+            <article className="rounded-xl border border-white/10 bg-slate-950/50 p-3 text-xs text-slate-200">
               <p className="text-slate-400">Alignment</p>
               <p className="mt-1 font-semibold uppercase">{stakeholderIntel?.executiveAlignment ?? "mixed"}</p>
             </article>
