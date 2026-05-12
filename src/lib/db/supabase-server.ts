@@ -15,25 +15,21 @@ export type MessageAnalysisInsert = {
   created_at?: string;
 };
 
-export const createSupabaseServerClient = () => {
+function requireUrl() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url) throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL.");
+  return url;
+}
+
+export const createSupabaseAdminClient = () => {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceRoleKey) throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY for privileged client.");
+  console.warn("[security] privileged_client_used", { client: "createSupabaseAdminClient" });
+  return createClient(requireUrl(), serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
+};
 
-  if (!url) {
-    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL.");
-  }
-
-  const key = serviceRoleKey ?? anonKey;
-
-  if (!key) {
-    throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY or NEXT_PUBLIC_SUPABASE_ANON_KEY.");
-  }
-
-  return createClient(url, key, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
+export const createSupabasePublicServerClient = () => {
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!anonKey) throw new Error("Missing NEXT_PUBLIC_SUPABASE_ANON_KEY for unprivileged server client.");
+  return createClient(requireUrl(), anonKey, { auth: { autoRefreshToken: false, persistSession: false } });
 };
