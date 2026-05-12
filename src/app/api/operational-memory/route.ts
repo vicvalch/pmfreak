@@ -1,5 +1,5 @@
 import { getAuthUser } from "@/lib/auth";
-import { AccessDeniedError, requireProjectAccess } from "@/lib/security/access-guards";
+import { AccessDeniedError, requireProjectPermission } from "@/lib/security/access-guards";
 import {
   appendOperationalMemory,
   extractOperationalMemoryCandidates,
@@ -17,7 +17,7 @@ export async function GET(request: Request) {
   const projectId = searchParams.get("projectId")?.trim() ?? null;
   if (projectId) {
     try {
-      await requireProjectAccess(projectId);
+      await requireProjectPermission(projectId, "read");
     } catch (error) {
       if (error instanceof AccessDeniedError) {
         console.warn("[security] operational_memory_access_denied", error.metadata);
@@ -54,7 +54,7 @@ export async function POST(request: Request) {
   if (!body.text?.trim()) return Response.json({ error: "text required" }, { status: 400 });
   if (body.projectId?.trim()) {
     try {
-      await requireProjectAccess(body.projectId.trim());
+      await requireProjectPermission(body.projectId.trim(), "write_memory");
     } catch (error) {
       if (error instanceof AccessDeniedError) {
         console.warn("[security] operational_memory_write_denied", error.metadata);

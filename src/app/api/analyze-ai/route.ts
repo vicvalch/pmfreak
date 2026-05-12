@@ -1,5 +1,5 @@
 import { getAuthUser } from "@/lib/auth";
-import { AccessDeniedError, requireProjectAccess } from "@/lib/security/access-guards";
+import { AccessDeniedError, requireProjectPermission } from "@/lib/security/access-guards";
 import { getCompanySubscription } from "@/lib/billing";
 import {
   enrichWithPortfolioIntelligence,
@@ -70,7 +70,7 @@ export async function POST(request: Request) {
   const supabase = await createSupabaseServerClient();
   let workspaceId = "";
   try {
-    const access = await requireProjectAccess(projectId);
+    const access = await requireProjectPermission(projectId, "read");
     workspaceId = access.workspaceId;
   } catch (error) {
     if (error instanceof AccessDeniedError) return Response.json({ error: "Invalid project context." }, { status: 403 });

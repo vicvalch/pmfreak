@@ -2,7 +2,7 @@ import { getAuthUser } from "@/lib/auth";
 import { routeOperationalInput } from "@/lib/input-routing";
 import { listOperationalMemory } from "@/lib/operational-memory";
 import type { InputHubMode } from "@/lib/operational-classifier";
-import { AccessDeniedError, requireProjectAccess } from "@/lib/security/access-guards";
+import { AccessDeniedError, requireProjectPermission } from "@/lib/security/access-guards";
 
 export async function GET(request: Request) {
   const user = await getAuthUser();
@@ -11,7 +11,7 @@ export async function GET(request: Request) {
   const projectId = searchParams.get("projectId");
   if (projectId?.trim()) {
     try {
-      await requireProjectAccess(projectId.trim());
+      await requireProjectPermission(projectId.trim(), "read");
     } catch (error) {
       if (error instanceof AccessDeniedError) {
         console.warn("[security] input_hub_read_denied", error.metadata);
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
   }
   if (body.projectId?.trim()) {
     try {
-      await requireProjectAccess(body.projectId.trim());
+      await requireProjectPermission(body.projectId.trim(), "write_memory");
     } catch (error) {
       if (error instanceof AccessDeniedError) {
         console.warn("[security] input_hub_write_denied", error.metadata);

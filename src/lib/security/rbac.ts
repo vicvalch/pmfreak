@@ -14,11 +14,14 @@ export const PERMISSIONS = [
   "read",
   "write",
   "delete",
+  "write_memory",
+  "delete_memory",
   "manage_members",
   "manage_projects",
   "manage_workspace",
   "manage_ai",
   "manage_billing",
+  "execute_ai_action",
   "view_executive",
   "upload_documents",
 ] as const;
@@ -27,12 +30,12 @@ export type Permission = (typeof PERMISSIONS)[number];
 
 export const ROLE_PERMISSION_MAP: Record<WorkspaceRole, ReadonlySet<Permission>> = {
   owner: new Set(PERMISSIONS),
-  admin: new Set(["read", "write", "delete", "manage_members", "manage_projects", "manage_workspace", "manage_ai", "view_executive", "upload_documents"]),
-  PM: new Set(["read", "write", "manage_projects", "view_executive", "upload_documents"]),
-  contributor: new Set(["read", "write", "upload_documents"]),
+  admin: new Set(["read", "write", "delete", "write_memory", "delete_memory", "manage_members", "manage_projects", "manage_workspace", "manage_ai", "view_executive", "upload_documents", "execute_ai_action"]),
+  PM: new Set(["read", "write", "write_memory", "manage_projects", "view_executive", "upload_documents", "execute_ai_action"]),
+  contributor: new Set(["read", "write", "write_memory", "upload_documents"]),
   executive_viewer: new Set(["read", "view_executive"]),
   external_stakeholder: new Set(["read"]),
-  ai_agent: new Set(["read", "write", "upload_documents"]),
+  ai_agent: new Set(["read", "write", "write_memory", "upload_documents", "execute_ai_action"]),
 };
 
 export type GovernancePolicyContext = {
