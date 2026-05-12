@@ -2,6 +2,14 @@ import { verifyCapabilityClaim, explainCapabilityClaim, hashCapabilityClaim, cla
 import { logSecurityEvent } from "@/lib/security/telemetry";
 import { consumeOrAssertHandshake } from "@/lib/security/trust-handshakes";
 
+const getOptionalVerificationField = <K extends string>(verification: unknown, key: K): string | null => {
+  if (verification && typeof verification === "object" && key in verification) {
+    const value = (verification as Record<string, unknown>)[key];
+    return typeof value === "string" ? value : null;
+  }
+  return null;
+};
+
 export async function POST(request: Request) {
   const body = await request.json();
   const claim = body.capabilityClaim;
@@ -26,7 +34,7 @@ export async function POST(request: Request) {
     }
   }
   const explanation = explainCapabilityClaim(claim);
-  const trustMetadata = { ...claimToAuditMetadata(claim, verification.reason), trustDomain: verification.trustDomain ?? claim?.issuer?.trustDomain ?? null, keyId: verification.keyId ?? claim?.proof?.keyId ?? null, verifierWorkspaceId: body.verifierWorkspaceId ?? null, issuerStatus: verification.issuerStatus ?? null, keyStatus: verification.keyStatus ?? null, federationMode: verification.federationMode ?? null, reason: verification.reason };
+  const trustMetadata = { ...claimToAuditMetadata(claim, verification.reason), trustDomain: verification.trustDomain ?? claim?.issuer?.trustDomain ?? null, keyId: verification.keyId ?? claim?.proof?.keyId ?? null, verifierWorkspaceId: body.verifierWorkspaceId ?? null, issuerStatus: getOptionalVerificationField(verification, "issuerStatus"), keyStatus: getOptionalVerificationField(verification, "keyStatus"), federationMode: getOptionalVerificationField(verification, "federationMode"), reason: verification.reason };
 
   if (!verification.valid) {
     const ev = verification.reason === "revoked_key" ? "federated_claim_revoked_key" : verification.reason === "expired_key" ? "federated_claim_expired_key" : verification.reason.includes("untrusted") || verification.reason.includes("issuer") ? "federated_claim_untrusted_issuer" : "federated_claim_rejected";

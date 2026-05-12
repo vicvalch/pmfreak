@@ -15,6 +15,13 @@ export async function issueExecutionGrant(input: ExecutionGrantInput) {
   const { data, error } = await supabase.from("governance_execution_grants").upsert(payload, { onConflict: "approval_request_id", ignoreDuplicates: true }).select("*").single();
   if (error) throw new Error(`issue execution grant failed: ${error.message}`);
   await logSecurityEvent("execution_grant_issued", { workspaceId: data.workspace_id, projectId: data.project_id, actorUserId: data.actor_user_id, actorAgentId: data.actor_agent_id, requested_permission: data.requested_permission, metadata: { grantId: data.id, decisionId: data.decision_id, approvalRequestId: data.approval_request_id, action: data.action, status: data.status, reason: "approved" } });
+  const claim = await createCapabilityClaim({
+    issuer: { app: "pmfreak", workspaceId: data.workspace_id, issuerType: "system", issuerUserId: input.issuedByUserId ?? undefined },
+    subject: data.actor_agent_id ? { subjectType: "agent", agentId: data.actor_agent_id } : { subjectType: "user", userId: data.actor_user_id ?? undefined },
+    authority: { action: data.action, requestedPermission: data.requested_permission, resourceType: data.resource_type ?? undefined, resourceId: data.resource_id ?? undefined, workspaceId: data.workspace_id, projectId: data.project_id ?? undefined },
+    constraints: { allowedUntil: data.expires_at, canDelegate: false },
+    lineage: { parentDecisionId: data.decision_id ?? undefined, rootApprovalRequestId: data.approval_request_id ?? undefined, issuedAt: data.issued_at },
+  });
   await logSecurityEvent("capability_claim_issued", { workspaceId: data.workspace_id, projectId: data.project_id, actorUserId: data.actor_user_id, actorAgentId: data.actor_agent_id, requested_permission: data.requested_permission, metadata: { ...claimToAuditMetadata(claim, "execution_grant") } });
   return { grant: data, grantToken, capabilityClaim: claim };
 }
