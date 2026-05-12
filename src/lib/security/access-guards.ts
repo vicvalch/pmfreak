@@ -1,6 +1,7 @@
 import { getAuthUser, type AuthUserContext } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { logSecurityEvent } from "@/lib/security/telemetry";
+import { defaultGovernancePolicyEvaluator, type Permission, type WorkspaceRole } from "@/lib/security/rbac";
 
 export class AccessDeniedError extends Error {
   constructor(message: string, public readonly metadata: Record<string, unknown> = {}) {
@@ -9,8 +10,7 @@ export class AccessDeniedError extends Error {
   }
 }
 
-
-export async function requireWorkspaceMembership(workspaceId: string): Promise<{ user: AuthUserContext; workspaceId: string; role: string }> {
+export async function requireWorkspaceMembership(workspaceId: string): Promise<{ user: AuthUserContext; workspaceId: string; role: WorkspaceRole }> {
   const user = await getAuthUser();
   if (!user) {
     logSecurityEvent("auth_denied", { workspaceId, reason: "unauthorized" });
@@ -22,38 +22,85 @@ export async function requireWorkspaceMembership(workspaceId: string): Promise<{
     logSecurityEvent("revoked_membership_attempt", { userId: user.id, workspaceId, routeId: "requireWorkspaceMembership" });
     throw new AccessDeniedError("Workspace membership required.", { userId: user.id, workspaceId, reason: "membership_missing" });
   }
-  return { user, workspaceId, role: data.role };
+  return { user, workspaceId, role: data.role as WorkspaceRole };
 }
 
-export async function requireProjectAccess(projectId: string): Promise<{ user: AuthUserContext; projectId: string; workspaceId: string }> {
+export async function requireProjectPermission(projectId: string, permission: Permission): Promise<{ user: AuthUserContext; projectId: string; workspaceId: string; role: WorkspaceRole }> {
   const user = await getAuthUser();
   if (!user) {
-    logSecurityEvent("auth_denied", { projectId, reason: "unauthorized" });
+    logSecurityEvent("auth_denied", { projectId, reason: "unauthorized", requested_permission: permission });
     throw new AccessDeniedError("Unauthorized project access.", { projectId, reason: "unauthorized" });
   }
   const supabase = await createSupabaseServerClient();
   const { data } = await supabase
     .from("projects")
-    .select("id, workspace_id, workspace_memberships!inner(user_id)")
+    .select("id, workspace_id, workspace_memberships!inner(user_id, role)")
     .eq("id", projectId)
     .eq("workspace_memberships.user_id", user.id)
     .maybeSingle();
 
   if (!data) {
-    logSecurityEvent("project_scope_violation", { userId: user.id, projectId, routeId: "requireProjectAccess" });
+    logSecurityEvent("project_scope_violation", { userId: user.id, projectId, routeId: "requireProjectPermission", requested_permission: permission });
     throw new AccessDeniedError("Project access denied.", { userId: user.id, projectId, reason: "membership_chain_denied" });
   }
 
-  return { user, projectId, workspaceId: data.workspace_id };
+  const role = (data.workspace_memberships as unknown as { role: WorkspaceRole }[])[0]?.role;
+  const policy = defaultGovernancePolicyEvaluator({ workspaceRole: role, requestedPermission: permission, projectId, actorType: "user" });
+  if (!policy.allowed) {
+    logSecurityEvent("denied_permission", { userId: user.id, projectId, actor_role: role, requested_permission: permission, denied_permission: permission });
+    throw new AccessDeniedError("Project permission denied.", { reason: policy.reason, permission, projectId });
+  }
+
+  return { user, projectId, workspaceId: data.workspace_id, role };
 }
 
-export async function requireWorkspaceRole(workspaceId: string, allowedRoles: string[]) {
+export async function requireWorkspaceRole(workspaceId: string, allowedRoles: WorkspaceRole[]) {
   const ctx = await requireWorkspaceMembership(workspaceId);
   if (!allowedRoles.includes(ctx.role)) {
-    logSecurityEvent("workspace_scope_violation", { userId: ctx.user.id, workspaceId, role: ctx.role, allowedRoles });
+    logSecurityEvent("workspace_scope_violation", { userId: ctx.user.id, workspaceId, actor_role: ctx.role, allowedRoles });
     throw new AccessDeniedError("Workspace role denied.", { userId: ctx.user.id, workspaceId, role: ctx.role });
   }
   return ctx;
+}
+
+export async function requireGovernancePermission(workspaceId: string, permission: Permission) {
+  const ctx = await requireWorkspaceMembership(workspaceId);
+  const policy = defaultGovernancePolicyEvaluator({ workspaceRole: ctx.role, requestedPermission: permission, actorType: "user" });
+  if (!policy.allowed) {
+    logSecurityEvent("governance_violation", { userId: ctx.user.id, workspaceId, actor_role: ctx.role, requested_permission: permission, denied_permission: permission });
+    throw new AccessDeniedError("Governance policy denied.", { workspaceId, permission, reason: policy.reason });
+  }
+  return ctx;
+}
+
+export async function requireAgentScope(input: { workspaceId: string; agentId: string; permission: Permission; projectId?: string }) {
+  const supabase = await createSupabaseServerClient();
+  const { data } = await supabase
+    .from("ai_agent_permissions")
+    .select("agent_id, workspace_id, project_id, permissions, revoked_at")
+    .eq("workspace_id", input.workspaceId)
+    .eq("agent_id", input.agentId)
+    .is("revoked_at", null);
+
+  const grants = data ?? [];
+  const scopedGrant = grants.find((grant) => (!input.projectId || grant.project_id === input.projectId) && Array.isArray(grant.permissions) && grant.permissions.includes(input.permission));
+
+  if (!scopedGrant) {
+    logSecurityEvent("revoked_agent_access", {
+      workspaceId: input.workspaceId,
+      ai_agent_id: input.agentId,
+      requested_permission: input.permission,
+      denied_permission: input.permission,
+      projectId: input.projectId,
+    });
+    throw new AccessDeniedError("AI agent scope denied.", { ...input, reason: "agent_scope_denied" });
+  }
+
+  return { workspaceId: input.workspaceId, aiAgentId: input.agentId, permission: input.permission, projectId: input.projectId };
+}
+
+export async function requireProjectAccess(projectId: string) {
+  return requireProjectPermission(projectId, "read");
 }
 
 export async function requireScopedResourceAccess(input: { workspaceId?: string; projectId?: string }) {
