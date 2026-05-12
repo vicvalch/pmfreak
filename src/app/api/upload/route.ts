@@ -7,6 +7,7 @@ import path from "node:path";
 import mammoth from "mammoth";
 import { PDFParse } from "pdf-parse";
 import { appendOperationalMemory, extractOperationalMemoryCandidates } from "@/lib/operational-memory-v1";
+import { AccessDeniedError, requireProjectAccess } from "@/lib/security/access-guards";
 
 type ExtractedFile = {
   fileName: string;
@@ -111,12 +112,17 @@ export async function POST(request: Request) {
 
 
   const supabase = await createSupabaseServerClient();
-  const { data: project } = await supabase
-    .from("projects")
-    .select("id, name")
-    .eq("id", projectId)
-    .eq("user_id", user.id)
-    .maybeSingle();
+  try {
+    await requireProjectAccess(projectId);
+  } catch (error) {
+    if (error instanceof AccessDeniedError) {
+      console.warn("[security] upload_project_access_denied", error.metadata);
+      return errorResponse(403, "Invalid project context.", "INVALID_PROJECT");
+    }
+    throw error;
+  }
+
+  const { data: project } = await supabase.from("projects").select("id, name").eq("id", projectId).maybeSingle();
 
   if (!project) {
     return errorResponse(403, "Invalid project context.", "INVALID_PROJECT");

@@ -1,4 +1,5 @@
 import { getAuthUser } from "@/lib/auth";
+import { AccessDeniedError, requireProjectAccess } from "@/lib/security/access-guards";
 import {
   appendOperationalMemory,
   extractOperationalMemoryCandidates,
@@ -14,6 +15,17 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const projectId = searchParams.get("projectId")?.trim() ?? null;
+  if (projectId) {
+    try {
+      await requireProjectAccess(projectId);
+    } catch (error) {
+      if (error instanceof AccessDeniedError) {
+        console.warn("[security] operational_memory_access_denied", error.metadata);
+        return Response.json({ error: "Invalid project context." }, { status: 403 });
+      }
+      throw error;
+    }
+  }
   const unresolvedOnly = searchParams.get("unresolvedOnly") === "true";
   const type = searchParams.get("memoryType")?.trim() as MemoryType | undefined;
 
@@ -40,6 +52,17 @@ export async function POST(request: Request) {
   };
 
   if (!body.text?.trim()) return Response.json({ error: "text required" }, { status: 400 });
+  if (body.projectId?.trim()) {
+    try {
+      await requireProjectAccess(body.projectId.trim());
+    } catch (error) {
+      if (error instanceof AccessDeniedError) {
+        console.warn("[security] operational_memory_write_denied", error.metadata);
+        return Response.json({ error: "Invalid project context." }, { status: 403 });
+      }
+      throw error;
+    }
+  }
 
   const candidates = extractOperationalMemoryCandidates({
     text: body.text,
