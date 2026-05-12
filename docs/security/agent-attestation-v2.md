@@ -1,15 +1,15 @@
-# Agent Attestation v2 Status
+# Agent Attestation v2 + Governance Runtime Integration
 
-Implemented now:
-- Signed HMAC token verification.
-- Token binding checks for `agentId` + `workspaceId`.
-- Expiration check.
-- Scope enforcement via `requireAgentScope`.
+## Enforced now
+- HMAC token signature, expiry, workspace/agent binding checks.
+- Revocation check against `ai_agent_permissions`.
+- Runtime policy evaluation for action + scope compatibility.
 
-Not yet fully enforced:
-- Replay protection (`jti`/nonce store) is not implemented yet.
-- Issued-at skew window and max lifetime checks are pending.
-- Deterministic malformed JSON telemetry is partial and should be hardened further.
+## Governance integration
+- `ai.execute` action requires attestation and agent scope in governance runtime.
+- Denials now include explainable decision traces (e.g., scope mismatch, missing scope, binding mismatch).
 
-Fail-closed behavior:
-- Missing secret currently denies attestation flow.
+## Not implemented yet
+- Key rotation orchestration.
+- Third-party attestation issuers.
+- Cross-runtime trust federation.

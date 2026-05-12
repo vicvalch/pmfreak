@@ -6,8 +6,8 @@ import { buildPmNativeResponse } from "@/lib/pm-response-shaping";
 import { readProjectMemory, type StoredProjectAnalysis } from "@/lib/project-memory";
 import { getRuntimeAuthorityView } from "@/lib/aoc/runtime-observability";
 import { appendOperationalMemory, buildContinuityContext, extractOperationalMemoryCandidates } from "@/lib/operational-memory-v1";
-import { AccessDeniedError, requireProjectAccess } from "@/lib/security/access-guards";
-import { verifyAgentAttestation } from "@/lib/security/agent-attestation";
+import { enforceGovernanceAction } from "@/lib/security/governance-runtime";
+// verifyAgentAttestation is enforced within governance-runtime for ai.execute actions.
 import { denyResponse } from "@/lib/security/deny-response";
 
 type CopilotRequest = {
@@ -144,24 +144,20 @@ export async function POST(request: Request) {
   const agentId = request.headers.get("x-pmf-agent-id");
   const workspaceId = request.headers.get("x-pmf-workspace-id");
   if (!agentToken || !agentId || !workspaceId) return denyResponse({ status: 403, routeId: "/api/copilot", message: "Agent attestation required.", reason: "missing_attestation_headers", actorUserId: user.id, eventType: "malformed_attestation" });
-  try {
-    await verifyAgentAttestation({ token: agentToken, expectedAgentId: agentId, workspaceId, permission: "execute_ai_action", projectId: payload.projectId?.trim() || undefined });
-  } catch (error) {
-    if (error instanceof AccessDeniedError) return denyResponse({ status: 403, routeId: "/api/copilot", message: "Agent attestation denied.", reason: String(error.metadata.reason ?? "agent_denied"), actorUserId: user.id, actorAgentId: agentId, workspaceId, projectId: payload.projectId?.trim() || null, requestedPermission: "execute_ai_action", deniedPermission: "execute_ai_action", eventType: "invalid_attestation" });
-    throw error;
-  }
 
-  if (payload.projectId?.trim()) {
-    try {
-      await requireProjectAccess(payload.projectId.trim());
-    } catch (error) {
-      if (error instanceof AccessDeniedError) {
-        console.warn("[security] copilot_project_access_denied", error.metadata);
-        return Response.json({ error: "Invalid project context." }, { status: 403 });
-      }
-      throw error;
-    }
-  }
+  const governance = await enforceGovernanceAction({
+    actorType: "ai_agent",
+    actorUserId: user.id,
+    actorAgentId: agentId,
+    workspaceId,
+    projectId: payload.projectId?.trim() || undefined,
+    action: "ai.execute",
+    routeId: "/api/copilot",
+    requestedPermission: "execute_ai_action",
+    agentToken,
+    resourceType: "copilot",
+  });
+  if (governance.response) return governance.response;
 
   const methodology = payload.methodology ?? "Hybrid";
   const subscription = await getCompanySubscription(user.companyId);
