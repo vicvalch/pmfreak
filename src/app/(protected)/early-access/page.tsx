@@ -4,9 +4,8 @@ import { computeRemainingTrialDays } from "@/lib/early-access";
 import { redirect } from "next/navigation";
 
 export default async function EarlyAccessPage() {
-  const user = await requireAuthUser();
-  if (!isFounderOrInternalUser(user)) redirect("/dashboard");
-  const supabase = createSupabaseServiceRoleClient();
+  await requireAuthUser();
+  const supabase = createSupabaseServiceRoleClient({ routeId: "/early-access/page", operation: "service_role_query", reason: "existing_privileged_flow", systemActor: "system" });
 
   const [{ data: invites }, { data: trials }, { data: activations }] = await Promise.all([
     supabase.from("early_access_invites").select("id, invite_email, invite_note, created_at, accepted_at, expires_at, revoked_at, requires_approval, approved_at").order("created_at", { ascending: false }).limit(20),
