@@ -17,7 +17,14 @@ export type SecurityEventType =
   | "malformed_attestation"
   | "unsafe_agent_attempt"
   | "external_scope_violation"
-  | "billing_governance_denied";
+  | "billing_governance_denied"
+  | "approval_requested"
+  | "approval_approved"
+  | "approval_rejected"
+  | "approval_expired"
+  | "approval_execution_attempted"
+  | "approval_execution_blocked"
+  | "approval_executed";
 
 type SecurityEventPayload = {
   workspaceId?: string | null;
