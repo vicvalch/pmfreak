@@ -36,7 +36,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
     }
   }
   if (!user.onboardingCompleted) {
-    return <div className="min-h-screen bg-white text-white"><main className="mx-auto max-w-4xl px-5 py-10">{children}</main></div>;
+    return <div className="min-h-screen bg-slate-950 text-slate-100"><main className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 sm:py-10">{children}</main></div>;
   }
 
   return <OperationalShell user={{ fullName: user.fullName, role: user.role, companyName: user.companyName }}>{children}</OperationalShell>;
