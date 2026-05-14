@@ -1,5 +1,5 @@
 import { AocAuthError, AocError, AocForbiddenError, AocNotFoundError, AocRateLimitError, AocServerError, AocValidationError } from "./errors";
-import type { Agent, AgentId, AgentScope, AocClientConfig, AuditTimelineItem, CapabilityGrant, CapabilityRequest, Policy, WorkspaceId } from "./types";
+import type { Agent, AgentId, AgentScope, AocClientConfig, AuditTimelineItem, CapabilityGrant, CapabilityRequest, Delegation, Policy, WorkspaceId } from "./types";
 
 type RequestOptions = { method?: string; body?: unknown; query?: Record<string, string | number | boolean | undefined>; headers?: HeadersInit; retry?: boolean; maxAttempts?: number; signal?: AbortSignal };
 
@@ -104,6 +104,11 @@ export class AocClient {
   getCapabilityAudit(workspaceId = this.workspaceId) { return this.request<{ timeline: AuditTimelineItem[] }>("/api/sdk/audit/capabilities", { query: { workspaceId: workspaceId ?? "" } }); }
   getResourceAudit(resourceId: string, workspaceId = this.workspaceId) { return this.request<{ timeline: AuditTimelineItem[] }>("/api/sdk/audit/resources", { query: { workspaceId: workspaceId ?? "", resourceId } }); }
   getAgentAudit(agentId: string, workspaceId = this.workspaceId) { return this.request<{ timeline: AuditTimelineItem[] }>("/api/sdk/audit/agents", { query: { workspaceId: workspaceId ?? "", agentId } }); }
+  delegateAuthority(input: Record<string, unknown>) { return this.request<{ ok: boolean; delegation: Delegation; delegationToken?: string }>("/api/v1/delegations", { method: "POST", body: input }); }
+  revokeDelegation(delegationId: string, input: Record<string, unknown> = {}) { return this.request<{ ok: boolean; delegationId: string; status: string; propagatedRevocations?: number }>(`/api/v1/delegations/${delegationId}/revoke`, { method: "POST", body: input }); }
+  listDelegations(workspaceId = this.workspaceId) { return this.request<{ ok: boolean; delegations: Delegation[] }>("/api/v1/delegations", { query: { workspaceId: workspaceId ?? "" } }); }
+  evaluateDelegatedAccess(input: Record<string, unknown>) { return this.request<{ ok: boolean; decision: string; delegation?: Delegation; chain?: Delegation[] }>("/api/v1/delegations/evaluate", { method: "POST", body: input }); }
+
 }
 
 export const createAocClient = (config: AocClientConfig) => new AocClient(config);
