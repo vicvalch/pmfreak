@@ -138,14 +138,14 @@ export async function acceptEarlyAccessInvite(input: { inviteToken: string; user
 
   const workspaceInsert = await supabase
     .from("workspaces")
-    .insert({ name: input.workspaceName ?? "PMFreak Early Access Workspace", type: "pmo", owner_user_id: input.userId })
+    .insert({ name: input.workspaceName ?? "PMFreak Early Access Workspace", created_by_user_id: input.userId })
     .select("id")
     .single();
   if (workspaceInsert.error || !workspaceInsert.data) throw new Error(`Unable to create workspace: ${workspaceInsert.error?.message}`);
 
   const workspaceId = workspaceInsert.data.id as string;
 
-  const { error: membershipError } = await supabase.from("workspace_memberships").insert({ workspace_id: workspaceId, user_id: input.userId, role: "owner" });
+  const { error: membershipError } = await supabase.from("workspace_memberships").upsert({ workspace_id: workspaceId, user_id: input.userId, role: "owner" }, { onConflict: "workspace_id,user_id", ignoreDuplicates: true });
   if (membershipError) throw new Error(`Unable to create workspace membership: ${membershipError.message}`);
 
   const trialStart = new Date();

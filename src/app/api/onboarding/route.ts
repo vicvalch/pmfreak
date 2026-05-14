@@ -2,7 +2,7 @@ import { getAuthUser } from "@/lib/auth";
 import { AccessDeniedError, requireWorkspaceMembership } from "@/lib/security/access-guards";
 import { denyFromAccessError, denyResponse } from "@/lib/security/deny-response";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { ensurePersonalWorkspaceForUser } from "@/lib/workspaces";
+import { ensureUserWorkspace } from "@/lib/workspaces";
 import { logFirstUserTelemetryEvent } from "@/lib/first-user-telemetry";
 
 type OnboardingPayload = {
@@ -23,8 +23,8 @@ export async function POST(request: Request) {
   if (!user) {
     return denyResponse({ status: 401, routeId: "/api/onboarding", message: "Unauthorized", reason: "unauthorized" });
   }
-  const workspaceId = request.headers.get("x-pmf-workspace-id");
-  if (!workspaceId) return denyResponse({ status: 403, routeId: "/api/onboarding", message: "Workspace context required.", reason: "workspace_missing", eventType: "workspace_scope_violation", actorUserId: user.id });
+  const ensured = await ensureUserWorkspace(user.id);
+  const workspaceId = request.headers.get("x-pmf-workspace-id") ?? ensured.workspaceId;
   try {
     await requireWorkspaceMembership(workspaceId);
   } catch (error) {
@@ -62,6 +62,7 @@ export async function POST(request: Request) {
   const { error } = await supabase.from("onboarding_analyses").insert({
     company_id: user.companyId,
     user_id: user.id,
+    workspace_id: workspaceId,
     workspace,
     role,
     project_type: projectType,
@@ -75,7 +76,6 @@ export async function POST(request: Request) {
     return Response.json({ error: "Unable to save onboarding analysis." }, { status: 500 });
   }
 
-  await ensurePersonalWorkspaceForUser(user.id);
 
   const { error: authError } = await supabase.auth.updateUser({
     data: { onboarding_completed: true },
