@@ -1,7 +1,7 @@
 import { AocAuthError, AocError, AocForbiddenError, AocNotFoundError, AocRateLimitError, AocServerError, AocValidationError } from "./errors";
 import type { Agent, AgentId, AgentScope, AocClientConfig, AuditTimelineItem, CapabilityGrant, CapabilityRequest, Policy, WorkspaceId } from "./types";
 
-type RequestOptions = { method?: string; body?: unknown; query?: Record<string, string | number | boolean | undefined>; headers?: HeadersInit };
+type RequestOptions = { method?: string; body?: unknown; query?: Record<string, string | number | boolean | undefined>; headers?: HeadersInit; retry?: boolean; maxAttempts?: number; signal?: AbortSignal };
 
 export class AocClient {
   private baseUrl: string;
@@ -46,24 +46,37 @@ export class AocClient {
   }
 
   private async request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+    const method = (options.method ?? "GET").toUpperCase();
+    const maxAttempts = options.maxAttempts ?? 2;
+    const retryEnabled = options.retry ?? method === "GET";
     const url = new URL(`${this.baseUrl}${path}`);
     Object.entries(options.query ?? {}).forEach(([key, value]) => {
       if (value !== undefined) url.searchParams.set(key, String(value));
     });
-    const response = await this.fetchImpl(url, { method: options.method ?? "GET", headers: this.buildHeaders(options.headers), body: options.body ? JSON.stringify(options.body) : undefined });
-    const requestId = response.headers.get("x-request-id");
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      const message = payload?.message ?? payload?.error ?? `Request failed (${response.status})`;
-      const code = payload?.reason ?? payload?.code;
-      const details = payload?.details;
-      if (response.status === 401) throw new AocAuthError(message, 401, code, requestId, details);
-      if (response.status === 403) throw new AocForbiddenError(message, 403, code, requestId, details);
-      if (response.status === 404) throw new AocNotFoundError(message, 404, code, requestId, details);
-      if (response.status === 400 || response.status === 422) throw new AocValidationError(message, response.status, code, requestId, details);
-      if (response.status === 429) throw new AocRateLimitError(message, 429, code, requestId, details);
-      if (response.status >= 500) throw new AocServerError(message, response.status, code, requestId, details);
-      throw new AocError(message, response.status, code, requestId, details);
+    let response: Response | null = null;
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      response = await this.fetchImpl(url, { method, headers: this.buildHeaders(options.headers), body: options.body ? JSON.stringify(options.body) : undefined, signal: options.signal });
+      if (!retryEnabled || ![408, 429, 500, 502, 503, 504].includes(response.status) || attempt >= maxAttempts) break;
+      const base = 120 * 2 ** (attempt - 1);
+      const jitter = Math.floor(Math.random() * 100);
+      await new Promise((resolve) => setTimeout(resolve, base + jitter));
+    }
+    const requestId = response?.headers.get("x-request-id");
+    const payload = await response?.json().catch(() => ({}));
+    if (!response?.ok) {
+      const envelope = payload?.error ?? payload;
+      const message = envelope?.message ?? payload?.message ?? `Request failed (${response?.status})`;
+      const code = envelope?.code ?? envelope?.reason;
+      const details = envelope?.details;
+      const recoverable = Boolean(envelope?.recoverable ?? [408, 429, 500, 502, 503, 504].includes(response?.status ?? 0));
+      const suggestedAction = envelope?.suggestedAction;
+      if (response?.status === 401) throw new AocAuthError(message, 401, code, requestId, recoverable, suggestedAction, details);
+      if (response?.status === 403) throw new AocForbiddenError(message, 403, code, requestId, recoverable, suggestedAction, details);
+      if (response?.status === 404) throw new AocNotFoundError(message, 404, code, requestId, recoverable, suggestedAction, details);
+      if (response?.status === 400 || response?.status === 422) throw new AocValidationError(message, response.status, code, requestId, recoverable, suggestedAction, details);
+      if (response?.status === 429) throw new AocRateLimitError(message, 429, code, requestId, recoverable, suggestedAction, details);
+      if ((response?.status ?? 0) >= 500) throw new AocServerError(message, response!.status, code, requestId, recoverable, suggestedAction, details);
+      throw new AocError(message, response?.status ?? 0, code, requestId, recoverable, suggestedAction, details);
     }
     return ((payload && payload.ok && "data" in payload) ? payload.data : payload) as T;
   }
