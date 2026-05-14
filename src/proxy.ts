@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/proxy";
 
-const protectedRoutes = ["/dashboard", "/onboarding", "/upload", "/portfolio", "/projects"];
+const protectedRoutes = ["/dashboard", "/onboarding", "/getting-started", "/upload", "/portfolio", "/projects"];
 const authRoutes = ["/login", "/signup"];
 
 export async function proxy(request: NextRequest) {
@@ -22,7 +22,7 @@ export async function proxy(request: NextRequest) {
     const isOnboardingRoute = pathname.startsWith("/onboarding");
 
     if (!onboardingCompleted && !isOnboardingRoute) {
-      return NextResponse.redirect(new URL("/onboarding", request.url));
+      return NextResponse.redirect(new URL("/getting-started", request.url));
     }
 
     if (onboardingCompleted && isOnboardingRoute) {
@@ -33,12 +33,12 @@ export async function proxy(request: NextRequest) {
   const isAuthRoute = authRoutes.some((route) => pathname.startsWith(route));
 
   if (isAuthRoute && user) {
-    return NextResponse.redirect(new URL(onboardingCompleted ? "/projects" : "/onboarding", request.url));
+    return NextResponse.redirect(new URL(onboardingCompleted ? "/projects" : "/getting-started", request.url));
   }
 
   return response;
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/onboarding/:path*", "/upload/:path*", "/portfolio/:path*", "/projects/:path*", "/login", "/signup"],
+  matcher: ["/dashboard/:path*", "/onboarding/:path*", "/getting-started/:path*", "/upload/:path*", "/portfolio/:path*", "/projects/:path*", "/login", "/signup"],
 };

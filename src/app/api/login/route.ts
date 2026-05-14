@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { resolvePostAuthRedirectPath } from "@/lib/auth-redirect";
 
 export async function POST(request: Request) {
   const formData = await request.formData();
@@ -14,8 +15,11 @@ export async function POST(request: Request) {
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
-    return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(error.message)}`, request.url));
+    const isUnverified = error.message.toLowerCase().includes("email not confirmed");
+    const message = isUnverified ? "Please verify your email before logging in." : error.message;
+    return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(message)}`, request.url));
   }
 
-  return NextResponse.redirect(new URL("/projects", request.url));
+  const redirectPath = await resolvePostAuthRedirectPath(supabase);
+  return NextResponse.redirect(new URL(redirectPath, request.url));
 }
