@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
+import { resolvePostAuthRedirectPath } from "@/lib/auth-redirect";
 
 export const loginAction = async (formData: FormData): Promise<void> => {
   if (!hasSupabaseEnv) {
@@ -20,8 +21,11 @@ export const loginAction = async (formData: FormData): Promise<void> => {
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
-    redirect(`/login?error=${encodeURIComponent(error.message)}`);
+    const isUnverified = error.message.toLowerCase().includes("email not confirmed");
+    const message = isUnverified ? "Please verify your email before logging in." : error.message;
+    redirect(`/login?error=${encodeURIComponent(message)}`);
   }
 
-  redirect("/projects");
+  const redirectPath = await resolvePostAuthRedirectPath(supabase);
+  redirect(redirectPath);
 };
