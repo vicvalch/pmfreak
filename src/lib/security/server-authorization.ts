@@ -1,6 +1,7 @@
 import { getAuthUser, type AuthUserContext } from "@/lib/auth";
 import { AccessDeniedError, requireProjectPermission, requireWorkspaceMembership, requireWorkspaceRole as requireAllowedWorkspaceRole } from "@/lib/security/access-guards";
 import type { Permission, WorkspaceRole } from "@/lib/security/rbac";
+import { evaluatePolicyDecision } from "@/lib/security/policy-engine";
 
 export type AuthenticatedContext = { user: AuthUserContext };
 
@@ -47,14 +48,20 @@ export function requireSystemOrWebhookSecret(receivedSecret: string | null | und
 export type CapabilityRequirement = { permission: Permission; workspaceId?: string; projectId?: string };
 
 export async function evaluateCapability(requirement: CapabilityRequirement) {
-  if (requirement.projectId) {
-    const access = await requireProjectAccess(requirement.projectId, requirement.permission);
-    return { allowed: true as const, reason: "role_mapped_policy", ...access };
+  if (requirement.projectId && requirement.workspaceId) {
+    let rbacAllowed = false;
+    try { await requireProjectAccess(requirement.projectId, requirement.permission); rbacAllowed = true; } catch {}
+    const result = await evaluatePolicyDecision({ workspaceId: requirement.workspaceId, resourceType: "project", resourceId: requirement.projectId, permission: requirement.permission, rbacAllowed });
+    if (result.decision === "allow") return { allowed: true as const, reason: result.reason, evaluation: result };
+    throw new AccessDeniedError("Capability denied by policy pipeline.", { reason: result.reason, evaluation: result });
   }
 
   if (requirement.workspaceId) {
-    const member = await requireWorkspaceMember(requirement.workspaceId);
-    return { allowed: true as const, reason: "workspace_membership", ...member };
+    let rbacAllowed = false;
+    try { await requireWorkspaceMember(requirement.workspaceId); rbacAllowed = true; } catch {}
+    const result = await evaluatePolicyDecision({ workspaceId: requirement.workspaceId, resourceType: "workspace", resourceId: requirement.workspaceId, permission: requirement.permission, rbacAllowed });
+    if (result.decision === "allow") return { allowed: true as const, reason: result.reason, evaluation: result };
+    throw new AccessDeniedError("Capability denied by policy pipeline.", { reason: result.reason, evaluation: result });
   }
 
   throw new AccessDeniedError("Capability evaluation requires workspaceId or projectId.", { reason: "capability_scope_missing" });
