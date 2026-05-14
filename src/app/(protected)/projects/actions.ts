@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { requireAuthUser } from "@/lib/auth";
 import { canCreateMoreProjects } from "@/lib/feature-gates";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { ensureUserWorkspace } from "@/lib/workspaces";
 
 export async function createProjectAction(formData: FormData) {
   const user = await requireAuthUser();
@@ -22,12 +23,11 @@ export async function createProjectAction(formData: FormData) {
     redirect(`/projects?error=${encodeURIComponent("upgrade_required")}&feature=${encodeURIComponent(projectAccess.feature)}&requiredPlan=${projectAccess.requiredPlan}`);
   }
 
-  const { data: membership } = await supabase.from("workspace_memberships").select("workspace_id").eq("user_id", user.id).maybeSingle();
-  if (!membership?.workspace_id) redirect("/projects?error=Workspace+membership+required");
+  const ensured = await ensureUserWorkspace(user.id);
 
   const { data, error } = await supabase
     .from("projects")
-    .insert({ user_id: user.id, workspace_id: membership.workspace_id, name, description })
+    .insert({ user_id: user.id, workspace_id: ensured.workspaceId, name, description })
     .select("id")
     .single<{ id: string }>();
 
