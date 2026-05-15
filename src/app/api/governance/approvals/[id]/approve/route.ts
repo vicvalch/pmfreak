@@ -7,6 +7,8 @@ import { logSecurityEvent } from "@/lib/security/telemetry";
 export async function POST(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getAuthUser(); if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
+  // PRIVILEGED_ACCESS: Approval records belong to the requesting actor, not the approving user; cross-ownership reads and execution grant issuance require service role.
+  // AUDIT_REF: service-role-risk-register.md
   const supabase = createPrivilegedSupabaseClient({ routeId: "/api/governance/approvals/[id]/approve", operation: "approval", reason: "approve" , actorUserId: user.id });
   const { data: req } = await supabase.from("governance_approval_requests").select("*").eq("id", id).maybeSingle();
   if (!req) return Response.json({ error: "Not found" }, { status: 404 });

@@ -8,6 +8,8 @@ export const generateExecutionGrantToken = () => randomBytes(32).toString("base6
 
 type ExecutionGrantInput = { workspaceId: string; approvalRequestId?: string; decisionId?: string; projectId?: string | null; actorUserId?: string | null; actorAgentId?: string | null; action: string; requestedPermission: string; resourceType?: string | null; resourceId?: string | null; issuedByUserId?: string | null; ttlMs?: number; metadata?: Record<string, unknown>; grantToken?: string };
 
+// PRIVILEGED_ACCESS: Execution grants span approval request, actor, and resource tables that cross user-level RLS boundaries; single-use atomic status transitions require service role.
+// AUDIT_REF: service-role-risk-register.md
 export async function issueExecutionGrant(input: ExecutionGrantInput) {
   const grantToken = generateExecutionGrantToken();
   const supabase = createPrivilegedSupabaseClient({ routeId: "governance.execution_grants.issue", operation: "issue_execution_grant", reason: "approved_governance_action", systemActor: "system", workspaceId: input.workspaceId, actorUserId: input.issuedByUserId ?? null });

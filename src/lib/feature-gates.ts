@@ -143,6 +143,8 @@ export const requireSeatAvailability = async (
   return { ok: false, status: 402, code: "seat_limit_exceeded", seatLimit };
 };
 
+// PRIVILEGED_ACCESS: supabase.auth.admin.getUserById() is only available via service role — there is no scoped-client equivalent for reading another user's auth metadata.
+// AUDIT_REF: service-role-risk-register.md
 const getCompanyIdByUserId = async (userId: string) => {
   const supabase = createSupabaseServiceRoleClient({ routeId: "feature-gates.getCompanyIdByUserId", operation: "lookup_user_company", reason: "feature_gate_precheck", systemActor: "system" });
   const { data, error } = await supabase.auth.admin.getUserById(userId);

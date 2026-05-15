@@ -35,6 +35,8 @@ function assertDelegationRules(input: DelegationInput) {
   if (input.delegatorAgentId && input.delegateeAgentId && input.delegatorAgentId === input.delegateeAgentId) throw new Error("self_loop");
 }
 
+// PRIVILEGED_ACCESS: Delegation chains traverse records owned by multiple actors; cross-actor authority resolution cannot be scoped to a single user's RLS context.
+// AUDIT_REF: service-role-risk-register.md
 export async function resolveAuthorityChain(input: { workspaceId: string; delegationId: string; maxDepth?: number }) {
   const supabase = createPrivilegedSupabaseClient({ routeId: "governance.delegations.resolve_chain", operation: "resolve_delegation_chain", reason: "delegation_evaluation", systemActor: "system", workspaceId: input.workspaceId });
   const seen = new Set<string>();
