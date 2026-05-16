@@ -11,6 +11,8 @@ export type WorkspaceContext = {
   role: "owner" | "admin" | "pm" | "viewer";
 };
 
+// PRIVILEGED_ACCESS: Workspace bootstrap runs before the user has any membership; RLS (which restricts access to existing members) would block workspace creation and initial membership writes.
+// AUDIT_REF: service-role-risk-register.md
 async function ensureWorkspaceMembership(userId: string, workspaceId: string, role: WorkspaceContext["role"] = "owner") {
   const supabase = createSupabaseServiceRoleClient({ routeId: "lib.workspaces", operation: "ensure_membership", reason: "workspace_bootstrap", systemActor: "system", actorUserId: userId, workspaceId });
   const { error } = await supabase.from("workspace_memberships").upsert({ workspace_id: workspaceId, user_id: userId, role }, { onConflict: "workspace_id,user_id", ignoreDuplicates: true });

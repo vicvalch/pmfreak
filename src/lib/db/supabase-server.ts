@@ -21,6 +21,8 @@ function requireUrl() {
   return url;
 }
 
+// PRIVILEGED_ACCESS: Legacy service-role factory without PrivilegedAccessContext tracking. New code must use createPrivilegedSupabaseClient from src/lib/security/privileged-access.ts.
+// AUDIT_REF: service-role-risk-register.md
 export const createSupabaseAdminClient = () => {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!serviceRoleKey) throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY for privileged client.");

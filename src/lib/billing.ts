@@ -168,6 +168,8 @@ export const tryRecordProcessedBillingWebhookEvent = async (
   eventId: string,
   eventType: string,
 ): Promise<boolean> => {
+  // PRIVILEGED_ACCESS: Stripe webhooks arrive without a user session; the idempotency guard write to billing_webhook_events must not be blocked by user RLS.
+  // AUDIT_REF: service-role-risk-register.md
   const supabase = createPrivilegedSupabaseClient({ routeId: "/api/billing/webhook", operation: "record_processed_billing_webhook", reason: "idempotency_guard", systemActor: "stripe_webhook" });
 
   const { error } = await supabase

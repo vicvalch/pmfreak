@@ -62,6 +62,8 @@ export async function verifyTrustEvent(event: any, options: { trustedSources?: s
 
 export function explainTrustEvent(event: any) { return { eventId: event.event_id, eventType: event.event_type, trustDomain: event.trust_domain, severity: event.severity, reason: event.reason ?? null, signed: !!event.signature, propagated: !!event.propagated_at }; }
 
+// PRIVILEGED_ACCESS: Trust coordination (revocation registry, trust graph, trust anchors, policy lifecycle) is cross-tenant — revocation must be authoritative regardless of which tenant context initiates the query.
+// AUDIT_REF: service-role-risk-register.md
 export async function registerRevocationFromEvent(event: any) {
   const revocationType = event.event_type === "capability_claim_revoked" ? "claim" : event.event_type === "signing_key_revoked" ? "key" : event.event_type === "trust_domain_revoked" ? "trust_domain" : event.event_type === "delegation_revoked" ? "delegation" : event.event_type === "verifier_policy_revoked" ? "verifier_policy" : event.event_type === "issuer_distrusted" ? "trust_domain" : null;
   if (!revocationType) return null;

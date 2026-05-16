@@ -41,6 +41,8 @@ export async function verifyAgentAttestation(input: { token: string; expectedAge
   await requireAgentScope({ workspaceId: input.workspaceId, agentId: input.expectedAgentId, permission: input.permission, projectId: input.projectId });
 
   const nonce = createHash("sha256").update(input.token).digest("hex");
+  // PRIVILEGED_ACCESS: Nonce replay protection is a security primitive — the check and insert must bypass RLS so a token cannot suppress its own revocation record.
+  // AUDIT_REF: service-role-risk-register.md
   const privileged = createPrivilegedSupabaseClient({
     routeId: "verifyAgentAttestation",
     operation: "replay_nonce_check",

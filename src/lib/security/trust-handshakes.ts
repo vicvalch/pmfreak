@@ -7,6 +7,8 @@ import { resolveTrustAnchor } from "@/lib/security/trust-coordination";
 const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
 const scopeAllowed = (allowed: string[] | null | undefined, requested?: string) => !allowed?.length || !requested || allowed.includes(requested);
 
+// PRIVILEGED_ACCESS: Verifier handshakes are cross-tenant by design — a verifier from one domain establishing trust with another cannot be scoped to either tenant's RLS context.
+// AUDIT_REF: service-role-risk-register.md
 export async function requestTrustHandshake(input: { verifierName: string; verifierWorkspaceId?: string | null; verifierDomain?: string | null; requestedTrustDomain: string; requestedActions?: string[]; requestedResourceTypes?: string[]; expiresAt?: string; metadata?: Record<string, unknown> }) {
   const supabase = createPrivilegedSupabaseClient({ routeId: "security.trust_handshakes", operation: "request_handshake", reason: "external_verifier_interop" });
   const token = randomBytes(32).toString("base64url");

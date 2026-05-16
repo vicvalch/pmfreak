@@ -6,6 +6,12 @@ import { logSecurityEvent } from "@/lib/security/telemetry";
 export async function POST(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getAuthUser(); if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
+  // TODO: NEEDS_RLS — governance_execution_grants UPDATE is revoked for the authenticated role;
+  // add a policy allowing workspace owner/admin to revoke grants in their workspace,
+  // then replace createPrivilegedSupabaseClient with scoped client
+  // AUDIT_REF: service-role-risk-register.md second-pass
+  // PRIVILEGED_ACCESS: Rejection must revoke active grants across actor boundaries; cross-ownership writes require service role.
+  // AUDIT_REF: service-role-risk-register.md
   const supabase = createPrivilegedSupabaseClient({ routeId: "/api/governance/approvals/[id]/reject", operation: "approval", reason: "reject" , actorUserId: user.id });
   const { data: req } = await supabase.from("governance_approval_requests").select("*").eq("id", id).maybeSingle();
   if (!req) return Response.json({ error: "Not found" }, { status: 404 });

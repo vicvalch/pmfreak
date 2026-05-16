@@ -137,6 +137,8 @@ export async function logSecurityEvent(event: SecurityEventType, payload: Securi
   console.warn("[security]", { event, timestamp: new Date().toISOString(), ...payload, metadata });
 
   try {
+    // PRIVILEGED_ACCESS: Security events must be recorded even when the user session is invalid; RLS on security_events must not be bypassable by the actor being logged.
+    // AUDIT_REF: service-role-risk-register.md
     const supabase = createPrivilegedSupabaseClient({ routeId: "security.telemetry", operation: "insert_security_event", reason: "persist_security_audit", systemActor: "security_telemetry", allowTelemetryRecursionBypass: true, workspaceId: payload.workspaceId ?? null, actorUserId: payload.actorUserId ?? null });
     await supabase.from("security_events").insert({
       workspace_id: payload.workspaceId ?? null,

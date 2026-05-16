@@ -8,6 +8,10 @@ const INVITE_TTL_DAYS = 7;
 
 export async function getWorkspaceSeatSnapshot(input: { workspaceId: string; companyId: string; actorUserId: string; routeId: string }) {
   await requireGovernancePermission(input.workspaceId, "manage_members");
+  // TODO: NEEDS_RLS — workspace_memberships has no RLS; add a SELECT policy restricting
+  // counts to workspace members (is_workspace_member(workspace_id)), then replace
+  // createPrivilegedSupabaseClient with scoped client
+  // AUDIT_REF: service-role-risk-register.md second-pass
   const supabase = createPrivilegedSupabaseClient({ routeId: input.routeId, operation: "workspace_seat_snapshot", reason: "workspace_member_invite_precheck", workspaceId: input.workspaceId, actorUserId: input.actorUserId });
   const [{ count: activeSeats }, { count: pendingInvites }] = await Promise.all([
     supabase.from("workspace_memberships").select("user_id", { head: true, count: "exact" }).eq("workspace_id", input.workspaceId),
@@ -34,6 +38,10 @@ export async function inviteWorkspaceMember(input: {
 }) {
   if (!WORKSPACE_ROLES.includes(input.role)) throw new Error("Invalid role.");
   await requireGovernancePermission(input.workspaceId, "manage_members");
+  // TODO: NEEDS_RLS — workspace_memberships has no RLS; add a SELECT policy restricting
+  // counts to workspace members (is_workspace_member(workspace_id)), then replace
+  // createPrivilegedSupabaseClient with scoped client
+  // AUDIT_REF: service-role-risk-register.md second-pass
   const supabase = createPrivilegedSupabaseClient({ routeId: input.routeId, operation: "invite_workspace_member", reason: "workspace_membership_change", workspaceId: input.workspaceId, actorUserId: input.inviterUserId });
   const normalizedEmail = input.email.trim().toLowerCase();
 
