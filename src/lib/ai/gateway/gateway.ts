@@ -1,6 +1,8 @@
+import { randomUUID } from "node:crypto";
 import type { AIResponseEnvelope } from "@/lib/ai/types";
 import { aiModuleRegistry } from "@/lib/ai/gateway/registry";
 import type { AIModuleId, MemoryContext, RunAIModuleInput } from "@/lib/ai/gateway/types";
+import { resilientFetch } from "@/lib/ai/resilient-fetch";
 import { escalationGuidePromptPackV1 } from "@/lib/ai/prompts/escalation-guide.v1";
 import { meetingsPromptPackV1 } from "@/lib/ai/prompts/meetings.v1";
 import { messageNudgesPromptPackV1 } from "@/lib/ai/prompts/message-nudges.v1";
@@ -290,65 +292,74 @@ export async function runAIModule({
       throw new Error("message-nudges requires rawMessage and audience.");
     }
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: process.env.OPENAI_MESSAGE_NUDGES_MODEL ?? "gpt-4.1-mini",
-        temperature: 0.2,
-        response_format: {
-          type: "json_schema",
-          json_schema: {
-            name: "message_nudges_v1",
-            strict: true,
-            schema: {
-              type: "object",
-              additionalProperties: false,
-              properties: {
-                toneRisk: { type: "string", enum: ["low", "medium", "high"] },
-                rewriteSuggestion: { type: "string" },
-                improvedVersion: { type: "string" },
-                confidence: { type: "string", enum: ["low", "medium", "high", "very-high"] },
-                rationale: { type: "string" },
-              },
-              required: ["toneRisk", "rewriteSuggestion", "improvedVersion", "confidence", "rationale"],
-            },
-          },
-        },
-        messages: [
-          { role: "system", content: messageNudgesPromptPackV1.systemPrompt },
-          {
-            role: "user",
-            content: [
-              `Audience: ${audience}`,
-              `Raw message: ${rawMessage}`,
-              "Context for better organizational fit:",
-              ...messageNudgesContext.projectMemory.slice(0, 3).map((item) => `- Past message: ${item}`),
-              ...messageNudgesContext.recentEvents.slice(0, 3).map((item) => `- Past decision: ${item}`),
-              ...messageNudgesContext.stakeholderSignals.map((item) => `- Risk pattern: ${item}`),
-              "- Derived trend signals:",
-              `  toneTrend=${messageNudgesContext.derivedSignals.toneTrend}`,
-              `  blamePattern=${messageNudgesContext.derivedSignals.blamePattern}`,
-              `  riskTrend=${messageNudgesContext.derivedSignals.riskTrend}`,
-              `  escalationSignal=${messageNudgesContext.derivedSignals.escalationSignal}`,
-            ].join("\n"),
-          },
-        ],
-      }),
-    });
-
-    const body = (await response.json()) as {
+    const fetchResult = await resilientFetch<{
       choices?: Array<{ message?: { content?: string } }>;
       error?: { message?: string };
-    };
+    }>(
+      "https://api.openai.com/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: process.env.OPENAI_MESSAGE_NUDGES_MODEL ?? "gpt-4.1-mini",
+          temperature: 0.2,
+          response_format: {
+            type: "json_schema",
+            json_schema: {
+              name: "message_nudges_v1",
+              strict: true,
+              schema: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                  toneRisk: { type: "string", enum: ["low", "medium", "high"] },
+                  rewriteSuggestion: { type: "string" },
+                  improvedVersion: { type: "string" },
+                  confidence: { type: "string", enum: ["low", "medium", "high", "very-high"] },
+                  rationale: { type: "string" },
+                },
+                required: ["toneRisk", "rewriteSuggestion", "improvedVersion", "confidence", "rationale"],
+              },
+            },
+          },
+          messages: [
+            { role: "system", content: messageNudgesPromptPackV1.systemPrompt },
+            {
+              role: "user",
+              content: [
+                `Audience: ${audience}`,
+                `Raw message: ${rawMessage}`,
+                "Context for better organizational fit:",
+                ...messageNudgesContext.projectMemory.slice(0, 3).map((item) => `- Past message: ${item}`),
+                ...messageNudgesContext.recentEvents.slice(0, 3).map((item) => `- Past decision: ${item}`),
+                ...messageNudgesContext.stakeholderSignals.map((item) => `- Risk pattern: ${item}`),
+                "- Derived trend signals:",
+                `  toneTrend=${messageNudgesContext.derivedSignals.toneTrend}`,
+                `  blamePattern=${messageNudgesContext.derivedSignals.blamePattern}`,
+                `  riskTrend=${messageNudgesContext.derivedSignals.riskTrend}`,
+                `  escalationSignal=${messageNudgesContext.derivedSignals.escalationSignal}`,
+              ].join("\n"),
+            },
+          ],
+        }),
+      },
+      {
+        timeoutMs: 20000,
+        maxAttempts: 3,
+        retryDelayMs: 500,
+        operationName: "message-nudges",
+        idempotencyKey: randomUUID(),
+      }
+    );
 
-    if (!response.ok) {
-      throw new Error(body.error?.message ?? "OpenAI API request failed for message-nudges.");
+    if (!fetchResult.ok) {
+      throw new Error(`OpenAI request failed: ${fetchResult.errorClass}`);
     }
 
+    const body = fetchResult.data;
     const content = body.choices?.[0]?.message?.content;
     if (!content) {
       throw new Error("OpenAI returned empty response for message-nudges.");
