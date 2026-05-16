@@ -12,6 +12,7 @@ import { buildAuthorityLineage, consumeDelegatedCapability, explainDelegationCha
 import { evaluateAgentAccess } from "@/lib/security/agent-access";
 // verifyAgentAttestation is enforced within governance-runtime for ai.execute actions.
 import { denyResponse } from "@/lib/security/deny-response";
+import { verifyAiResponse } from "@/lib/ai/response-verifier";
 
 type CopilotRequest = {
   message?: string;
@@ -232,13 +233,43 @@ Methodology mode: ${methodology}. ${getMethodologyGuide(methodology)}`;
     parsed = { answer: content };
   }
 
+  const verificationContext = {
+    projectName: selectedProject?.projectName ?? payload.projectName ?? null,
+    knownRisks: selectedProject?.risks ?? [],
+    knownDependencies: selectedProject?.dependencies ?? [],
+    unresolvedMemory: continuity.unresolved.map((item) => item.memoryText),
+    userMessage: payload.message,
+  };
+
+  const verification = verifyAiResponse(parsed, verificationContext);
+
+  console.info("[ai-verifier]", {
+    passed: verification.passed,
+    confidenceScore: verification.confidenceScore,
+    flagCount: verification.flags.length,
+    flags: verification.flags.map((f) => ({ field: f.field, rule: f.rule, severity: f.severity })),
+    companyId: user.companyId,
+    projectId: selectedProject?.id ?? null,
+  });
+
+  if (!verification.passed && verification.confidenceScore < 40) {
+    console.warn("[ai-verifier] low_confidence_response", {
+      confidenceScore: verification.confidenceScore,
+      flagCount: verification.flags.length,
+      companyId: user.companyId,
+      projectId: selectedProject?.id ?? null,
+    });
+  }
+
+  const verifiedDiagnosis = verification.sanitized.diagnosis ?? (typeof parsed.diagnosis === "string" ? parsed.diagnosis : undefined);
+  const verifiedImmediateAction = verification.sanitized.immediateAction ?? (typeof parsed.immediateAction === "string" ? parsed.immediateAction : undefined);
+
   const result: CopilotResponse = {
     answer: buildPmNativeResponse({
-      diagnosis: typeof parsed.diagnosis === "string" ? parsed.diagnosis : "Single-thread accountability is missing; decisions are waiting in queue.",
+      diagnosis: verifiedDiagnosis ?? "Single-thread accountability is missing; decisions are waiting in queue.",
       immediateAction:
-        typeof parsed.immediateAction === "string"
-          ? parsed.immediateAction
-          : "Program lead assigns one accountable owner for the next milestone and publishes due date before end of day.",
+        verifiedImmediateAction ??
+        "Program lead assigns one accountable owner for the next milestone and publishes due date before end of day.",
       reinforcement:
         typeof parsed.reinforcement === "string"
           ? parsed.reinforcement
@@ -248,14 +279,14 @@ Methodology mode: ${methodology}. ${getMethodologyGuide(methodology)}`;
           ? parsed.nextStep
           : "Within 24 hours, clear shared ownership on active workstreams and confirm dependency handoffs.",
     }),
-    diagnosis: typeof parsed.diagnosis === "string" ? parsed.diagnosis : undefined,
-    immediateAction: typeof parsed.immediateAction === "string" ? parsed.immediateAction : undefined,
+    diagnosis: verifiedDiagnosis,
+    immediateAction: verifiedImmediateAction,
     reinforcement: typeof parsed.reinforcement === "string" ? parsed.reinforcement : undefined,
     nextStep: typeof parsed.nextStep === "string" ? parsed.nextStep : undefined,
     cards: Array.isArray(parsed.cards) ? (parsed.cards.slice(0, 5) as CopilotResponse["cards"]) : [],
-    facts: safeList(Array.isArray(parsed.facts) ? parsed.facts : []),
+    facts: safeList(verification.sanitized.facts),
     bestPractices: safeList(Array.isArray(parsed.bestPractices) ? parsed.bestPractices : []),
-    assumptions: safeList(Array.isArray(parsed.assumptions) ? parsed.assumptions : []),
+    assumptions: safeList(verification.sanitized.assumptions),
     requiresMoreContext: Boolean(parsed.requiresMoreContext),
     contextGapQuestions: safeList(Array.isArray(parsed.contextGapQuestions) ? parsed.contextGapQuestions : []),
     plan: subscription.plan,
@@ -285,6 +316,6 @@ Methodology mode: ${methodology}. ${getMethodologyGuide(methodology)}`;
     });
   }
 
-  return Response.json(result);
+  return Response.json({ ...result, verificationScore: verification.confidenceScore });
   return Response.json({ ...result, runtimeContext });
 }
