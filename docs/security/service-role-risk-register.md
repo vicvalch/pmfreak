@@ -22,7 +22,6 @@
 | `src/aoc/enterprise/runtime/execution-grants.ts` | Governance execution grants — spans approval, actor, and resource tables across user RLS boundaries |
 | `src/aoc/enterprise/runtime/delegated-capabilities.ts` | Delegation chains — traverse records owned by multiple actors |
 | `src/app/api/governance/approvals/[id]/approve/route.ts` | Governance approval decision (approve) — cross-ownership reads and grant issuance |
-| `src/app/api/governance/approvals/[id]/reject/route.ts` | Governance approval decision (reject) — cross-ownership writes and grant revocation |
 | `src/app/api/governance/trust/handshakes/route.ts` | Admin handshake listing — cross-tenant view |
 | `src/app/api/governance/trust/events/route.ts` | Cross-verifier trust event listing — cross-tenant sync data |
 | `src/app/api/governance/trust/events/import/route.ts` | Trust event ingestion from external verifiers — cross-tenant with external origin |
@@ -31,7 +30,7 @@
 | `src/lib/feature-gates.ts` | `auth.admin.getUserById()` — only available via service role; no scoped alternative |
 | `src/lib/db/supabase-server.ts` | Legacy admin client factory — bypasses PrivilegedAccessContext tracking; no active external callers confirmed |
 
-### MEDIUM risk (11 files)
+### MEDIUM risk (7 files, after Phase 3c swaps)
 
 | File | Purpose |
 |------|---------|
@@ -41,11 +40,8 @@
 | `src/app/api/early-access/summary/route.ts` | Founder summary API — cross-workspace system operation |
 | `src/lib/early-access.ts` | Early access invite/trial lifecycle — system-managed records |
 | `src/lib/first-user-telemetry.ts` | First-user onboarding telemetry — may run before authenticated session |
-| `src/app/api/governance/delegations/route.ts` | Delegation listing — cross-actor governance data |
-| `src/app/api/v1/delegations/route.ts` | V1 delegation listing and issuance — cross-actor governance data |
 | `src/app/api/governance/trust/keys/route.ts` | Public key discovery — reads public key metadata for external verifiers |
 | `src/app/api/governance/trust/.well-known/capability-issuer/route.ts` | Capability issuer discovery — public .well-known metadata endpoint |
-| `src/lib/workspace-team.ts` | Workspace member invitations — invited user not yet a member; seat counts are cross-user |
 
 ## Controls in place
 
@@ -111,7 +107,6 @@ A usage is **not** legitimate under strict criteria if it reads/writes only the 
 | `src/lib/security/trust-coordination.ts` | L3 | Revocation registry IS the security primitive |
 | `src/aoc/enterprise/runtime/execution-grants.ts` | L1 | `governance_execution_grants` INSERT/UPDATE/DELETE revoked for authenticated role |
 | `src/aoc/enterprise/runtime/delegated-capabilities.ts` | L1 | Delegation chain traverses records owned by multiple actors |
-| `src/app/api/governance/approvals/[id]/reject/route.ts` | — | NEEDS_RLS (see above) |
 | `src/app/api/governance/trust/handshakes/route.ts` | L1 | Admin view spans all trust domains — no single-tenant scope possible |
 | `src/app/api/governance/trust/events/route.ts` | L1 | Cross-verifier event listing spans all trust domains |
 | `src/app/api/governance/trust/events/import/route.ts` | L1 | External-origin trust events — cross-tenant by definition |
@@ -127,7 +122,6 @@ A usage is **not** legitimate under strict criteria if it reads/writes only the 
 | `src/lib/first-user-telemetry.ts` | L2 | May run before authenticated session exists |
 | `src/app/api/governance/trust/keys/route.ts` | L1 | Public key metadata spans all trust domains |
 | `src/app/api/governance/trust/.well-known/capability-issuer/route.ts` | L1 | Trust domain metadata spans all trust domains |
-| `src/lib/workspace-team.ts` | — | NEEDS_RLS (see above) |
 
 ### Net blast-radius reduction
 
@@ -141,3 +135,19 @@ A usage is **not** legitimate under strict criteria if it reads/writes only the 
 - `approve/route.ts` entry **removed** (no longer uses service role)
 - New field `strictCriteriaMet?: "L1" | "L2" | "L3" | "L4"` on all KEEP entries with confirmed criteria
 - New field `needsRlsBeforeSwap: boolean` on all entries (`true` for 4 NEEDS_RLS, `false` for 23 KEEP)
+
+---
+
+## Phase 3c — RLS Fixes (2026-05-15)
+
+All 4 NEEDS_RLS consumers resolved. Migration `20260515100000_rls_governance_fixes.sql` added the missing policies; each call site swapped to `createSupabaseServerClient`.
+
+| File | RLS fix applied |
+|---|---|
+| `src/app/api/governance/approvals/[id]/reject/route.ts` | `governance_execution_grants` UPDATE policy added; UPDATE re-granted to `authenticated` role |
+| `src/app/api/governance/delegations/route.ts` | `governance_delegations` SELECT policy fixed (`workspace_members` → `workspace_memberships`) |
+| `src/app/api/v1/delegations/route.ts` | Same delegation SELECT policy fix |
+| `src/lib/workspace-team.ts` | `workspace_memberships` RLS enabled + SELECT policies added |
+
+**Registry after Phase 3c:** 23 entries (27 − 4 NEEDS_RLS removed), all `needsRlsBeforeSwap: false`.  
+**Migration:** `supabase/migrations/20260515100000_rls_governance_fixes.sql`
