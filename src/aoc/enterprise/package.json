@@ -1,11 +1,23 @@
 {
   "name": "@aoc-enterprise/runtime",
-  "version": "0.0.0-local",
-  "private": true,
+  "version": "0.1.0",
+  "description": "AOC enterprise runtime — delegation, policy evaluation, and execution grants for governance-aware workspaces",
+  "license": "UNLICENSED",
   "type": "module",
   "exports": {
     ".": "./runtime/index.ts",
     "./runtime": "./runtime/index.ts",
     "./runtime/*": "./runtime/*.ts"
+  },
+  "files": ["**/*.ts", "!**/*.test.ts", "!**/*.spec.ts"],
+  "engines": { "node": ">=20" },
+  "publishConfig": {
+    "access": "restricted",
+    "registry": "https://npm.pkg.github.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Architects-of-Change-Protocol/pmfreak.git",
+    "directory": "src/aoc/enterprise"
   }
 }
