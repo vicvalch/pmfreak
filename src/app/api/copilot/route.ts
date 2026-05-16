@@ -13,6 +13,7 @@ import { evaluateAgentAccess } from "@/lib/security/agent-access";
 // verifyAgentAttestation is enforced within governance-runtime for ai.execute actions.
 import { denyResponse } from "@/lib/security/deny-response";
 import { verifyAiResponse } from "@/lib/ai/response-verifier";
+import { CopilotRequestContract, CopilotResponseContract } from "@/lib/contracts";
 
 type CopilotRequest = {
   message?: string;
@@ -88,6 +89,16 @@ export async function POST(request: Request) {
   } catch {
     return Response.json({ error: "Invalid JSON body." }, { status: 400 });
   }
+
+  const requestValidation = CopilotRequestContract(payload);
+  if (!requestValidation.ok) {
+    console.warn("[contracts] copilot_request_invalid", {
+      errors: requestValidation.errors,
+      companyId: user.companyId,
+    });
+    return Response.json({ error: "Invalid request format.", code: "INVALID_REQUEST" }, { status: 400 });
+  }
+  payload = requestValidation.data as CopilotRequest;
 
   if (!payload.message?.trim()) return Response.json({ error: "Message is required." }, { status: 400 });
   if (payload.companyId && payload.companyId !== user.companyId) return denyResponse({ status: 403, routeId: "/api/copilot", message: "Tenant mismatch.", reason: "tenant_mismatch", actorUserId: user.id, eventType: "suspicious_cross_scope_attempt" });
@@ -233,6 +244,13 @@ Methodology mode: ${methodology}. ${getMethodologyGuide(methodology)}`;
     parsed = { answer: content };
   }
 
+  const responseValidation = CopilotResponseContract(parsed);
+  const parsedValidated = responseValidation.ok ? responseValidation.data : {};
+  console.info("[contracts] copilot_response_validated", {
+    fieldCount: Object.keys(parsedValidated).length,
+    companyId: user.companyId,
+  });
+
   const verificationContext = {
     projectName: selectedProject?.projectName ?? payload.projectName ?? null,
     knownRisks: selectedProject?.risks ?? [],
@@ -261,8 +279,8 @@ Methodology mode: ${methodology}. ${getMethodologyGuide(methodology)}`;
     });
   }
 
-  const verifiedDiagnosis = verification.sanitized.diagnosis ?? (typeof parsed.diagnosis === "string" ? parsed.diagnosis : undefined);
-  const verifiedImmediateAction = verification.sanitized.immediateAction ?? (typeof parsed.immediateAction === "string" ? parsed.immediateAction : undefined);
+  const verifiedDiagnosis = verification.sanitized.diagnosis ?? (typeof parsedValidated.diagnosis === "string" ? parsedValidated.diagnosis : undefined);
+  const verifiedImmediateAction = verification.sanitized.immediateAction ?? (typeof parsedValidated.immediateAction === "string" ? parsedValidated.immediateAction : undefined);
 
   const result: CopilotResponse = {
     answer: buildPmNativeResponse({
@@ -271,24 +289,24 @@ Methodology mode: ${methodology}. ${getMethodologyGuide(methodology)}`;
         verifiedImmediateAction ??
         "Program lead assigns one accountable owner for the next milestone and publishes due date before end of day.",
       reinforcement:
-        typeof parsed.reinforcement === "string"
-          ? parsed.reinforcement
+        typeof parsedValidated.reinforcement === "string"
+          ? parsedValidated.reinforcement
           : "Without an owner reset, escalation load and timeline variance both increase this week.",
       nextStep:
-        typeof parsed.nextStep === "string"
-          ? parsed.nextStep
+        typeof parsedValidated.nextStep === "string"
+          ? parsedValidated.nextStep
           : "Within 24 hours, clear shared ownership on active workstreams and confirm dependency handoffs.",
     }),
     diagnosis: verifiedDiagnosis,
     immediateAction: verifiedImmediateAction,
-    reinforcement: typeof parsed.reinforcement === "string" ? parsed.reinforcement : undefined,
-    nextStep: typeof parsed.nextStep === "string" ? parsed.nextStep : undefined,
-    cards: Array.isArray(parsed.cards) ? (parsed.cards.slice(0, 5) as CopilotResponse["cards"]) : [],
+    reinforcement: typeof parsedValidated.reinforcement === "string" ? parsedValidated.reinforcement : undefined,
+    nextStep: typeof parsedValidated.nextStep === "string" ? parsedValidated.nextStep : undefined,
+    cards: Array.isArray(parsedValidated.cards) ? (parsedValidated.cards.slice(0, 5) as CopilotResponse["cards"]) : [],
     facts: safeList(verification.sanitized.facts),
-    bestPractices: safeList(Array.isArray(parsed.bestPractices) ? parsed.bestPractices : []),
+    bestPractices: safeList(Array.isArray(parsedValidated.bestPractices) ? parsedValidated.bestPractices : []),
     assumptions: safeList(verification.sanitized.assumptions),
-    requiresMoreContext: Boolean(parsed.requiresMoreContext),
-    contextGapQuestions: safeList(Array.isArray(parsed.contextGapQuestions) ? parsed.contextGapQuestions : []),
+    requiresMoreContext: Boolean(parsedValidated.requiresMoreContext),
+    contextGapQuestions: safeList(Array.isArray(parsedValidated.contextGapQuestions) ? parsedValidated.contextGapQuestions : []),
     plan: subscription.plan,
     aiPowered: true,
     methodology,

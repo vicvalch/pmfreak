@@ -1,3 +1,5 @@
+import { OperationalMemoryCandidateContract } from "@/lib/contracts";
+
 export const MEMORY_TYPES = [
   "risks",
   "blockers",
@@ -73,12 +75,22 @@ export function extractOperationalMemoryCandidates(input: { text: string; source
   }
 
   const seen = new Set<string>();
-  return candidates.filter((candidate) => {
+  const deduped = candidates.filter((candidate) => {
     const key = `${candidate.memoryType}:${normalize(candidate.memoryText)}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
   });
+
+  const validated = deduped.filter((c) => {
+    const result = OperationalMemoryCandidateContract(c);
+    if (!result.ok) {
+      console.warn("[contracts] memory_candidate_invalid", { errors: result.errors });
+      return false;
+    }
+    return true;
+  });
+  return validated;
 }
 
 export async function appendOperationalMemory(input: {
