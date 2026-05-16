@@ -3,6 +3,10 @@ type PrivilegedAccessEntry = {
   readonly purpose: string;
   readonly riskLevel: "HIGH" | "MEDIUM";
   readonly mitigations: readonly string[];
+  /** Strict legitimacy criterion met: L1=cross-tenant RLS block, L2=system bootstrap, L3=security primitive, L4=cross-tenant aggregation. Absent means strict criteria not met. */
+  readonly strictCriteriaMet?: "L1" | "L2" | "L3" | "L4";
+  /** True when strict criteria are not met but a swap requires a new or corrected RLS policy first. */
+  readonly needsRlsBeforeSwap: boolean;
 };
 
 export const PRIVILEGED_ACCESS_REGISTRY: readonly PrivilegedAccessEntry[] = [
@@ -16,6 +20,8 @@ export const PRIVILEGED_ACCESS_REGISTRY: readonly PrivilegedAccessEntry[] = [
       "Race condition handled via unique-constraint (error code 23505)",
       "Replay attempts logged to security telemetry",
     ],
+    strictCriteriaMet: "L3",
+    needsRlsBeforeSwap: false,
   },
   {
     file: "src/lib/security/telemetry.ts",
@@ -26,16 +32,20 @@ export const PRIVILEGED_ACCESS_REGISTRY: readonly PrivilegedAccessEntry[] = [
       "Metadata scrubbed of secrets (token, password, cookie, etc.) before persistence",
       "console.warn emitted as secondary channel",
     ],
+    strictCriteriaMet: "L3",
+    needsRlsBeforeSwap: false,
   },
   {
     file: "src/lib/security/governance-runtime.ts",
-    purpose: "Approval request persistence: governance decisions requiring human approval are persisted to governance_approval_requests. Must bypass RLS because the record is created by the system on behalf of the requesting actor, not by the actor directly.",
+    purpose: "Approval request persistence: governance decisions requiring human approval are persisted to governance_approval_requests. INSERT is revoked for the authenticated role in the RLS migration; the record is created by the system on behalf of the requesting actor, not by the actor directly.",
     riskLevel: "HIGH",
     mitigations: [
       "Only writes approval records after governance evaluation completes",
       "Workspace scope always enforced before write",
       "Logged to security telemetry via finalize()",
     ],
+    strictCriteriaMet: "L1",
+    needsRlsBeforeSwap: false,
   },
   {
     file: "src/lib/security/trust-domains.ts",
@@ -46,6 +56,8 @@ export const PRIVILEGED_ACCESS_REGISTRY: readonly PrivilegedAccessEntry[] = [
       "Key revocation immediately reflected in subsequent verifications",
       "All mutations logged to security telemetry",
     ],
+    strictCriteriaMet: "L3",
+    needsRlsBeforeSwap: false,
   },
   {
     file: "src/lib/security/trust-handshakes.ts",
@@ -57,6 +69,8 @@ export const PRIVILEGED_ACCESS_REGISTRY: readonly PrivilegedAccessEntry[] = [
       "Approvals require explicit admin action",
       "All state changes logged to security telemetry",
     ],
+    strictCriteriaMet: "L3",
+    needsRlsBeforeSwap: false,
   },
   {
     file: "src/lib/security/trust-coordination.ts",
@@ -68,10 +82,12 @@ export const PRIVILEGED_ACCESS_REGISTRY: readonly PrivilegedAccessEntry[] = [
       "Quarantine path for unsafe imports",
       "All mutations logged to security telemetry",
     ],
+    strictCriteriaMet: "L3",
+    needsRlsBeforeSwap: false,
   },
   {
     file: "src/aoc/enterprise/runtime/execution-grants.ts",
-    purpose: "Governance execution grant lifecycle: issues, validates, and consumes single-use execution grants after governance approval. Grants span approval request, actor, and resource tables that cross user-level RLS boundaries.",
+    purpose: "Governance execution grant lifecycle: issues, validates, and consumes single-use execution grants after governance approval. INSERT/UPDATE/DELETE on governance_execution_grants are revoked for the authenticated role in the RLS migration; grants span approval request, actor, and resource tables that cross user-level RLS boundaries.",
     riskLevel: "HIGH",
     mitigations: [
       "Grant issued only after explicit governance approval",
@@ -80,6 +96,8 @@ export const PRIVILEGED_ACCESS_REGISTRY: readonly PrivilegedAccessEntry[] = [
       "Replay attempts logged to security telemetry",
       "All operations scoped to workspaceId",
     ],
+    strictCriteriaMet: "L1",
+    needsRlsBeforeSwap: false,
   },
   {
     file: "src/aoc/enterprise/runtime/delegated-capabilities.ts",
@@ -92,22 +110,12 @@ export const PRIVILEGED_ACCESS_REGISTRY: readonly PrivilegedAccessEntry[] = [
       "Token stored as SHA-256 hash only",
       "All operations scoped to workspaceId",
     ],
-  },
-  {
-    file: "src/app/api/governance/approvals/[id]/approve/route.ts",
-    purpose: "Governance approval decision (approve): reads and updates governance_approval_requests then issues an execution grant. The approval record belongs to the request actor, not necessarily the approving user, requiring cross-ownership reads.",
-    riskLevel: "HIGH",
-    mitigations: [
-      "requireGovernancePermission enforced before any mutation",
-      "Authenticated user required",
-      "Expiry checked before approval is accepted",
-      "Execution grant issued atomically on approval",
-      "Logged to security telemetry",
-    ],
+    strictCriteriaMet: "L1",
+    needsRlsBeforeSwap: false,
   },
   {
     file: "src/app/api/governance/approvals/[id]/reject/route.ts",
-    purpose: "Governance approval decision (reject): reads and updates governance_approval_requests and revokes associated execution grants. Same cross-ownership requirement as the approve path.",
+    purpose: "Governance approval decision (reject): reads and updates governance_approval_requests and revokes associated execution grants. governance_execution_grants UPDATE is revoked for the authenticated role in the RLS migration; a scoped client cannot perform the grant revocation write.",
     riskLevel: "HIGH",
     mitigations: [
       "requireGovernancePermission enforced before any mutation",
@@ -115,6 +123,7 @@ export const PRIVILEGED_ACCESS_REGISTRY: readonly PrivilegedAccessEntry[] = [
       "Active grants revoked atomically on rejection",
       "Logged to security telemetry",
     ],
+    needsRlsBeforeSwap: true,
   },
   {
     file: "src/app/api/governance/trust/handshakes/route.ts",
@@ -125,6 +134,8 @@ export const PRIVILEGED_ACCESS_REGISTRY: readonly PrivilegedAccessEntry[] = [
       "No sensitive key material exposed in response",
       "Results limited to 100 records",
     ],
+    strictCriteriaMet: "L1",
+    needsRlsBeforeSwap: false,
   },
   {
     file: "src/app/api/governance/trust/events/route.ts",
@@ -135,6 +146,8 @@ export const PRIVILEGED_ACCESS_REGISTRY: readonly PrivilegedAccessEntry[] = [
       "Results capped at 500 records",
       "Event data does not include secret key material",
     ],
+    strictCriteriaMet: "L1",
+    needsRlsBeforeSwap: false,
   },
   {
     file: "src/app/api/governance/trust/events/import/route.ts",
@@ -146,6 +159,8 @@ export const PRIVILEGED_ACCESS_REGISTRY: readonly PrivilegedAccessEntry[] = [
       "Rejected events logged to security telemetry",
       "Accepted events trigger revocation registry update",
     ],
+    strictCriteriaMet: "L1",
+    needsRlsBeforeSwap: false,
   },
   {
     file: "src/lib/billing.ts",
@@ -157,6 +172,8 @@ export const PRIVILEGED_ACCESS_REGISTRY: readonly PrivilegedAccessEntry[] = [
       "Idempotency enforced via unique constraint (error code 23505)",
       "Service role only used for webhook path; subscription reads use scoped client when possible",
     ],
+    strictCriteriaMet: "L2",
+    needsRlsBeforeSwap: false,
   },
   {
     file: "src/lib/workspaces.ts",
@@ -167,36 +184,43 @@ export const PRIVILEGED_ACCESS_REGISTRY: readonly PrivilegedAccessEntry[] = [
       "upsert with ignoreDuplicates prevents race-condition double-creation",
       "Only creates workspace if no existing membership found",
     ],
+    strictCriteriaMet: "L2",
+    needsRlsBeforeSwap: false,
   },
   {
     file: "src/lib/feature-gates.ts",
-    purpose: "Feature gate enforcement: getCompanyIdByUserId uses supabase.auth.admin.getUserById() which is only available via the service role client. canCreateMoreProjects counts all user projects for limit enforcement.",
+    purpose: "Feature gate enforcement: getCompanyIdByUserId uses supabase.auth.admin.getUserById() which is only available via the service role client — there is no scoped-client equivalent for reading another user's auth metadata. canCreateMoreProjects counts all user projects for limit enforcement.",
     riskLevel: "HIGH",
     mitigations: [
       "auth.admin API requires service role — no scoped alternative exists",
       "Company ID resolved from user metadata, not user-controllable input",
       "Project count enforced server-side, never trusted from client",
     ],
+    strictCriteriaMet: "L1",
+    needsRlsBeforeSwap: false,
   },
   {
     file: "src/lib/db/supabase-server.ts",
-    purpose: "Legacy service-role client factory (createSupabaseAdminClient): creates a service role client without the mandatory PrivilegedAccessContext tracking. Defined for backward compatibility but bypasses telemetry and audit logging.",
+    purpose: "Legacy service-role client factory (createSupabaseAdminClient): creates a service role client without the mandatory PrivilegedAccessContext tracking. No active external callers confirmed — this factory should be deleted once confirmed unused. Strict criteria L1–L4 do not apply because no queries are executed by this file directly.",
     riskLevel: "HIGH",
     mitigations: [
       "console.warn emitted on every instantiation",
       "No active callers confirmed — defined but not externally imported",
       "New code must use createPrivilegedSupabaseClient from src/lib/security/privileged-access.ts",
     ],
+    needsRlsBeforeSwap: false,
   },
   {
     file: "src/app/(protected)/layout.tsx",
-    purpose: "Trial status enforcement: reads workspace memberships and trial license status, then expires and records events for inactive trials. The trial expiry mutation and event insertion are system-level writes that must not be gated by the user's own RLS scope.",
+    purpose: "Trial status enforcement: reads workspace memberships and trial license status, then expires and records events for inactive trials. The trial expiry mutation and event insertion are system-level writes across workspace boundaries that RLS on the authenticated user would block.",
     riskLevel: "MEDIUM",
     mitigations: [
       "Authenticated user required (requireAuthUser)",
       "Only executed for non-founder/non-internal users",
       "Trial expiry is idempotent (updates only active trials past end date)",
     ],
+    strictCriteriaMet: "L1",
+    needsRlsBeforeSwap: false,
   },
   {
     file: "src/app/(protected)/accept-invite/[token]/page.tsx",
@@ -208,6 +232,8 @@ export const PRIVILEGED_ACCESS_REGISTRY: readonly PrivilegedAccessEntry[] = [
       "Membership write uses upsert to prevent duplicates",
       "Audit event written to workspace_audit_events on completion",
     ],
+    strictCriteriaMet: "L2",
+    needsRlsBeforeSwap: false,
   },
   {
     file: "src/app/(protected)/early-access/page.tsx",
@@ -218,26 +244,32 @@ export const PRIVILEGED_ACCESS_REGISTRY: readonly PrivilegedAccessEntry[] = [
       "Reads are display-only — no mutations from this page",
       "Results limited per table (limit 20–400)",
     ],
+    strictCriteriaMet: "L1",
+    needsRlsBeforeSwap: false,
   },
   {
     file: "src/app/api/early-access/summary/route.ts",
-    purpose: "Founder early access summary API: runs a trial expiry sweep and returns aggregate status across all invites, trials, activations, and events. Cross-workspace system operation.",
+    purpose: "Founder early access summary API: runs a trial expiry sweep and returns aggregate status across all invites, trials, activations, and events. Aggregation spans all workspaces and cannot be scoped to a single tenant.",
     riskLevel: "MEDIUM",
     mitigations: [
       "isFounderOrInternalUser check required before any operation",
       "Authenticated user required",
       "SQL sweep is idempotent (expires only active trials past end date)",
     ],
+    strictCriteriaMet: "L4",
+    needsRlsBeforeSwap: false,
   },
   {
     file: "src/lib/early-access.ts",
-    purpose: "Early access invite and trial lifecycle management: creates invites, sends emails, records trial events, approves/revokes access. These are system-managed records not owned by any single user.",
+    purpose: "Early access invite and trial lifecycle management: creates invites, sends emails, records trial events, approves/revokes access. These are system-managed records not owned by any single user and span tenant boundaries.",
     riskLevel: "MEDIUM",
     mitigations: [
       "All mutations logged to early_access_events for audit trail",
       "Invite tokens generated with 24 random bytes (192 bits of entropy)",
       "Trial status transitions are explicit and logged",
     ],
+    strictCriteriaMet: "L1",
+    needsRlsBeforeSwap: false,
   },
   {
     file: "src/lib/first-user-telemetry.ts",
@@ -248,10 +280,12 @@ export const PRIVILEGED_ACCESS_REGISTRY: readonly PrivilegedAccessEntry[] = [
       "No user-controlled data in operation payload beyond eventType enum",
       "Insert-only operation",
     ],
+    strictCriteriaMet: "L2",
+    needsRlsBeforeSwap: false,
   },
   {
     file: "src/app/api/governance/delegations/route.ts",
-    purpose: "Governance delegation listing: reads delegation records for a given workspaceId. Delegation data spans delegator and delegatee actors and may not be fully accessible under the authenticated user's RLS scope.",
+    purpose: "Governance delegation listing: reads delegation records for a given workspaceId. The governance_delegations SELECT policy references public.workspace_members (non-existent table; should be public.workspace_memberships), so the scoped client cannot evaluate membership and all authenticated reads fail.",
     riskLevel: "MEDIUM",
     mitigations: [
       "Authenticated user required",
@@ -259,10 +293,11 @@ export const PRIVILEGED_ACCESS_REGISTRY: readonly PrivilegedAccessEntry[] = [
       "actorUserId set in privileged context for audit trail",
       "Read-only operation",
     ],
+    needsRlsBeforeSwap: true,
   },
   {
     file: "src/app/api/v1/delegations/route.ts",
-    purpose: "V1 delegation listing and issuance: reads and creates delegation records. Same cross-actor justification as the governance delegations route.",
+    purpose: "V1 delegation listing and issuance: reads and creates delegation records. Same governance_delegations RLS bug as the governance delegations route — policy references non-existent public.workspace_members table.",
     riskLevel: "MEDIUM",
     mitigations: [
       "Authenticated user required",
@@ -270,30 +305,35 @@ export const PRIVILEGED_ACCESS_REGISTRY: readonly PrivilegedAccessEntry[] = [
       "actorUserId set in privileged context",
       "Delegation issuance policy enforcement delegated to issueDelegatedCapability",
     ],
+    needsRlsBeforeSwap: true,
   },
   {
     file: "src/app/api/governance/trust/keys/route.ts",
-    purpose: "Public key discovery endpoint: serves public key metadata for external verifiers to discover asymmetric signing keys. HMAC secret key material is never exposed; only public JWK and PEM.",
+    purpose: "Public key discovery endpoint: serves public key metadata for external verifiers to discover asymmetric signing keys. HMAC secret key material is never exposed; only public JWK and PEM. Key metadata spans all trust domains.",
     riskLevel: "MEDIUM",
     mitigations: [
       "Only public key material returned (public_key_jwk, public_key_pem)",
       "HMAC secret key material explicitly excluded per response mapping",
       "Access logged to security telemetry",
     ],
+    strictCriteriaMet: "L1",
+    needsRlsBeforeSwap: false,
   },
   {
     file: "src/app/api/governance/trust/.well-known/capability-issuer/route.ts",
-    purpose: "Capability issuer discovery (.well-known): public endpoint serving trust domain metadata for external verifiers. Analogous to OAuth .well-known/openid-configuration.",
+    purpose: "Capability issuer discovery (.well-known): public endpoint serving trust domain metadata for external verifiers. Analogous to OAuth .well-known/openid-configuration. Metadata spans all trust domains.",
     riskLevel: "MEDIUM",
     mitigations: [
       "No sensitive data returned — only metadata, supported algorithms, and active key IDs",
       "Access logged to security telemetry",
       "Trust domain list reflects current database state",
     ],
+    strictCriteriaMet: "L1",
+    needsRlsBeforeSwap: false,
   },
   {
     file: "src/lib/workspace-team.ts",
-    purpose: "Workspace member invitations: seat snapshot and invitation writes require cross-user access — the invited user may not yet be a member of the workspace, and seat counts aggregate across all current members.",
+    purpose: "Workspace member invitations: seat snapshot reads workspace_memberships which has no RLS enabled; a scoped client would see all rows (or none, depending on table grants) without a policy restricting counts to the workspace. Invitation writes also require cross-user access for invited users not yet members.",
     riskLevel: "MEDIUM",
     mitigations: [
       "requireGovernancePermission enforced before any privileged operation",
@@ -301,6 +341,7 @@ export const PRIVILEGED_ACCESS_REGISTRY: readonly PrivilegedAccessEntry[] = [
       "Duplicate invitation check prevents double-send",
       "actorUserId set in context for audit trail",
     ],
+    needsRlsBeforeSwap: true,
   },
 ] as const;
 
