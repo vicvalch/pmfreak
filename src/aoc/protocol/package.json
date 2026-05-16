@@ -1,11 +1,23 @@
 {
   "name": "@aoc/protocol",
-  "version": "0.0.0-local",
-  "private": true,
+  "version": "0.1.0",
+  "description": "AOC protocol contracts — capability claim types, issuance, and cryptographic verification",
+  "license": "UNLICENSED",
   "type": "module",
   "exports": {
     ".": "./index.ts",
     "./contracts": "./contracts/index.ts",
     "./contracts/*": "./contracts/*.ts"
+  },
+  "files": ["**/*.ts", "!**/*.test.ts", "!**/*.spec.ts"],
+  "engines": { "node": ">=20" },
+  "publishConfig": {
+    "access": "restricted",
+    "registry": "https://npm.pkg.github.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Architects-of-Change-Protocol/pmfreak.git",
+    "directory": "src/aoc/protocol"
   }
 }
