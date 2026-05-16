@@ -114,18 +114,6 @@ export const PRIVILEGED_ACCESS_REGISTRY: readonly PrivilegedAccessEntry[] = [
     needsRlsBeforeSwap: false,
   },
   {
-    file: "src/app/api/governance/approvals/[id]/reject/route.ts",
-    purpose: "Governance approval decision (reject): reads and updates governance_approval_requests and revokes associated execution grants. governance_execution_grants UPDATE is revoked for the authenticated role in the RLS migration; a scoped client cannot perform the grant revocation write.",
-    riskLevel: "HIGH",
-    mitigations: [
-      "requireGovernancePermission enforced before any mutation",
-      "Authenticated user required",
-      "Active grants revoked atomically on rejection",
-      "Logged to security telemetry",
-    ],
-    needsRlsBeforeSwap: true,
-  },
-  {
     file: "src/app/api/governance/trust/handshakes/route.ts",
     purpose: "Admin listing of all verifier handshakes across all trust domains. Cross-tenant by design — the admin view must show all handshakes regardless of workspace ownership.",
     riskLevel: "HIGH",
@@ -284,30 +272,6 @@ export const PRIVILEGED_ACCESS_REGISTRY: readonly PrivilegedAccessEntry[] = [
     needsRlsBeforeSwap: false,
   },
   {
-    file: "src/app/api/governance/delegations/route.ts",
-    purpose: "Governance delegation listing: reads delegation records for a given workspaceId. The governance_delegations SELECT policy references public.workspace_members (non-existent table; should be public.workspace_memberships), so the scoped client cannot evaluate membership and all authenticated reads fail.",
-    riskLevel: "MEDIUM",
-    mitigations: [
-      "Authenticated user required",
-      "workspaceId parameter validated and required",
-      "actorUserId set in privileged context for audit trail",
-      "Read-only operation",
-    ],
-    needsRlsBeforeSwap: true,
-  },
-  {
-    file: "src/app/api/v1/delegations/route.ts",
-    purpose: "V1 delegation listing and issuance: reads and creates delegation records. Same governance_delegations RLS bug as the governance delegations route — policy references non-existent public.workspace_members table.",
-    riskLevel: "MEDIUM",
-    mitigations: [
-      "Authenticated user required",
-      "workspaceId parameter validated and required",
-      "actorUserId set in privileged context",
-      "Delegation issuance policy enforcement delegated to issueDelegatedCapability",
-    ],
-    needsRlsBeforeSwap: true,
-  },
-  {
     file: "src/app/api/governance/trust/keys/route.ts",
     purpose: "Public key discovery endpoint: serves public key metadata for external verifiers to discover asymmetric signing keys. HMAC secret key material is never exposed; only public JWK and PEM. Key metadata spans all trust domains.",
     riskLevel: "MEDIUM",
@@ -330,18 +294,6 @@ export const PRIVILEGED_ACCESS_REGISTRY: readonly PrivilegedAccessEntry[] = [
     ],
     strictCriteriaMet: "L1",
     needsRlsBeforeSwap: false,
-  },
-  {
-    file: "src/lib/workspace-team.ts",
-    purpose: "Workspace member invitations: seat snapshot reads workspace_memberships which has no RLS enabled; a scoped client would see all rows (or none, depending on table grants) without a policy restricting counts to the workspace. Invitation writes also require cross-user access for invited users not yet members.",
-    riskLevel: "MEDIUM",
-    mitigations: [
-      "requireGovernancePermission enforced before any privileged operation",
-      "requireSeatAvailability gate enforced before invitation write",
-      "Duplicate invitation check prevents double-send",
-      "actorUserId set in context for audit trail",
-    ],
-    needsRlsBeforeSwap: true,
   },
 ] as const;
 

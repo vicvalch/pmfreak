@@ -1,18 +1,13 @@
 import { getAuthUser } from "@/lib/auth";
 import { requireGovernancePermission } from "@/lib/security/access-guards";
-import { createPrivilegedSupabaseClient } from "@/lib/security/privileged-access";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { logSecurityEvent } from "@/lib/security/telemetry";
 
 export async function POST(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getAuthUser(); if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
-  // TODO: NEEDS_RLS — governance_execution_grants UPDATE is revoked for the authenticated role;
-  // add a policy allowing workspace owner/admin to revoke grants in their workspace,
-  // then replace createPrivilegedSupabaseClient with scoped client
-  // AUDIT_REF: service-role-risk-register.md second-pass
-  // PRIVILEGED_ACCESS: Rejection must revoke active grants across actor boundaries; cross-ownership writes require service role.
-  // AUDIT_REF: service-role-risk-register.md
-  const supabase = createPrivilegedSupabaseClient({ routeId: "/api/governance/approvals/[id]/reject", operation: "approval", reason: "reject" , actorUserId: user.id });
+  // SCOPED_CLIENT: RLS policy added in 20260515100000_rls_governance_fixes.sql
+  const supabase = await createSupabaseServerClient();
   const { data: req } = await supabase.from("governance_approval_requests").select("*").eq("id", id).maybeSingle();
   if (!req) return Response.json({ error: "Not found" }, { status: 404 });
   await requireGovernancePermission(req.workspace_id, "manage_workspace");
