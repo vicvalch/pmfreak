@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { getAuthUser, type UserRole } from "@/lib/auth";
 import { getCompanySubscription, type SubscriptionPlan } from "@/lib/billing";
 import { canUseAdvancedAi, requireFeatureAccess } from "@/lib/feature-gates";
@@ -14,6 +15,7 @@ import { evaluateAgentAccess } from "@/lib/security/agent-access";
 import { denyResponse } from "@/lib/security/deny-response";
 import { verifyAiResponse } from "@/lib/ai/response-verifier";
 import { CopilotRequestContract, CopilotResponseContract } from "@/lib/contracts";
+import { resilientFetch } from "@/lib/ai/resilient-fetch";
 
 type CopilotRequest = {
   message?: string;
@@ -214,26 +216,50 @@ Output contract:
 
 Methodology mode: ${methodology}. ${getMethodologyGuide(methodology)}`;
 
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model: "gpt-4.1-mini",
-      temperature: 0.2,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: system },
-        {
-          role: "user",
-          content: `User role: ${payload.role ?? user.role}\nProject selected: ${payload.projectName ?? selectedProject?.projectName ?? "Not specified"}\nKnown project memory:\n${contextSummary || "No memory available."}\n\nOperational continuity signals:\n${continuitySignals.length ? continuitySignals.map((s) => `- ${s}`).join("\n") : "- No reliable continuity signal extracted."}\n\nPersisted unresolved operational memory:\n${continuity.unresolved.map((item) => `- [${item.memoryType}] ${item.memoryText} (source: ${item.sourceType}:${item.sourceReference})`).join("\n") || "- No unresolved memory yet."}\n\nAOC runtime authority context:\n${JSON.stringify(runtimeContext)}\n\nUser message: ${payload.message}`,
-        },
-      ],
-    }),
-  });
+  const fetchResult = await resilientFetch<{
+    choices?: Array<{ message?: { content?: string } }>;
+    error?: { message?: string };
+  }>(
+    "https://api.openai.com/v1/chat/completions",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: "gpt-4.1-mini",
+        temperature: 0.2,
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: system },
+          {
+            role: "user",
+            content: `User role: ${payload.role ?? user.role}\nProject selected: ${payload.projectName ?? selectedProject?.projectName ?? "Not specified"}\nKnown project memory:\n${contextSummary || "No memory available."}\n\nOperational continuity signals:\n${continuitySignals.length ? continuitySignals.map((s) => `- ${s}`).join("\n") : "- No reliable continuity signal extracted."}\n\nPersisted unresolved operational memory:\n${continuity.unresolved.map((item) => `- [${item.memoryType}] ${item.memoryText} (source: ${item.sourceType}:${item.sourceReference})`).join("\n") || "- No unresolved memory yet."}\n\nAOC runtime authority context:\n${JSON.stringify(runtimeContext)}\n\nUser message: ${payload.message}`,
+          },
+        ],
+      }),
+    },
+    {
+      timeoutMs: 25000,
+      maxAttempts: 2,
+      retryDelayMs: 1000,
+      operationName: "copilot",
+      idempotencyKey: randomUUID(),
+    }
+  );
 
-  const body = (await response.json()) as { choices?: Array<{ message?: { content?: string } }>; error?: { message?: string } };
-  if (!response.ok) return Response.json({ error: body.error?.message ?? "Copilot failed." }, { status: 502 });
+  if (!fetchResult.ok) {
+    console.error("[copilot] openai_fetch_failed", {
+      errorClass: fetchResult.errorClass,
+      attempts: fetchResult.attempts,
+      durationMs: fetchResult.durationMs,
+      companyId: user.companyId,
+    });
+    return Response.json(
+      { error: "Copilot temporarily unavailable.", code: fetchResult.errorClass },
+      { status: fetchResult.errorClass === "rate_limited" ? 429 : 502 }
+    );
+  }
 
+  const body = fetchResult.data;
   const content = body.choices?.[0]?.message?.content;
   if (!content) return Response.json({ error: "OpenAI returned empty response." }, { status: 502 });
 

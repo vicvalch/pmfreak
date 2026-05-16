@@ -1,5 +1,7 @@
+import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { metaIntelligencePromptV1 } from "@/lib/ai/prompts/meta-intelligence.v1";
+import { resilientFetch } from "@/lib/ai/resilient-fetch";
 
 type MetaIntelligenceRequest = {
   userInput?: string;
@@ -38,35 +40,44 @@ export async function POST(request: Request) {
   }
 
   try {
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: process.env.OPENAI_META_INTELLIGENCE_MODEL ?? "gpt-4.1-mini",
-        temperature: 0.1,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: metaIntelligencePromptV1.systemPrompt },
-          { role: "user", content: userInput },
-        ],
-      }),
-    });
-
-    const body = (await response.json()) as {
+    const fetchResult = await resilientFetch<{
       choices?: Array<{ message?: { content?: string } }>;
       error?: { message?: string };
-    };
+    }>(
+      "https://api.openai.com/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: process.env.OPENAI_META_INTELLIGENCE_MODEL ?? "gpt-4.1-mini",
+          temperature: 0.1,
+          response_format: { type: "json_object" },
+          messages: [
+            { role: "system", content: metaIntelligencePromptV1.systemPrompt },
+            { role: "user", content: userInput },
+          ],
+        }),
+      },
+      {
+        timeoutMs: 15000,
+        maxAttempts: 2,
+        retryDelayMs: 800,
+        operationName: "meta-intelligence",
+        idempotencyKey: randomUUID(),
+      }
+    );
 
-    if (!response.ok) {
+    if (!fetchResult.ok) {
       return NextResponse.json(
-        { error: body.error?.message ?? "Meta intelligence request failed." },
-        { status: 502 },
+        { error: "Meta intelligence temporarily unavailable.", code: fetchResult.errorClass },
+        { status: fetchResult.errorClass === "rate_limited" ? 429 : 502 }
       );
     }
 
+    const body = fetchResult.data;
     const content = body.choices?.[0]?.message?.content;
     if (!content) {
       return NextResponse.json(
