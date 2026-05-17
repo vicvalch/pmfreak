@@ -101,7 +101,7 @@ export function HeroSection() {
 
         <div className="relative isolate overflow-hidden rounded-3xl border border-white/10 bg-black/35 p-4 sm:p-6 lg:p-7">
           <div className="relative flex min-h-[360px] flex-col gap-4 overflow-hidden md:min-h-[400px] md:flex-row md:gap-5">
-            <div className="w-full space-y-2 md:w-[27%]">
+            <div className="w-full translate-y-2 space-y-2 md:w-[27%]">
               {tools.map((tool, i) => (
                 <div key={tool.name} style={{ animationDelay: `${i * 0.42}s` }} className="rounded-full border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-zinc-100 backdrop-blur motion-safe:animate-[float_11s_ease-in-out_infinite]">
                   <span className={`mr-2 inline-block h-2 w-2 rounded-full ${tool.dot}`} />
