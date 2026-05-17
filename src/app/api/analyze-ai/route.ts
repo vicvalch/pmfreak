@@ -1,3 +1,7 @@
+// TODO(aoc-gateway): This route calls OpenAI directly and must be migrated
+// behind the AI gateway once the gateway supports scope-analysis as a registered
+// module. Auth, feature gating, and project permission enforcement are already
+// applied inline below. Do not remove those guards during the gateway migration.
 import { getAuthUser } from "@/lib/auth";
 import { AccessDeniedError, requireProjectPermission } from "@/lib/security/access-guards";
 import { getCompanySubscription } from "@/lib/billing";

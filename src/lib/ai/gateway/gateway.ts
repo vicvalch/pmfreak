@@ -297,7 +297,7 @@ export async function runAIModule({
         memoryEventCount: memoryContext.recentEvents.length,
         memoryProjectCount: memoryContext.projectMemory.length,
       });
-      return result;
+      return { ...result, inferenceMode: "fallback" as const, isSimulated: true, productionReady: false };
     }
 
     const apiKey = process.env.OPENAI_API_KEY;
@@ -465,6 +465,9 @@ export async function runAIModule({
       confidence: enrichedOutput.confidence,
       summary: enrichedOutput.rewriteSuggestion,
       data: enrichedOutput,
+      inferenceMode: "live" as const,
+      isSimulated: false,
+      productionReady: true,
     };
   }
 
@@ -486,9 +489,10 @@ export async function runAIModule({
       memoryEventCount: memoryContext.recentEvents.length,
       memoryProjectCount: memoryContext.projectMemory.length,
     });
-    return result;
+    return { ...result, inferenceMode: "fallback" as const, isSimulated: true, productionReady: false };
   }
 
+  // mock mode — module is pre-production and returns static fixture data.
   const { result, durationMs } = await measureAsync(() =>
     moduleConfig.handler({ input, context, memory: memoryContext })
   );
@@ -501,7 +505,7 @@ export async function runAIModule({
     memoryEventCount: memoryContext.recentEvents.length,
     memoryProjectCount: memoryContext.projectMemory.length,
   });
-  return result;
+  return { ...result, inferenceMode: "mock" as const, isSimulated: true, productionReady: moduleConfig.productionReady ?? false };
   } catch (error) {
     traceGatewayError(moduleId, moduleConfig?.mode ?? "unknown", error);
     throw error;

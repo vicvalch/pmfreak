@@ -47,4 +47,7 @@ export type AIModuleConfig = {
   promptVersion: string;
   mode: AIModuleMode;
   handler: AIModuleHandler;
+  // false = module returns static fixture data; callers receive inferenceMode: "mock".
+  // Omitted or true = module is production-ready and performs real inference.
+  productionReady?: boolean;
 };
