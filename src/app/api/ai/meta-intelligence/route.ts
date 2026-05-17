@@ -1,7 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
+import { getAuthUser } from "@/lib/auth";
+import { canUseAdvancedAi } from "@/lib/feature-gates";
+import { denyResponse } from "@/lib/security/deny-response";
 import { metaIntelligencePromptV1 } from "@/lib/ai/prompts/meta-intelligence.v1";
 import { resilientFetch } from "@/lib/ai/resilient-fetch";
+
+// TODO(aoc-gateway): This route calls OpenAI directly and must be migrated
+// behind the AI gateway once the gateway supports meta-intelligence as a
+// registered module. Until then, auth and feature gating are enforced inline.
 
 type MetaIntelligenceRequest = {
   userInput?: string;
@@ -15,8 +22,29 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  let payload: MetaIntelligenceRequest;
+  const user = await getAuthUser();
+  if (!user) {
+    return denyResponse({
+      status: 401,
+      routeId: "/api/ai/meta-intelligence",
+      message: "Unauthorized",
+      reason: "unauthorized",
+    });
+  }
 
+  const advancedAiAccess = await canUseAdvancedAi(user.id);
+  if (!advancedAiAccess.ok) {
+    return NextResponse.json(
+      {
+        error: advancedAiAccess.error,
+        feature: advancedAiAccess.feature,
+        requiredPlan: advancedAiAccess.requiredPlan,
+      },
+      { status: 402 },
+    );
+  }
+
+  let payload: MetaIntelligenceRequest;
   try {
     payload = (await request.json()) as MetaIntelligenceRequest;
   } catch {
