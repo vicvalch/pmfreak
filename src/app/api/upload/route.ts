@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { getAuthUser } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCompanySubscription } from "@/lib/billing";
-import { canUploadDocuments, getCompanyUsage, getUploadLimitForPlan, incrementUploadUsage } from "@/lib/usage-limits";
+import { cancelUploadQuota, commitUploadQuota, reserveUploadQuota } from "@/lib/quota/upload-quota";
 import mammoth from "mammoth";
 import { PDFParse } from "pdf-parse";
 import { appendOperationalMemory, extractOperationalMemoryCandidates } from "@/lib/operational-memory-v1";
@@ -244,10 +244,6 @@ export async function POST(request: Request) {
   }
 
   const subscription = await getCompanySubscription(user.companyId);
-  // NOTE: canUploadDocuments + incrementUploadUsage is not atomic. Concurrent requests can both
-  // pass the quota check before either increments. Mitigation requires a DB-level atomic increment
-  // (e.g., RPC with row lock). This is a known residual risk; tracked in security/residual-risks.md.
-  const usage = await getCompanyUsage(user.companyId);
 
   const incomingFiles = formData.getAll("documents");
 
@@ -263,21 +259,31 @@ export async function POST(request: Request) {
     return errorResponse(400, "No valid files found in `documents` field.", "INVALID_FILE_FIELD");
   }
 
-  // File count limit — checked before entering the loop
+  // File count limit — checked before quota reservation to avoid touching quota for invalid requests
   if (files.length > MAX_FILES_PER_REQUEST) {
     console.warn("[upload] upload_failed", { requestId, reason: "too_many_files", count: files.length });
     return errorResponse(400, `Too many files. Maximum ${MAX_FILES_PER_REQUEST} files per request.`, "TOO_MANY_FILES");
   }
 
-  // Total size limit — checked before entering the loop
+  // Total size limit — checked before quota reservation
   const totalSize = files.reduce((sum, f) => sum + f.size, 0);
   if (totalSize > MAX_TOTAL_SIZE_BYTES) {
     console.warn("[upload] upload_failed", { requestId, reason: "total_size_exceeded", totalSize });
     return errorResponse(400, "Total upload size exceeds 25MB limit.", "TOTAL_SIZE_EXCEEDED");
   }
 
-  if (!canUploadDocuments(subscription.plan, usage.uploadCount, files.length)) {
-    const limit = getUploadLimitForPlan(subscription.plan);
+  // Atomic quota reservation: check + reserve in a single PostgreSQL transaction.
+  // Concurrent requests for the same company serialise on the company_usage row lock,
+  // so two simultaneous requests can never both pass the quota check.
+  const quotaReservation = await reserveUploadQuota({
+    companyId: user.companyId,
+    uploadAmount: files.length,
+    plan: subscription.plan,
+    requestId,
+  });
+
+  if (!quotaReservation.allowed) {
+    const { limit } = quotaReservation;
     console.warn("[upload] upload_failed", { requestId, reason: "quota_exceeded" });
     return errorResponse(
       403,
@@ -290,6 +296,20 @@ export async function POST(request: Request) {
   const processedFiles: ExtractedFile[] = [];
   const uploadedRefs: string[] = [];
   const ingestionStartedAt = new Date().toISOString();
+
+  // Rolls back all storage uploads and cancels the quota reservation atomically.
+  // Quota cancel is best-effort and never throws; storage rollback is attempted for all refs.
+  const rollbackAndCancel = async (refs: string[]) => {
+    await Promise.all([
+      rollbackUploads(provider, refs, requestId),
+      cancelUploadQuota({
+        reservationId: quotaReservation.reservationId,
+        companyId: user.companyId,
+        requestId,
+        uploadAmount: files.length,
+      }),
+    ]);
+  };
   console.info("[upload] upload_started", {
     requestId,
     userId: user.id,
@@ -308,26 +328,26 @@ export async function POST(request: Request) {
     const nameCheck = validateFileName(file.name);
     if (!nameCheck.valid) {
       console.warn("[upload] file_validation_failed", { ...fileCtx, reason: "dangerous_filename", detail: nameCheck.reason });
-      await rollbackUploads(provider, uploadedRefs, requestId);
+      await rollbackAndCancel(uploadedRefs);
       return errorResponse(400, `Dangerous filename rejected: ${safeFileName}`, "DANGEROUS_FILENAME");
     }
 
     // Extension must agree with declared MIME type
     if (!validateExtensionMime(file.name, file.type)) {
       console.warn("[upload] file_validation_failed", { ...fileCtx, reason: "invalid_extension" });
-      await rollbackUploads(provider, uploadedRefs, requestId);
+      await rollbackAndCancel(uploadedRefs);
       return errorResponse(400, `File extension does not match declared type: ${safeFileName}`, "INVALID_EXTENSION");
     }
 
     if (!ALLOWED_MIME_TYPES.has(file.type)) {
       console.warn("[upload] file_validation_failed", { ...fileCtx, reason: "invalid_file_type" });
-      await rollbackUploads(provider, uploadedRefs, requestId);
+      await rollbackAndCancel(uploadedRefs);
       return errorResponse(400, `Unsupported file type: ${safeFileName}`, "INVALID_FILE_TYPE");
     }
 
     if (file.size > MAX_FILE_SIZE_BYTES) {
       console.warn("[upload] file_validation_failed", { ...fileCtx, reason: "file_too_large" });
-      await rollbackUploads(provider, uploadedRefs, requestId);
+      await rollbackAndCancel(uploadedRefs);
       return errorResponse(400, `File too large: ${safeFileName}`, "FILE_TOO_LARGE");
     }
 
@@ -336,7 +356,7 @@ export async function POST(request: Request) {
     const header = new Uint8Array(firstChunk);
     if (!verifyMagicBytes(file.type, header)) {
       console.warn("[upload] file_validation_failed", { ...fileCtx, reason: "magic_bytes_mismatch" });
-      await rollbackUploads(provider, uploadedRefs, requestId);
+      await rollbackAndCancel(uploadedRefs);
       return errorResponse(400, `File content does not match declared type: ${safeFileName}`, "INVALID_FILE_TYPE");
     }
 
@@ -357,7 +377,7 @@ export async function POST(request: Request) {
       uploadedRefs.push(storageRef);
       console.info("[upload] file_storage_uploaded", { ...fileCtx, storageRef });
     } catch (storageError) {
-      await rollbackUploads(provider, uploadedRefs, requestId);
+      await rollbackAndCancel(uploadedRefs);
       console.error("[upload] storage_upload_failed", {
         ...fileCtx,
         error: storageError instanceof Error ? storageError.message : "unknown",
@@ -384,7 +404,12 @@ export async function POST(request: Request) {
     });
   }
 
-  await incrementUploadUsage(user.companyId, files.length);
+  await commitUploadQuota({
+    reservationId: quotaReservation.reservationId,
+    companyId: user.companyId,
+    requestId,
+    uploadAmount: files.length,
+  });
   const allExtractedText = processedFiles.map((file) => file.extractedText).join("\n");
   const riskCount = (allExtractedText.match(riskTerms) ?? []).length;
   const stakeholderCount = (allExtractedText.match(stakeholderTerms) ?? []).length;
