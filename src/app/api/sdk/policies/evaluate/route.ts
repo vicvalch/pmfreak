@@ -17,5 +17,10 @@ export async function POST(request: Request) {
   }
 
   const result = await evaluatePolicyDecision({ ...body, actor });
-  return Response.json(result);
+  return Response.json({
+    ...result,
+    decisionSource: "policy-simulation",
+    authoritative: false,
+    productionAuthority: "enterprise-runtime",
+  });
 }

@@ -160,3 +160,44 @@ PMFreak is **not** cleanly consuming an external enterprise runtime. It still em
   - Close remaining local authority paths in agent + policy simulation flows.
   - Reduce route-local orchestration by enforcing a single authorization gateway contract.
   - Freeze a versioned runtime decision schema for SDK and external consumers.
+
+## Track 1.8.1 — Stabilization Before Track 2
+
+### What was stabilized
+- Hardened policy simulation output labeling so SDK policy evaluation responses are explicitly non-authoritative and identify enterprise runtime as production authority.
+- Migrated high-risk SDK capability mutation routes from compatibility role gate orchestration to explicit runtime-consumer flow (`buildEnterpriseRuntimeRequest` + `authorizeRuntimeAction`).
+- Expanded runtime boundary tests to enforce simulation/non-authoritative semantics and authorization-envelope authority fields.
+- Extended enterprise runtime decision envelope with explicit `decisionSource`, `authoritative`, `evaluatedAt`, and `evaluatedRoles` fields.
+
+### Policy simulation paths that remain
+- `src/app/api/sdk/policies/evaluate/route.ts` remains a simulation/diagnostic route by design and is now explicitly marked `decisionSource: "policy-simulation"`, `authoritative: false`, and `productionAuthority: "enterprise-runtime"`.
+- Protected playground and capability flow paths still include local policy evaluation surfaces and remain transition risk until full runtime delegation is completed.
+
+### SDK/admin route classification and migration snapshot
+- **A (runtime-backed):** `src/app/api/operational-memory/route.ts`, migrated SDK capability request/grant mutation routes in this pass.
+- **B (compatibility-wrapper-backed):** routes still mediated through `requireWorkspaceRole`/`requireProjectPermission` compatibility guards.
+- **C (local orchestration still present):** multiple SDK agent/policy mutation routes and protected action handlers not migrated in this pass.
+- **D (simulation/diagnostic only):** `src/app/api/sdk/policies/evaluate/route.ts`.
+
+### Decision envelope standardization
+- Enterprise runtime normalized envelope now carries explicit authority/source metadata:
+  - `decisionSource: "enterprise-runtime"`
+  - `authoritative: true`
+  - `evaluatedAt`
+  - `evaluatedRoles` (currently empty list until role trace extraction is finalized)
+- Policy simulation responses now include explicit non-authoritative authority metadata.
+
+### PMFreak-specific coupling that remains
+- PMFreak coupling persists in adapter/consumer boundary where Supabase/session/auth context and PMFreak route semantics are translated into enterprise runtime requests.
+- Adapter-local coupling (e.g., membership/permission lookup and session-derived user context) remains intentionally contained in `src/lib/aoc/adapters/*`, `src/lib/security/*`, and PMFreak runtime-consumer glue.
+- Full extraction of PMFreak-specific adapters from enterprise/protocol remains deferred to post-stabilization tracks.
+
+### Remaining blockers before Track 2
+1. Remaining simulation/playground/capability-flow local evaluation paths outside hardened SDK policy simulation response envelope.
+2. Broad compatibility-wrapper surface across API/protected handlers still requiring incremental migration.
+3. Incomplete role-level normalization in enterprise decision envelope (`evaluatedRoles` placeholder currently empty).
+4. Ongoing PMFreak-specific adapter dependencies on Supabase/session context.
+
+### Updated readiness assessment
+- Runtime-consumer architecture is more stable for packaging/release preparation due to lower split authority on high-risk SDK capability mutation paths and explicit simulation sovereignty markers.
+- Track 2 readiness is **improved but conditional**: acceptable to proceed with CI/CD + registry/release plumbing while continuing incremental migration of remaining compatibility and simulation-local paths.
