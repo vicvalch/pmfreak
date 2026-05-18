@@ -59,6 +59,11 @@ export const requireAuthUser = async () => {
 };
 
 export const isFounderOrInternalUser = (user: AuthUserContext) => {
-  const internalDomain = user.email.toLowerCase().endsWith("@pmfreak.ai");
+  const email = user.email.toLowerCase();
+
+  const internalDomain =
+    email.endsWith("@pmfreak.ai") ||
+    email.endsWith("@onchainfest.xyz");
+
   return user.role === "owner" || user.role === "admin" || internalDomain;
 };
