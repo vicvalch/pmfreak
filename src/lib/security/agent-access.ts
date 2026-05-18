@@ -1,11 +1,29 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireWorkspaceRole } from "@/lib/security/access-guards";
 import { type Permission } from "@/lib/security/rbac";
-import { evaluatePolicyDecision, type PolicyDecision } from "@/lib/security/policy-engine";
-import { resolveAgentAocActorContext } from "@/lib/aoc/actor-context";
 import { ensurePmfreakAocAdaptersRegistered } from "@/lib/aoc/bootstrap";
+import { authorizeRuntimeAction } from "@/lib/aoc/enterprise/authorization";
+import { buildEnterpriseRuntimeRequest } from "@/lib/aoc/pmfreak-runtime-consumer";
+import { getAuthUser } from "@/lib/auth";
+import type { GovernanceAction } from "@aoc-enterprise/runtime";
 
 export type AgentAccessDecision = "allow" | "deny" | "require_approval" | "expired" | "revoked" | "no_scope";
+
+const GOVERNANCE_ACTION_BY_PERMISSION: Record<Permission, GovernanceAction> = {
+  read: "project.read",
+  write: "project.write",
+  delete: "project.write",
+  write_memory: "memory.write",
+  delete_memory: "memory.write",
+  manage_members: "members.manage",
+  manage_projects: "workspace.manage",
+  manage_workspace: "workspace.manage",
+  manage_ai: "workspace.manage",
+  manage_billing: "billing.manage",
+  execute_ai_action: "ai.execute",
+  view_executive: "executive.view",
+  upload_documents: "document.upload",
+};
 
 export async function evaluateAgentAccess(input: { workspaceId: string; agentId: string; resourceType: "workspace" | "project" | "operational_memory" | "governance_object" | "ai_coprocess" | "copilot"; resourceId: string; permission: Permission; }) {
   ensurePmfreakAocAdaptersRegistered();
@@ -24,15 +42,26 @@ export async function evaluateAgentAccess(input: { workspaceId: string; agentId:
     return { decision: "expired" as AgentAccessDecision, reason: "scope_expired", agent, scope: matched };
   }
 
-  const agentActor = resolveAgentAocActorContext(input.agentId, { workspaceId: input.workspaceId });
-  const policy = await evaluatePolicyDecision({ actor: agentActor, workspaceId: input.workspaceId, resourceType: input.resourceType === "copilot" ? "ai_coprocess" : input.resourceType, resourceId: input.resourceId, permission: input.permission, rbacAllowed: false, justification: `agent:${input.agentId}`, });
-  const decision: AgentAccessDecision = policy.decision === "allow" ? "allow" : policy.decision === "require_approval" ? "require_approval" : policy.decision === "expired" ? "expired" : "deny";
+  const user = await getAuthUser();
+  if (!user) return { decision: "deny" as AgentAccessDecision, reason: "unauthorized", agent, scope: matched };
+  const runtimeDecision = await authorizeRuntimeAction(buildEnterpriseRuntimeRequest({
+    user,
+    action: GOVERNANCE_ACTION_BY_PERMISSION[input.permission],
+    routeId: "evaluateAgentAccess",
+    workspaceId: input.workspaceId,
+    projectId: input.resourceType === "project" ? input.resourceId : null,
+    resourceType: input.resourceType === "copilot" ? "ai_coprocess" : input.resourceType,
+    resourceId: input.resourceId,
+    actorAgentId: input.agentId,
+    metadata: { requestedPermission: input.permission, scopeId: matched.id },
+  }));
+  const decision: AgentAccessDecision = runtimeDecision.allowed ? "allow" : runtimeDecision.reason === "expired" ? "expired" : "deny";
 
-  await supabase.from("capability_audit_events").insert({ workspace_id: input.workspaceId, actor_agent_id: input.agentId, grant_id: matched.capability_grant_id ?? null, event_type: decision === "allow" ? "agent_access_allowed" : "agent_access_denied", event_detail: { decision, reason: policy.reason, resourceType: input.resourceType, resourceId: input.resourceId, permission: input.permission, scopeId: matched.id, grantedByUserId: matched.granted_by_user_id, policyDecision: policy.decision } });
-  await supabase.from("capability_audit_events").insert({ workspace_id: input.workspaceId, actor_agent_id: input.agentId, grant_id: matched.capability_grant_id ?? null, event_type: "agent_policy_evaluated", event_detail: { decision: policy.decision, reason: policy.reason, resourceType: input.resourceType, resourceId: input.resourceId, permission: input.permission } });
+  await supabase.from("capability_audit_events").insert({ workspace_id: input.workspaceId, actor_agent_id: input.agentId, grant_id: matched.capability_grant_id ?? null, event_type: decision === "allow" ? "agent_access_allowed" : "agent_access_denied", event_detail: { decision, reason: runtimeDecision.reason, resourceType: input.resourceType, resourceId: input.resourceId, permission: input.permission, scopeId: matched.id, grantedByUserId: matched.granted_by_user_id, runtimeDecisionId: runtimeDecision.decisionId } });
+  await supabase.from("capability_audit_events").insert({ workspace_id: input.workspaceId, actor_agent_id: input.agentId, grant_id: matched.capability_grant_id ?? null, event_type: "agent_policy_evaluated", event_detail: { decision: runtimeDecision.allowed ? "allow" : "deny", reason: runtimeDecision.reason, resourceType: input.resourceType, resourceId: input.resourceId, permission: input.permission, runtimeDecisionId: runtimeDecision.decisionId } });
   await supabase.from("ai_agents").update({ last_seen_at: nowIso, last_action_at: nowIso, updated_at: nowIso }).eq("id", input.agentId);
 
-  return { decision, reason: policy.reason, agent, scope: matched, policyDecision: policy.decision as PolicyDecision };
+  return { decision, reason: runtimeDecision.reason, agent, scope: matched, policyDecision: runtimeDecision.allowed ? "allow" : "deny" };
 }
 
 export async function requireAgentScope(input: Parameters<typeof evaluateAgentAccess>[0]) {

@@ -74,6 +74,25 @@ PMFreak is **not** cleanly consuming an external enterprise runtime. It still em
 - Runtime sovereignty estimate: **~58%**.
 - Enterprise readiness estimate: **~62%**.
 
+## Runtime consumption transition update (2026-05-18, prompt 1.7 rollout)
+- Migrated `requireAgentScope()` in `src/lib/security/access-guards.ts` to enterprise runtime authority (`buildEnterpriseRuntimeRequest` -> `authorizeRuntimeAction`) and removed local final allow/deny ownership from `ai_agent_permissions` checks.
+- Migrated `evaluateAgentAccess()` in `src/lib/security/agent-access.ts` off local `evaluatePolicyDecision()` authority to enterprise runtime decisioning; local scope/agent table reads now remain compatibility/context only.
+- Preserved compatibility wrappers and audit event emission while attaching enterprise runtime decision identifiers/reasons into event details.
+
+### Updated bypass vector inventory
+- **Removed in this prompt:**
+  - Local final authority in `requireAgentScope()`.
+  - Local policy sovereignty in `evaluateAgentAccess()` (`evaluatePolicyDecision` path removed).
+- **Still remaining split authority candidates:**
+  - Policy playground surfaces (`src/app/(protected)/playground/actions.ts`, `src/app/api/sdk/policies/evaluate/route.ts`) still intentionally invoke local policy evaluation for simulation/inspection.
+  - Several SDK mutation endpoints still perform local role gating + direct DB writes (`src/app/api/sdk/**`) and need runtime-consumer conversion to eliminate route-level branching.
+
+### Sovereignty/portability estimate (post prompt 1.7)
+- Runtime sovereignty estimate: **~69%**.
+- Enterprise runtime authority estimate: **~71%**.
+- Multitenancy readiness estimate: **~68%**.
+- External SDK readiness estimate: **~64%**.
+- Remaining technical debt: legacy SDK/write routes with local role ownership; playground-local policy evaluator exposure; scattered compatibility shims awaiting full runtime-consumer adoption.
 ## FINAL Track 1 Audit (Prompt 1.8) — 2026-05-18
 
 ### A. CURRENT ARCHITECTURE STATE
