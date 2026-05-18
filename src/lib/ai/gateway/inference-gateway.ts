@@ -28,7 +28,8 @@ export async function runInferenceGateway(request: InferenceRequest): Promise<In
 
 export function buildAIEgressRequest(request: InferenceRequest, providerId: string): AIEgressRequest {
   return {
-    actor: request.actor ?? { actorType: undefined, actorUserId: null, actorAgentId: null },
+    actorId: request.actorId ?? "unknown",
+    actorType: request.actorType ?? "unknown",
     provider: providerId,
     model: request.modelPreference,
     workspaceId: request.workspaceId,
