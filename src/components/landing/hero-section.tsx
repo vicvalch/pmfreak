@@ -132,9 +132,9 @@ export function HeroSection() {
                 />
               ))}
 
-              <span className="absolute right-2 top-[24%] rounded-full border border-cyan-300/30 bg-cyan-300/10 px-2 py-0.5 text-[9px] uppercase tracking-[0.12em] text-cyan-200">classify</span>
-              <span className="absolute right-1 top-[52%] rounded-full border border-fuchsia-300/30 bg-fuchsia-300/10 px-2 py-0.5 text-[9px] uppercase tracking-[0.12em] text-fuchsia-200">synthesize</span>
-              <span className="absolute right-3 top-[66%] rounded-full border border-cyan-300/30 bg-cyan-300/10 px-2 py-0.5 text-[9px] uppercase tracking-[0.12em] text-cyan-200">reinforce</span>
+              <span className="absolute right-[-80px] top-[24%] rounded-full border border-cyan-300/30 bg-cyan-300/10 px-2 py-0.5 text-[9px] uppercase tracking-[0.12em] text-cyan-200">classify</span>
+              <span className="absolute right-[-95px] top-[52%] rounded-full border border-fuchsia-300/30 bg-fuchsia-300/10 px-2 py-0.5 text-[9px] uppercase tracking-[0.12em] text-fuchsia-200">synthesize</span>
+              <span className="absolute right-[-85px] top-[66%] rounded-full border border-cyan-300/30 bg-cyan-300/10 px-2 py-0.5 text-[9px] uppercase tracking-[0.12em] text-cyan-200">reinforce</span>
             </div>
 
             <div className="relative w-full rounded-3xl border border-cyan-200/30 bg-gradient-to-r from-cyan-400/10 via-black/60 to-fuchsia-400/10 p-4 md:w-[45%] motion-safe:animate-[breathe_8s_ease-in-out_infinite]">
