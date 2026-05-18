@@ -1,7 +1,14 @@
 import { createPrivilegedSupabaseClient } from "@/lib/security/privileged-access";
 import { explainTrustHandshake } from "@/lib/security/trust-handshakes";
+import { getAuthUser } from "@/lib/auth";
 
 export async function GET() {
+  const user = await getAuthUser();
+  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (user.role !== "admin" && user.role !== "owner") {
+    return Response.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   // PRIVILEGED_ACCESS: Admin handshake listing is cross-tenant — all handshakes across all trust domains must be visible regardless of workspace ownership.
   // AUDIT_REF: service-role-risk-register.md
   const supabase = createPrivilegedSupabaseClient({ routeId: "api.governance.trust.handshakes", operation: "list_handshakes", reason: "admin_review" });
