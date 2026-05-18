@@ -110,7 +110,7 @@ export function HeroSection() {
               ))}
             </div>
 
-            <div className="relative hidden md:block md:w-[32%] -translate-x-10">
+            <div className="relative hidden md:block md:w-[32%]">
               <div className="absolute inset-0 rounded-[80px] bg-gradient-to-r from-cyan-400/10 via-fuchsia-300/10 to-cyan-300/10 blur-sm" />
               <div className="absolute inset-0 rounded-[80px] bg-[radial-gradient(circle_at_25%_32%,rgba(34,211,238,0.16),transparent_40%),radial-gradient(circle_at_76%_62%,rgba(244,114,182,0.12),transparent_48%)]" />
               {leakageLabels.map((label, i) => (
