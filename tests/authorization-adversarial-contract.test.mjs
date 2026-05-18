@@ -22,9 +22,11 @@ test('executive viewer remains read/view only and PM cannot manage billing', () 
   assert.doesNotMatch(rbac, /PM:[\s\S]*manage_billing/);
 });
 
-test('revoked agents and forged scopes are denied through requireAgentScope + attestation', () => {
-  assert.match(guards, /from\("ai_agent_permissions"\)/);
-  assert.match(guards, /\.is\("revoked_at", null\)/);
+test('revoked agents and forged scopes are denied through enterprise runtime + attestation', () => {
+  assert.match(guards, /requireAgentScope/);
+  assert.match(guards, /authorizeRuntimeAction/);
+  assert.match(guards, /buildEnterpriseRuntimeRequest/);
+  assert.doesNotMatch(guards, /from\("ai_agent_permissions"\)/);
   assert.match(agentAttestation, /signature_mismatch/);
   assert.match(agentAttestation, /claims\.exp/);
   assert.match(agentAttestation, /workspaceId !== input\.workspaceId/);

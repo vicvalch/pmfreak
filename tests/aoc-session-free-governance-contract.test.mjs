@@ -73,9 +73,10 @@ test('runtime wrapper calls bootstrap before governance evaluation', () => {
   assert.match(runtimeWrapperSrc, /ensurePmfreakAocAdaptersRegistered/);
 });
 
-test('agent access evaluator passes agent actor to policy evaluation', () => {
-  assert.match(agentAccessSrc, /resolveAgentAocActorContext/);
-  assert.match(agentAccessSrc, /actor:/);
+test('agent access evaluator delegates final authority to enterprise runtime', () => {
+  assert.match(agentAccessSrc, /authorizeRuntimeAction/);
+  assert.match(agentAccessSrc, /buildEnterpriseRuntimeRequest/);
+  assert.doesNotMatch(agentAccessSrc, /evaluatePolicyDecision/);
 });
 
 test('src/aoc contains no direct session or cookie imports', () => {

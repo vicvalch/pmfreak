@@ -128,27 +128,34 @@ export async function requireGovernancePermission(workspaceId: string, permissio
 }
 
 export async function requireAgentScope(input: { workspaceId: string; agentId: string; permission: Permission; projectId?: string }) {
-  const supabase = await createSupabaseServerClient();
-  const { data } = await supabase
-    .from("ai_agent_permissions")
-    .select("agent_id, workspace_id, project_id, permissions, revoked_at")
-    .eq("workspace_id", input.workspaceId)
-    .eq("agent_id", input.agentId)
-    .is("revoked_at", null);
+  const user = await requireAuthenticatedGuardUser({ routeId: "requireAgentScope", workspaceId: input.workspaceId, projectId: input.projectId, permission: input.permission });
+  const action = GOVERNANCE_ACTION_BY_PERMISSION[input.permission];
+  const decision = await authorizeRuntimeAction(
+    buildEnterpriseRuntimeRequest({
+      user,
+      action,
+      routeId: "requireAgentScope",
+      workspaceId: input.workspaceId,
+      projectId: input.projectId ?? null,
+      resourceType: input.projectId ? "project" : "workspace",
+      resourceId: input.projectId ?? input.workspaceId,
+      actorAgentId: input.agentId,
+      metadata: { requestedPermission: input.permission },
+    }),
+  );
 
-  const grants = data ?? [];
-  const scopedGrant = grants.find((grant) => (!input.projectId || grant.project_id === input.projectId) && Array.isArray(grant.permissions) && grant.permissions.includes(input.permission));
-
-  if (!scopedGrant) {
+  if (!decision.allowed) {
     void logSecurityEvent("revoked_agent_access", {
       workspaceId: input.workspaceId,
+      actorUserId: user.id,
       actorAgentId: input.agentId,
       requested_permission: input.permission,
       denied_permission: input.permission,
       projectId: input.projectId,
       routeId: "requireAgentScope",
+      metadata: { runtimeReason: decision.reason },
     });
-    throw new AccessDeniedError("AI agent scope denied.", { ...input, reason: "agent_scope_denied" });
+    throw new AccessDeniedError("AI agent scope denied.", { ...input, actorUserId: user.id, reason: decision.reason, evaluation: decision });
   }
 
   return { workspaceId: input.workspaceId, aiAgentId: input.agentId, permission: input.permission, projectId: input.projectId };
