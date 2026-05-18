@@ -114,7 +114,7 @@ export function HeroSection() {
               <div className="absolute inset-0 rounded-[80px] bg-gradient-to-r from-cyan-400/10 via-fuchsia-300/10 to-cyan-300/10 blur-sm" />
               <div className="absolute inset-0 rounded-[80px] bg-[radial-gradient(circle_at_25%_32%,rgba(34,211,238,0.16),transparent_40%),radial-gradient(circle_at_76%_62%,rgba(244,114,182,0.12),transparent_48%)]" />
               {leakageLabels.map((label, i) => (
-                <span key={label} style={{ top: `${8 + i * 9}%`, animationDelay: `${i * 0.45}s` }} className="absolute left-0 rounded-full border border-white/10 bg-black/45 px-2 py-1 text-[10px] text-zinc-300 motion-safe:animate-[drift_12s_linear_infinite]">{label}</span>
+                <span key={label} style={{ top: `${8 + i * 9}%`, animationDelay: `${i * 0.45}s` }} className="absolute left-20 rounded-full border border-white/10 bg-black/45 px-2 py-1 text-[10px] text-zinc-300 motion-safe:animate-[drift_12s_linear_infinite]">{label}</span>
               ))}
 
               <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full opacity-70">
