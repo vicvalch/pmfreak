@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { getAuthUser, type UserRole } from "@/lib/auth";
 import { getCompanySubscription, type SubscriptionPlan } from "@/lib/billing";
 import { canUseAdvancedAi, requireFeatureAccess } from "@/lib/feature-gates";
@@ -15,7 +14,7 @@ import { evaluateAgentAccess } from "@/lib/security/agent-access";
 import { denyResponse } from "@/lib/security/deny-response";
 import { verifyAiResponse } from "@/lib/ai/response-verifier";
 import { CopilotRequestContract, CopilotResponseContract } from "@/lib/contracts";
-import { resilientFetch } from "@/lib/ai/resilient-fetch";
+import { runInferenceGateway } from "@/lib/ai/gateway/inference-gateway";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 // TODO(aoc-gateway): The OpenAI call below bypasses the AI gateway and must be
@@ -201,9 +200,6 @@ export async function POST(request: Request) {
   if (!analysisAccess.ok) {
   }
 
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) return Response.json({ error: "Missing OPENAI_API_KEY on the server." }, { status: 500 });
-
   const runtimeContext = await getRuntimeAuthorityView({
     companyId: user.companyId,
     projectId: selectedProject?.id ?? null,
@@ -268,52 +264,44 @@ Output contract:
 
 Methodology mode: ${methodology}. ${getMethodologyGuide(methodology)}`;
 
-  const fetchResult = await resilientFetch<{
-    choices?: Array<{ message?: { content?: string } }>;
-    error?: { message?: string };
-  }>(
-    "https://api.openai.com/v1/chat/completions",
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: "gpt-4.1-mini",
-        temperature: 0.2,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: system },
-          {
-            role: "user",
-            content: `User role: ${payload.role ?? user.role}\nProject selected: ${payload.projectName ?? selectedProject?.projectName ?? "Not specified"}\nKnown project memory:\n${contextSummary || "No memory available."}\n\nOperational continuity signals:\n${continuitySignals.length ? continuitySignals.map((s) => `- ${s}`).join("\n") : "- No reliable continuity signal extracted."}\n\nPersisted unresolved operational memory:\n${continuity.unresolved.map((item) => `- [${item.memoryType}] ${item.memoryText} (source: ${item.sourceType}:${item.sourceReference})`).join("\n") || "- No unresolved memory yet."}\n\nAOC runtime authority context:\n${JSON.stringify(runtimeContext)}\n\nUser message: ${payload.message}`,
-          },
-        ],
-      }),
-    },
-    {
-      timeoutMs: 25000,
-      maxAttempts: 2,
-      retryDelayMs: 1000,
-      operationName: "copilot",
-      idempotencyKey: randomUUID(),
-    }
-  );
+  let actorType: "user" | "ai_agent" = "user";
+  if (isAgentCall) actorType = "ai_agent";
 
-  if (!fetchResult.ok) {
-    console.error("[copilot] openai_fetch_failed", {
-      errorClass: fetchResult.errorClass,
-      attempts: fetchResult.attempts,
-      durationMs: fetchResult.durationMs,
-      companyId: user.companyId,
-    });
-    return Response.json(
-      { error: "Copilot temporarily unavailable.", code: fetchResult.errorClass },
-      { status: fetchResult.errorClass === "rate_limited" ? 429 : 502 }
-    );
-  }
+  const inference = await runInferenceGateway({
+    moduleId: "copilot",
+    actor: { actorType, actorUserId: user.id, actorAgentId: agentId },
+    workspaceId: workspaceIdHeader ?? undefined,
+    projectId: selectedProject?.id ?? payload.projectId,
+    modelPreference: process.env.OPENAI_COPILOT_MODEL,
+    timeoutMs: 25000,
+    temperature: 0.2,
+    responseFormat: { type: "json_object" },
+    messages: [
+      { role: "system", content: system },
+      {
+        role: "user",
+        content: `User role: ${payload.role ?? user.role}
+Project selected: ${payload.projectName ?? selectedProject?.projectName ?? "Not specified"}
+Known project memory:
+${contextSummary || "No memory available."}
 
-  const body = fetchResult.data;
-  const content = body.choices?.[0]?.message?.content;
-  if (!content) return Response.json({ error: "OpenAI returned empty response." }, { status: 502 });
+Operational continuity signals:
+${continuitySignals.length ? continuitySignals.map((s) => `- ${s}`).join("\n") : "- No reliable continuity signal extracted."}
+
+Persisted unresolved operational memory:
+${continuity.unresolved.map((item) => `- [${item.memoryType}] ${item.memoryText} (source: ${item.sourceType}:${item.sourceReference})`).join("\n") || "- No unresolved memory yet."}
+
+AOC runtime authority context:
+${JSON.stringify(runtimeContext)}
+
+User message: ${payload.message}`,
+      },
+    ],
+    metadata: { estimatedSensitivity: "internal", dataClasses: ["project_memory", "user_prompt"], moduleId: "copilot" },
+  });
+
+  const content = inference.content;
+  if (!content) return Response.json({ error: "Copilot temporarily unavailable." }, { status: 502 });
 
   let parsed: Partial<CopilotResponse> = {};
   try {
