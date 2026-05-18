@@ -67,31 +67,24 @@ test('Idempotency-Key header is added when idempotencyKey option is provided', (
   assert.match(source, /idempotencyKey/);
 });
 
-// Test 9 — copilot route imports resilientFetch
-test('copilot route imports resilientFetch from resilient-fetch', () => {
-  assert.match(copilotRoute, /resilientFetch/);
-  assert.match(copilotRoute, /resilient-fetch/);
-  assert.match(copilotRoute, /randomUUID/);
-  assert.match(copilotRoute, /operationName.*copilot|copilot.*operationName/s);
-  assert.match(copilotRoute, /maxAttempts.*2|2.*maxAttempts/s);
+// Test 9 — copilot route uses unified inference gateway
+test('copilot route calls runInferenceGateway', () => {
+  assert.match(copilotRoute, /runInferenceGateway/);
+  assert.match(copilotRoute, /moduleId:\s*"copilot"/);
+  assert.match(copilotRoute, /responseFormat:\s*\{\s*type:\s*"json_object"/s);
 });
 
-// Test 10 — gateway.ts imports resilientFetch
-test('gateway.ts imports resilientFetch from resilient-fetch', () => {
-  assert.match(gatewaySource, /resilientFetch/);
-  assert.match(gatewaySource, /resilient-fetch/);
-  assert.match(gatewaySource, /randomUUID/);
-  assert.match(gatewaySource, /operationName.*message-nudges|message-nudges.*operationName/s);
-  assert.match(gatewaySource, /maxAttempts.*3|3.*maxAttempts/s);
+// Test 10 — gateway.ts routes real inference through provider router
+test('gateway.ts routes inference through provider router', () => {
+  assert.match(gatewaySource, /runProviderInference/);
+  assert.match(gatewaySource, /moduleId:\s*moduleId,[\s\S]*projectId,/);
 });
 
-// Test 11 — meta-intelligence route imports resilientFetch
-test('meta-intelligence route imports resilientFetch from resilient-fetch', () => {
-  assert.match(metaIntelSource, /resilientFetch/);
-  assert.match(metaIntelSource, /resilient-fetch/);
-  assert.match(metaIntelSource, /randomUUID/);
-  assert.match(metaIntelSource, /operationName.*meta-intelligence|meta-intelligence.*operationName/s);
-  assert.match(metaIntelSource, /timeoutMs.*15000|15000.*timeoutMs/s);
+// Test 11 — meta-intelligence route uses gateway
+test('meta-intelligence route calls runInferenceGateway', () => {
+  assert.match(metaIntelSource, /runInferenceGateway/);
+  assert.match(metaIntelSource, /moduleId:\s*"meta-intelligence"/);
+  assert.match(metaIntelSource, /timeoutMs:\s*15000/);
 });
 
 // Test 12 — no full URL logged (console calls use domain only, not raw url parameter)
