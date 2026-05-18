@@ -209,10 +209,35 @@ test('extraction status is persisted onto the processed file entry', () => {
   assert.match(routeSource, /extractionStatus,/);
 });
 
-// ── Quota race condition documentation ───────────────────────────────────────
+// ── Atomic quota enforcement ──────────────────────────────────────────────────
 
-test('quota race condition risk is documented in a comment', () => {
-  assert.match(routeSource, /canUploadDocuments \+ incrementUploadUsage is not atomic/);
+test('quota enforcement uses atomic RPC reservation (race condition resolved)', () => {
+  assert.match(routeSource, /reserveUploadQuota/);
+  assert.match(routeSource, /commitUploadQuota/);
+  assert.match(routeSource, /cancelUploadQuota/);
+  assert.doesNotMatch(routeSource, /canUploadDocuments/);
+  assert.doesNotMatch(routeSource, /incrementUploadUsage/);
+});
+
+test('quota reservation occurs before file upload loop (fail-fast ordering)', () => {
+  const reserveIdx = routeSource.indexOf('reserveUploadQuota(');
+  const loopIdx = routeSource.indexOf('for (const file of files)');
+  assert.ok(reserveIdx > 0, 'reserveUploadQuota must be present');
+  assert.ok(reserveIdx < loopIdx, 'reserveUploadQuota must precede the file upload loop');
+});
+
+test('quota commit occurs after the file upload loop completes successfully', () => {
+  const loopEnd = routeSource.lastIndexOf('processedFiles.push(');
+  const commitIdx = routeSource.indexOf('commitUploadQuota(', loopEnd);
+  assert.ok(commitIdx > loopEnd, 'commitUploadQuota must come after the file loop');
+});
+
+test('rollback paths inside file loop cancel the quota reservation', () => {
+  const loopStart = routeSource.indexOf('for (const file of files)');
+  const loopBody = routeSource.slice(loopStart, routeSource.indexOf('commitUploadQuota('));
+  const cancelCount = (loopBody.match(/rollbackAndCancel\(/g) ?? []).length;
+  assert.ok(cancelCount >= 5, `all rollback paths in file loop must call rollbackAndCancel (found ${cancelCount})`);
+  assert.doesNotMatch(loopBody, /rollbackUploads\(provider/, 'raw rollbackUploads must not be called directly inside file loop');
 });
 
 // ── Supabase provider hardening ───────────────────────────────────────────────
