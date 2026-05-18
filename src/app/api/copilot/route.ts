@@ -15,11 +15,9 @@ import { evaluateAgentAccess } from "@/lib/security/agent-access";
 import { denyResponse } from "@/lib/security/deny-response";
 import { verifyAiResponse } from "@/lib/ai/response-verifier";
 import { CopilotRequestContract, CopilotResponseContract } from "@/lib/contracts";
-import { resilientFetch } from "@/lib/ai/resilient-fetch";
+import { runInference } from "@/lib/ai/providers/router";
+import { InferenceError } from "@/lib/ai/inference/types";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-
-// TODO(aoc-gateway): The OpenAI call below bypasses the AI gateway and must be
-// migrated behind the gateway once it supports copilot as a registered module.
 
 // Resolves the caller's workspace from their project (if given) or first membership.
 // Used only on the human-user path where no workspace header is supplied.
@@ -201,9 +199,6 @@ export async function POST(request: Request) {
   if (!analysisAccess.ok) {
   }
 
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) return Response.json({ error: "Missing OPENAI_API_KEY on the server." }, { status: 500 });
-
   const runtimeContext = await getRuntimeAuthorityView({
     companyId: user.companyId,
     projectId: selectedProject?.id ?? null,
@@ -268,52 +263,47 @@ Output contract:
 
 Methodology mode: ${methodology}. ${getMethodologyGuide(methodology)}`;
 
-  const fetchResult = await resilientFetch<{
-    choices?: Array<{ message?: { content?: string } }>;
-    error?: { message?: string };
-  }>(
-    "https://api.openai.com/v1/chat/completions",
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: "gpt-4.1-mini",
-        temperature: 0.2,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: system },
-          {
-            role: "user",
-            content: `User role: ${payload.role ?? user.role}\nProject selected: ${payload.projectName ?? selectedProject?.projectName ?? "Not specified"}\nKnown project memory:\n${contextSummary || "No memory available."}\n\nOperational continuity signals:\n${continuitySignals.length ? continuitySignals.map((s) => `- ${s}`).join("\n") : "- No reliable continuity signal extracted."}\n\nPersisted unresolved operational memory:\n${continuity.unresolved.map((item) => `- [${item.memoryType}] ${item.memoryText} (source: ${item.sourceType}:${item.sourceReference})`).join("\n") || "- No unresolved memory yet."}\n\nAOC runtime authority context:\n${JSON.stringify(runtimeContext)}\n\nUser message: ${payload.message}`,
-          },
-        ],
-      }),
-    },
-    {
+  let content: string;
+  try {
+    const inferenceResult = await runInference({
+      moduleId: "copilot",
+      workspaceId: isAgentCall ? workspaceIdHeader! : undefined,
+      projectId: payload.projectId?.trim() || selectedProject?.id,
+      actorId: user.id,
+      actorType: isAgentCall ? "ai_agent" : "user",
+      messages: [
+        { role: "system", content: system },
+        {
+          role: "user",
+          content: `User role: ${payload.role ?? user.role}\nProject selected: ${payload.projectName ?? selectedProject?.projectName ?? "Not specified"}\nKnown project memory:\n${contextSummary || "No memory available."}\n\nOperational continuity signals:\n${continuitySignals.length ? continuitySignals.map((s) => `- ${s}`).join("\n") : "- No reliable continuity signal extracted."}\n\nPersisted unresolved operational memory:\n${continuity.unresolved.map((item) => `- [${item.memoryType}] ${item.memoryText} (source: ${item.sourceType}:${item.sourceReference})`).join("\n") || "- No unresolved memory yet."}\n\nAOC runtime authority context:\n${JSON.stringify(runtimeContext)}\n\nUser message: ${payload.message}`,
+        },
+      ],
+      responseFormat: { type: "json_object" },
+      temperature: 0.2,
       timeoutMs: 25000,
       maxAttempts: 2,
       retryDelayMs: 1000,
       operationName: "copilot",
       idempotencyKey: randomUUID(),
-    }
-  );
-
-  if (!fetchResult.ok) {
-    console.error("[copilot] openai_fetch_failed", {
-      errorClass: fetchResult.errorClass,
-      attempts: fetchResult.attempts,
-      durationMs: fetchResult.durationMs,
-      companyId: user.companyId,
+      metadata: { companyId: user.companyId },
     });
-    return Response.json(
-      { error: "Copilot temporarily unavailable.", code: fetchResult.errorClass },
-      { status: fetchResult.errorClass === "rate_limited" ? 429 : 502 }
-    );
+    content = inferenceResult.content;
+  } catch (error) {
+    if (error instanceof InferenceError) {
+      console.error("[copilot] inference_failed", {
+        errorClass: error.errorClass,
+        attempts: error.attempts,
+        companyId: user.companyId,
+      });
+      return Response.json(
+        { error: "Copilot temporarily unavailable.", code: error.errorClass },
+        { status: error.errorClass === "rate_limited" ? 429 : 502 },
+      );
+    }
+    return Response.json({ error: "Copilot temporarily unavailable." }, { status: 502 });
   }
 
-  const body = fetchResult.data;
-  const content = body.choices?.[0]?.message?.content;
-  if (!content) return Response.json({ error: "OpenAI returned empty response." }, { status: 502 });
+  if (!content) return Response.json({ error: "AI returned empty response." }, { status: 502 });
 
   let parsed: Partial<CopilotResponse> = {};
   try {
