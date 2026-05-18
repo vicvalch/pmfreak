@@ -6,6 +6,7 @@ import { LogoMark } from "@/components/brand/logo-mark";
 
 const navLinks = [
   { label: "Product", href: "/#intelligence" },
+  { label: "How it Works", href: "/#how-it-works" },
   { label: "Pricing", href: "/pricing" },
   { label: "Command Center", href: "/command-center" },
 ];
