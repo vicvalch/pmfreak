@@ -6,7 +6,7 @@ const SENSITIVITY_ORDER: DataSensitivity[] = ["public", "internal", "confidentia
 export function evaluateAIEgressPolicy(request: AIEgressRequest, providerMetadata: ProviderMetadata): AIEgressDecision {
   const sensitivity = request.estimatedSensitivity;
 
-  if (!request.actor?.actorType) {
+  if (!request.actorId || !request.actorType) {
     return deny("actor_missing", "Missing actor context.");
   }
   if (!sensitivity) {
@@ -19,7 +19,7 @@ export function evaluateAIEgressPolicy(request: AIEgressRequest, providerMetadat
     return deny("sensitivity_not_allowed", `Provider '${providerMetadata.id}' does not permit '${sensitivity}' sensitivity.`);
   }
 
-  if (request.actor.actorType === "system" && providerMetadata.id !== "local") {
+  if (request.actorType === "system" && providerMetadata.id !== "local") {
     return deny("system_external_provider_denied", "System actor cannot use external provider without explicit policy allowance.");
   }
 
