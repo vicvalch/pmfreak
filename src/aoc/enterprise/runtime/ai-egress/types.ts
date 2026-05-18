@@ -5,7 +5,8 @@ export type ProviderTrustTier = "trusted" | "conditional" | "restricted";
 export type EgressDecision = "allow" | "deny" | "conditional";
 
 export interface AIEgressRequest {
-  actor: NonNullable<InferenceRequest["actor"]>;
+  actorId: NonNullable<InferenceRequest["actorId"]>;
+  actorType: NonNullable<InferenceRequest["actorType"]>;
   provider: string;
   model?: string;
   workspaceId?: string;
