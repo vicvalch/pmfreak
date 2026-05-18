@@ -73,3 +73,90 @@ PMFreak is **not** cleanly consuming an external enterprise runtime. It still em
 - Authorization ownership migration progress: **~56%** complete.
 - Runtime sovereignty estimate: **~58%**.
 - Enterprise readiness estimate: **~62%**.
+
+## FINAL Track 1 Audit (Prompt 1.8) — 2026-05-18
+
+### A. CURRENT ARCHITECTURE STATE
+- **Runtime layering:** PMFreak now uses a staged layering where protocol contracts live under `src/aoc/protocol/**`, enterprise orchestration lives under `src/aoc/enterprise/runtime/**`, and PMFreak route/server layers primarily consume through adapters in `src/lib/aoc/**` and compatibility guards in `src/lib/security/**`.
+- **Ownership boundaries:** Final allow/deny for many project/workspace checks is delegated through enterprise runtime entrypoints (via runtime request building + `authorizeRuntimeAction`) but a non-trivial compatibility surface still remains in PMFreak-local guards.
+- **Authority boundaries:** Enterprise runtime is primary for migrated flows, but not exclusive; policy simulation, capability flows, and agent-scope checks still retain local authority fragments.
+- **Runtime-consumer flow:** Matured flow in migrated paths is `route/action -> PMFreak runtime consumer adapter -> enterprise runtime authorization -> normalized decision -> route response shaping`.
+- **Orchestration flow:** Centralization has improved, but orchestration is still partially split between `authorizeRuntimeAction`, compatibility wrappers (`require*` functions), and direct route-level guard invocations.
+
+### B. WHAT WAS SUCCESSFULLY ACHIEVED
+- Protocol import boundaries were hardened and remained clean under boundary scans (`src/aoc/protocol` had no forbidden app/lib/sdk/enterprise imports).
+- Enterprise runtime import boundaries were hardened and remained clean under boundary scans (`src/aoc/enterprise` had no forbidden app/lib imports).
+- Runtime consumer entrypoint and adapters are in place and verified by runtime-consumer boundary tests.
+- Local access guards have been converted from full local policy sovereignty to primarily runtime-backed compatibility wrappers for user/project/workspace checks.
+- Authorization regression checks are active and currently passing, reducing risk of reintroducing direct local ownership in already-migrated surfaces.
+
+### C. REMAINING TECHNICAL DEBT
+
+#### Remaining split authority
+- `requireAgentScope` still performs local DB grant ownership against `ai_agent_permissions` in `src/lib/security/access-guards.ts`.
+- Governance core in enterprise runtime still depends on adapter calls that map to PMFreak compatibility checks (`requireProjectPermission`, `requireWorkspaceMembership`, `requireAgentScope`) rather than pure runtime-native primitives.
+- Policy evaluation remains available as a local pathway through `evaluatePolicyDecision` usage in playground, capability flow, agent access, and SDK evaluation routes.
+
+#### Remaining bypass vectors
+- Multiple API and protected action handlers still call compatibility guards directly (`requireProjectPermission`, `requireWorkspaceMembership`, `requireWorkspaceRole`), creating broad bypass-prone call surfaces if wrappers regress.
+- SDK/admin routes still execute direct Supabase mutations after local guard checks, leaving route-local orchestration and data ownership in the app layer.
+- Playground and simulation paths still perform local policy evaluation that can diverge from production runtime governance semantics.
+
+#### Remaining orchestration duplication
+- Decision shaping and enforcement semantics still exist in multiple layers: enterprise runtime, PMFreak authorization adapter, compatibility guards, and route-local error handling.
+- Mixed use of enterprise runtime evaluation and legacy security helpers persists in capability and agent-related flows.
+
+#### Remaining portability blockers
+- PMFreak/Supabase-specific dependencies still dominate adapters and runtime access verification (`src/lib/aoc/adapters/**`, `src/lib/security/**`), preventing drop-in runtime extraction.
+- Enterprise runtime still relies on PMFreak-provided adapter behavior that is implemented with app-specific auth/session/storage assumptions.
+- SDK routes are PMFreak API-first rather than runtime-service-first, limiting reusable external runtime consumption.
+
+#### Remaining multitenancy blockers
+- Agent permission authority is still tied to direct table checks (`ai_agent_permissions`) in local security layer.
+- Tenant/workspace/project isolation is generally present but enforcement lineage remains split across wrappers and route-local handling, increasing drift risk.
+- Shared context assumptions in compatibility wrappers can still blur hard runtime context boundaries if new routes bypass normalized request construction.
+
+#### Remaining SDK blockers
+- SDK surface mixes control-plane operations with PMFreak-local route/auth patterns.
+- Decision contracts are not fully unified across SDK endpoints; some routes return local envelopes rather than standardized runtime decision artifacts.
+- External SDK viability is limited by dependence on PMFreak session/auth semantics and internal route topology.
+
+#### Remaining governance blockers
+- Governance policy evaluation still has dual-path behavior (runtime + local-compatible checks).
+- Not all governance-relevant routes have been migrated to a strict single runtime authorization choke point.
+
+### D. FINAL SCORECARD (STRICT)
+- **Protocol Purity:** 93
+- **Enterprise Runtime Separation:** 82
+- **Authorization Centralization:** 71
+- **Runtime Consumer Architecture:** 78
+- **Runtime Sovereignty:** 74
+- **Enterprise Runtime Portability:** 66
+- **SaaS Readiness:** 79
+- **Multitenancy Readiness:** 76
+- **External SDK Readiness:** 63
+- **Enterprise Governance Readiness:** 75
+
+### E. FINAL VERDICT
+1. **Is PMFreak now behaving as a runtime consumer?** **Partially yes** — materially improved and real in migrated paths, but not yet complete platform-wide.
+2. **Is Enterprise Runtime now the primary authorization authority?** **Yes, but not exclusive** — primary in converted flows; residual local authority remains.
+3. **Is runtime sovereignty structurally real?** **Emerging but incomplete** — structurally credible, with unresolved local sovereignty pockets.
+4. **Is the architecture approaching enterprise-runtime portability?** **Yes** — directionally correct, still blocked by app-specific adapter and infra coupling.
+5. **Is the ecosystem approaching external SDK viability?** **Partially** — contracts are improving but not yet normalized enough for clean external consumption.
+6. **Is the system approaching sovereign enterprise runtime architecture?** **Yes** — meaningful progress, but still below full sovereign threshold.
+
+### F. TRACK 2 READINESS (CI/CD + Registry + Releases)
+- **Readiness assessment:** **Conditionally ready** for Track 2 kickoff if Track 1.8.1 stabilization tasks are first prioritized and gated.
+- **Blockers:**
+  - Residual split authority (`requireAgentScope`, local policy evaluation paths).
+  - SDK/control-plane routes with local orchestration and direct Supabase coupling.
+  - Incomplete consolidation of runtime decision contract envelopes.
+- **Recommendations:**
+  1. Migrate `requireAgentScope` authority fully into enterprise runtime primitives.
+  2. Migrate high-risk SDK/admin and policy-playground routes to strict runtime gateway contracts.
+  3. Introduce CI boundary checks for direct guard usage in new routes/actions (allowlist-only during transition).
+  4. Standardize runtime decision/audit/trust metadata shape across all entrypoints.
+- **Required stabilization before Track 2:**
+  - Close remaining local authority paths in agent + policy simulation flows.
+  - Reduce route-local orchestration by enforcing a single authorization gateway contract.
+  - Freeze a versioned runtime decision schema for SDK and external consumers.
