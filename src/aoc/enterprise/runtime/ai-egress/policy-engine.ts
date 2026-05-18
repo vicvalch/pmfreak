@@ -19,7 +19,7 @@ export function evaluateAIEgressPolicy(request: AIEgressRequest, providerMetadat
     return deny("sensitivity_not_allowed", `Provider '${providerMetadata.id}' does not permit '${sensitivity}' sensitivity.`);
   }
 
-  if (request.actor.actorType === "system" && providerMetadata.id !== "local") {
+  if (request.actorType === "system" && providerMetadata.id !== "local") {
     return deny("system_external_provider_denied", "System actor cannot use external provider without explicit policy allowance.");
   }
 
