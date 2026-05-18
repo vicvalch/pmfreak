@@ -110,11 +110,11 @@ export function HeroSection() {
               ))}
             </div>
 
-            <div className="relative hidden md:block md:w-[28%]">
+            <div className="relative hidden md:block md:w-[32%] -translate-x-10">
               <div className="absolute inset-0 rounded-[80px] bg-gradient-to-r from-cyan-400/10 via-fuchsia-300/10 to-cyan-300/10 blur-sm" />
               <div className="absolute inset-0 rounded-[80px] bg-[radial-gradient(circle_at_25%_32%,rgba(34,211,238,0.16),transparent_40%),radial-gradient(circle_at_76%_62%,rgba(244,114,182,0.12),transparent_48%)]" />
               {leakageLabels.map((label, i) => (
-                <span key={label} style={{ top: `${8 + i * 9}%`, animationDelay: `${i * 0.45}s` }} className="absolute left-20 rounded-full border border-white/10 bg-black/45 px-2 py-1 text-[10px] text-zinc-300 motion-safe:animate-[drift_12s_linear_infinite]">{label}</span>
+                <span key={label} style={{ top: `${8 + i * 9}%`, animationDelay: `${i * 0.45}s` }} className="absolute left-8 rounded-full border border-white/10 bg-black/45 px-2 py-1 text-[10px] text-zinc-300 motion-safe:animate-[drift_12s_linear_infinite]">{label}</span>
               ))}
 
               <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full opacity-70">
@@ -132,9 +132,9 @@ export function HeroSection() {
                 />
               ))}
 
-              <span className="absolute right-[-80px] top-[24%] rounded-full border border-cyan-300/30 bg-cyan-300/10 px-2 py-0.5 text-[9px] uppercase tracking-[0.12em] text-cyan-200">classify</span>
-              <span className="absolute right-[-95px] top-[52%] rounded-full border border-fuchsia-300/30 bg-fuchsia-300/10 px-2 py-0.5 text-[9px] uppercase tracking-[0.12em] text-fuchsia-200">synthesize</span>
-              <span className="absolute right-[-85px] top-[66%] rounded-full border border-cyan-300/30 bg-cyan-300/10 px-2 py-0.5 text-[9px] uppercase tracking-[0.12em] text-cyan-200">reinforce</span>
+              <span className="absolute right-[-35px] top-[24%] rounded-full border border-cyan-300/30 bg-cyan-300/10 px-2 py-0.5 text-[9px] uppercase tracking-[0.12em] text-cyan-200">classify</span>
+              <span className="absolute right-[-45px] top-[52%] rounded-full border border-fuchsia-300/30 bg-fuchsia-300/10 px-2 py-0.5 text-[9px] uppercase tracking-[0.12em] text-fuchsia-200">synthesize</span>
+              <span className="absolute right-[-38px] top-[66%] rounded-full border border-cyan-300/30 bg-cyan-300/10 px-2 py-0.5 text-[9px] uppercase tracking-[0.12em] text-cyan-200">reinforce</span>
             </div>
 
             <div className="relative w-full rounded-3xl border border-cyan-200/30 bg-gradient-to-r from-cyan-400/10 via-black/60 to-fuchsia-400/10 p-4 md:w-[45%] motion-safe:animate-[breathe_8s_ease-in-out_infinite]">
