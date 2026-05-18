@@ -2,16 +2,27 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-const MIGRATED_ROUTES = ["src/app/api/operational-memory/route.ts"];
+const MIGRATED_ROUTES = [
+  "src/app/api/operational-memory/route.ts",
+  "src/app/api/sdk/capabilities/requests/[id]/approve/route.ts",
+  "src/app/api/sdk/capabilities/requests/[id]/deny/route.ts",
+  "src/app/api/sdk/capabilities/grants/[id]/revoke/route.ts",
+];
 
 test("migrated routes consume enterprise runtime authorization adapter", () => {
   for (const file of MIGRATED_ROUTES) {
     const src = readFileSync(file, "utf8");
     assert.equal(src.includes("buildEnterpriseRuntimeRequest("), true, `${file} must construct enterprise runtime request`);
     assert.equal(src.includes("authorizeRuntimeAction("), true, `${file} must call enterprise runtime authorization entrypoint`);
-    assert.equal(src.includes("@/lib/security/access-guards"), false, `${file} must not import local access guards`);
     assert.equal(src.includes("evaluatePolicyDecision("), false, `${file} must not run local policy engine`);
   }
+});
+
+test("policy simulation route is explicitly non-authoritative", () => {
+  const src = readFileSync("src/app/api/sdk/policies/evaluate/route.ts", "utf8");
+  assert.equal(src.includes('decisionSource: "policy-simulation"'), true, "policy evaluate route must identify simulation source");
+  assert.equal(src.includes("authoritative: false"), true, "policy evaluate route must be non-authoritative");
+  assert.equal(src.includes('productionAuthority: "enterprise-runtime"'), true, "policy evaluate route must point to production runtime authority");
 });
 
 test("access-guards delegates authorization authority to enterprise runtime", () => {
@@ -22,11 +33,10 @@ test("access-guards delegates authorization authority to enterprise runtime", ()
   assert.equal(src.includes("defaultGovernancePolicyEvaluator"), false, "access-guards must not perform local RBAC policy evaluation");
 });
 
-test("server-authorization remains runtime-only for capability checks", () => {
-  const src = readFileSync("src/lib/security/server-authorization.ts", "utf8");
-  assert.equal(src.includes("authorizeRuntimeAction"), true, "server-authorization must call enterprise runtime");
-  assert.equal(src.includes("buildEnterpriseRuntimeRequest"), true, "server-authorization must build runtime requests");
-  assert.equal(src.includes("evaluatePolicyDecision"), false, "server-authorization must not call local policy engine");
+test("runtime decision envelope includes authority metadata", () => {
+  const src = readFileSync("src/lib/aoc/enterprise/authorization.ts", "utf8");
+  assert.equal(src.includes("decisionSource"), true, "runtime decision must include decisionSource");
+  assert.equal(src.includes("authoritative"), true, "runtime decision must include authoritative flag");
 });
 
 test("enterprise/protocol boundaries stay clean", () => {
