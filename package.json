@@ -12,7 +12,8 @@
     "lint:aoc-boundaries": "node scripts/lint-aoc-boundaries.mjs",
     "check:aoc-packages": "node scripts/check-aoc-packages.mjs",
     "check:aoc-deps": "node scripts/check-aoc-dependency-direction.mjs",
-    "check:aoc-boundaries": "npm run lint:aoc-boundaries && npm run check:aoc-packages && npm run check:aoc-deps"
+    "check:aoc-boundaries": "npm run lint:aoc-boundaries && npm run check:aoc-packages && npm run check:aoc-deps",
+    "check:no-local-auth-bypass": "node scripts/check-no-local-authority-bypass.mjs"
   },
   "dependencies": {
     "@aoc-enterprise/runtime": "file:src/aoc/enterprise",

@@ -1,14 +1,41 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { type Permission } from "@/lib/security/rbac";
-import { AccessDeniedError, requireProjectPermission, requireWorkspaceRole } from "@/lib/security/access-guards";
-import { evaluatePolicyDecision } from "@/lib/security/policy-engine";
+import { AccessDeniedError, requireWorkspaceRole } from "@/lib/security/access-guards";
 import { requireAuthenticatedUser } from "@/lib/security/server-authorization";
-import { resolveUserAocActorContext } from "@/lib/aoc/actor-context";
+import { authorizeRuntimeAction } from "@/lib/aoc/enterprise/authorization";
+import { buildEnterpriseRuntimeRequest } from "@/lib/aoc/pmfreak-runtime-consumer";
+import type { GovernanceAction } from "@aoc-enterprise/runtime";
 
 export type CapabilityPermission = "read" | "write" | "approve" | "manage" | "execute" | "delegate";
 export type CapabilityResourceType = "workspace" | "project" | "operational_memory" | "governance_object" | "ai_coprocess";
 
 function nowIso() { return new Date().toISOString(); }
+
+// Maps CapabilityPermission to the closest GovernanceAction for runtime evaluation.
+const CAPABILITY_PERMISSION_TO_GOVERNANCE_ACTION: Record<CapabilityPermission, GovernanceAction> = {
+  read: "project.read",
+  write: "project.write",
+  execute: "ai.execute",
+  manage: "workspace.manage",
+  approve: "workspace.manage",
+  delegate: "workspace.manage",
+};
+
+const PERMISSION_TO_GOVERNANCE_ACTION: Record<Permission, GovernanceAction> = {
+  read: "project.read",
+  write: "project.write",
+  delete: "project.write",
+  write_memory: "memory.write",
+  delete_memory: "memory.write",
+  manage_members: "members.manage",
+  manage_projects: "workspace.manage",
+  manage_workspace: "workspace.manage",
+  manage_ai: "workspace.manage",
+  manage_billing: "billing.manage",
+  execute_ai_action: "ai.execute",
+  view_executive: "executive.view",
+  upload_documents: "document.upload",
+};
 
 async function audit(workspaceId: string, eventType: "requested" | "approved" | "denied" | "revoked" | "expired" | "consumed", actorUserId: string, detail: Record<string, unknown>, ids: { requestId?: string; grantId?: string } = {}) {
   const supabase = await createSupabaseServerClient();
@@ -19,43 +46,87 @@ export async function createCapabilityRequest(input: { workspaceId: string; targ
   const { user } = await requireAuthenticatedUser();
   await requireWorkspaceRole(input.workspaceId, ["owner", "admin", "PM", "contributor", "executive_viewer", "external_stakeholder", "ai_agent"]);
   const supabase = await createSupabaseServerClient();
-  const reqHours = input.expiresAt ? Math.ceil((new Date(input.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60)) : undefined;
-  const evaluation = await evaluatePolicyDecision({ actor: resolveUserAocActorContext(user, { workspaceId: input.workspaceId }), workspaceId: input.workspaceId, resourceType: input.targetResourceType, resourceId: input.targetResourceId, permission: input.requestedPermission as Permission, requestedDurationHours: reqHours, justification: input.justification, rbacAllowed: false });
 
-  const initialStatus = evaluation.decision === "deny" || evaluation.decision === "expired" ? "denied" : "pending";
+  const action = CAPABILITY_PERMISSION_TO_GOVERNANCE_ACTION[input.requestedPermission];
+  let runtimeDecision: Awaited<ReturnType<typeof authorizeRuntimeAction>> | null = null;
+  try {
+    runtimeDecision = await authorizeRuntimeAction(
+      buildEnterpriseRuntimeRequest({
+        user,
+        action,
+        routeId: "createCapabilityRequest",
+        workspaceId: input.workspaceId,
+        projectId: input.targetResourceType === "project" ? input.targetResourceId : null,
+        resourceType: input.targetResourceType,
+        resourceId: input.targetResourceId,
+        metadata: { requestedPermission: input.requestedPermission, justification: input.justification },
+      }),
+    );
+  } catch {
+    // Fail closed: runtime unavailable → deny auto-approval; persist as denied.
+    runtimeDecision = null;
+  }
+
+  let initialStatus: "approved" | "pending" | "denied";
+  if (runtimeDecision === null) {
+    initialStatus = "denied";
+  } else if (runtimeDecision.allowed) {
+    initialStatus = "approved";
+  } else {
+    const requiredApprovalType = runtimeDecision.runtimeMetadata.requiredApprovalType as string | null | undefined;
+    initialStatus = requiredApprovalType ? "pending" : "denied";
+  }
+
   const { data, error } = await supabase.from("capability_requests").insert({ workspace_id: input.workspaceId, requester_user_id: user.id, target_resource_type: input.targetResourceType, target_resource_id: input.targetResourceId, requested_permission: input.requestedPermission, requested_scope: input.requestedScope ?? {}, justification: input.justification ?? null, grant_expires_at: input.expiresAt ?? null, status: initialStatus }).select("id").single<{ id: string }>();
   if (error || !data) throw new Error(error?.message ?? "Failed to create capability request");
 
-  if (evaluation.decision === "allow") {
+  if (runtimeDecision?.allowed) {
     await supabase.from("capability_requests").update({ status: "approved", evaluator_user_id: user.id, decided_at: nowIso(), updated_at: nowIso() }).eq("id", data.id);
     const { data: grant } = await supabase.from("capability_grants").insert({ capability_request_id: data.id, workspace_id: input.workspaceId, granted_user_id: user.id, granted_by_user_id: user.id, target_resource_type: input.targetResourceType, target_resource_id: input.targetResourceId, permission: input.requestedPermission, scope: input.requestedScope ?? {}, expires_at: input.expiresAt ?? null }).select("id").single<{ id: string }>();
-    await audit(input.workspaceId, "approved", user.id, { autoApproved: true, policyDecision: evaluation.decision }, { requestId: data.id, grantId: grant?.id });
+    await audit(input.workspaceId, "approved", user.id, { autoApproved: true, runtimeDecisionId: runtimeDecision.decisionId, runtimeReason: runtimeDecision.reason }, { requestId: data.id, grantId: grant?.id });
     return data.id;
   }
 
-  await audit(input.workspaceId, "requested", user.id, { targetResourceType: input.targetResourceType, targetResourceId: input.targetResourceId, requestedPermission: input.requestedPermission, policyDecision: evaluation.decision, policyReason: evaluation.reason }, { requestId: data.id });
+  await audit(input.workspaceId, "requested", user.id, { targetResourceType: input.targetResourceType, targetResourceId: input.targetResourceId, requestedPermission: input.requestedPermission, runtimeDecision: runtimeDecision ? "deny" : "runtime_error", runtimeReason: runtimeDecision?.reason ?? "runtime_unavailable" }, { requestId: data.id });
   return data.id;
 }
 
+// evaluateCapabilityAccess delegates final authorization to the AOC Enterprise Runtime.
+// Local DB grant evidence is incorporated by the runtime's registered PolicyEvaluatorPort adapter.
+// Fails closed: if the runtime is unavailable or denies, access is denied with no local fallback.
 export async function evaluateCapabilityAccess(input: { workspaceId: string; projectId?: string; permission: Permission }) {
+  const { user } = await requireAuthenticatedUser();
+  const action = PERMISSION_TO_GOVERNANCE_ACTION[input.permission];
+  let decision: Awaited<ReturnType<typeof authorizeRuntimeAction>>;
   try {
-    if (input.projectId) {
-      await requireProjectPermission(input.projectId, input.permission);
-      return { allowed: true as const, reason: "rbac" };
-    }
-    await requireWorkspaceRole(input.workspaceId, ["owner", "admin", "PM", "contributor", "executive_viewer", "external_stakeholder", "ai_agent"]);
-    return { allowed: true as const, reason: "rbac" };
+    decision = await authorizeRuntimeAction(
+      buildEnterpriseRuntimeRequest({
+        user,
+        action,
+        routeId: "evaluateCapabilityAccess",
+        workspaceId: input.workspaceId,
+        projectId: input.projectId ?? null,
+        resourceType: input.projectId ? "project" : "workspace",
+        resourceId: input.projectId ?? input.workspaceId,
+        metadata: { requestedPermission: input.permission },
+      }),
+    );
   } catch {
-    const { user } = await requireAuthenticatedUser();
-    const actor = resolveUserAocActorContext(user, { workspaceId: input.workspaceId, projectId: input.projectId });
-    const supabase = await createSupabaseServerClient();
-    const now = nowIso();
-    const { data } = await supabase.from("capability_grants").select("id, target_resource_id, permission, expires_at, status").eq("workspace_id", input.workspaceId).eq("granted_user_id", user.id).eq("target_resource_type", input.projectId ? "project" : "workspace").eq("target_resource_id", input.projectId ?? input.workspaceId).eq("permission", input.permission).eq("status", "active");
-    const decision = await evaluatePolicyDecision({ actor, workspaceId: input.workspaceId, resourceType: input.projectId ? "project" : "workspace", resourceId: input.projectId ?? input.workspaceId, permission: input.permission, rbacAllowed: false });
-    if (decision.decision === "allow") {
-      await audit(input.workspaceId, "consumed", user.id, { permission: input.permission, resourceId: input.projectId ?? input.workspaceId, policyReason: decision.reason }, { grantId: decision.matchedGrantId });
-      return { allowed: true as const, reason: "policy_allow", grantId: decision.matchedGrantId };
-    }
-    throw new AccessDeniedError("Scoped capability denied.", { reason: decision.reason, workspaceId: input.workspaceId, permission: input.permission, projectId: input.projectId });
+    // Fail closed: runtime unavailable or threw → deny access.
+    throw new AccessDeniedError("Capability access denied: runtime authorization unavailable.", {
+      reason: "runtime_unavailable",
+      workspaceId: input.workspaceId,
+      permission: input.permission,
+      projectId: input.projectId,
+    });
   }
+  if (decision.allowed) {
+    return { allowed: true as const, reason: decision.reason };
+  }
+  throw new AccessDeniedError("Capability access denied by enterprise runtime.", {
+    reason: decision.reason,
+    workspaceId: input.workspaceId,
+    permission: input.permission,
+    projectId: input.projectId,
+  });
 }
