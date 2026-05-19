@@ -3,7 +3,7 @@ import { AccessDeniedError } from "@/lib/security/access-guards";
 import type { Permission, WorkspaceRole } from "@/lib/security/rbac";
 import { authorizeRuntimeAction } from "@/lib/aoc/enterprise/authorization";
 import { buildEnterpriseRuntimeRequest } from "@/lib/aoc/pmfreak-runtime-consumer";
-import type { GovernanceAction } from "@aoc-enterprise/runtime";
+import { PERMISSION_TO_GOVERNANCE_ACTION } from "@/lib/aoc/runtime/governance-actions";
 
 export type AuthenticatedContext = { user: AuthUserContext };
 
@@ -49,21 +49,8 @@ export function requireSystemOrWebhookSecret(receivedSecret: string | null | und
 
 export type CapabilityRequirement = { permission: Permission; workspaceId?: string; projectId?: string };
 
-const ACTION_BY_PERMISSION: Record<Permission, GovernanceAction> = {
-  read: "project.read",
-  write: "project.write",
-  delete: "project.write",
-  write_memory: "memory.write",
-  delete_memory: "memory.write",
-  manage_members: "members.manage",
-  manage_projects: "workspace.manage",
-  manage_workspace: "workspace.manage",
-  manage_ai: "workspace.manage",
-  manage_billing: "billing.manage",
-  execute_ai_action: "ai.execute",
-  view_executive: "executive.view",
-  upload_documents: "document.upload",
-};
+// Canonical mapping lives in governance-actions.ts; use it directly.
+const ACTION_BY_PERMISSION = PERMISSION_TO_GOVERNANCE_ACTION;
 
 export async function evaluateCapability(requirement: CapabilityRequirement) {
   const { user } = await requireAuthenticatedUser();

@@ -5,25 +5,12 @@ import { ensurePmfreakAocAdaptersRegistered } from "@/lib/aoc/bootstrap";
 import { authorizeRuntimeAction } from "@/lib/aoc/enterprise/authorization";
 import { buildEnterpriseRuntimeRequest } from "@/lib/aoc/pmfreak-runtime-consumer";
 import { getAuthUser } from "@/lib/auth";
-import type { GovernanceAction } from "@aoc-enterprise/runtime";
+import { PERMISSION_TO_GOVERNANCE_ACTION } from "@/lib/aoc/runtime/governance-actions";
 
 export type AgentAccessDecision = "allow" | "deny" | "require_approval" | "expired" | "revoked" | "no_scope";
 
-const GOVERNANCE_ACTION_BY_PERMISSION: Record<Permission, GovernanceAction> = {
-  read: "project.read",
-  write: "project.write",
-  delete: "project.write",
-  write_memory: "memory.write",
-  delete_memory: "memory.write",
-  manage_members: "members.manage",
-  manage_projects: "workspace.manage",
-  manage_workspace: "workspace.manage",
-  manage_ai: "workspace.manage",
-  manage_billing: "billing.manage",
-  execute_ai_action: "ai.execute",
-  view_executive: "executive.view",
-  upload_documents: "document.upload",
-};
+// Canonical mapping lives in governance-actions.ts; use it directly.
+const GOVERNANCE_ACTION_BY_PERMISSION = PERMISSION_TO_GOVERNANCE_ACTION;
 
 export async function evaluateAgentAccess(input: { workspaceId: string; agentId: string; resourceType: "workspace" | "project" | "operational_memory" | "governance_object" | "ai_coprocess" | "copilot"; resourceId: string; permission: Permission; }) {
   ensurePmfreakAocAdaptersRegistered();

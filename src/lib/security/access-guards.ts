@@ -4,7 +4,7 @@ import { logSecurityEvent } from "@/lib/security/telemetry";
 import { type Permission, type WorkspaceRole } from "@/lib/security/rbac";
 import { authorizeRuntimeAction } from "@/lib/aoc/enterprise/authorization";
 import { buildEnterpriseRuntimeRequest } from "@/lib/aoc/pmfreak-runtime-consumer";
-import type { GovernanceAction } from "@aoc-enterprise/runtime";
+import { PERMISSION_TO_GOVERNANCE_ACTION } from "@/lib/aoc/runtime/governance-actions";
 
 export class AccessDeniedError extends Error {
   constructor(message: string, public readonly metadata: Record<string, unknown> = {}) {
@@ -13,21 +13,8 @@ export class AccessDeniedError extends Error {
   }
 }
 
-const GOVERNANCE_ACTION_BY_PERMISSION: Record<Permission, GovernanceAction> = {
-  read: "project.read",
-  write: "project.write",
-  delete: "project.write",
-  write_memory: "memory.write",
-  delete_memory: "memory.write",
-  manage_members: "members.manage",
-  manage_projects: "workspace.manage",
-  manage_workspace: "workspace.manage",
-  manage_ai: "workspace.manage",
-  manage_billing: "billing.manage",
-  execute_ai_action: "ai.execute",
-  view_executive: "executive.view",
-  upload_documents: "document.upload",
-};
+// Canonical mapping lives in governance-actions.ts; use it directly.
+const GOVERNANCE_ACTION_BY_PERMISSION = PERMISSION_TO_GOVERNANCE_ACTION;
 
 async function requireAuthenticatedGuardUser(scope: { routeId: string; workspaceId?: string; projectId?: string; permission?: Permission }) {
   const user = await getAuthUser();

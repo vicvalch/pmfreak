@@ -5,6 +5,7 @@
 // Do NOT import from host application modules in this file.
 
 export type AocGovernanceEventType =
+  | "governance_action_allowed"
   | "governance_violation"
   | "governance_approval_requested"
   | "execution_grant_issued"

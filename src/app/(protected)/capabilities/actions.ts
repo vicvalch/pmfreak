@@ -4,7 +4,9 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createCapabilityRequest } from "@/lib/security/capability-flow";
 import { requireAuthenticatedUser } from "@/lib/security/server-authorization";
-import { requireWorkspaceRole } from "@/lib/security/access-guards";
+import { authorizeRuntimeAction } from "@/lib/aoc/enterprise/authorization";
+import { buildEnterpriseRuntimeRequest } from "@/lib/aoc/pmfreak-runtime-consumer";
+import { SDK_GOVERNANCE_ACTIONS } from "@/lib/aoc/runtime/governance-actions";
 
 export async function createCapabilityRequestAction(formData: FormData) {
   const workspaceId = String(formData.get("workspaceId") ?? "");
@@ -20,23 +22,35 @@ export async function createCapabilityRequestAction(formData: FormData) {
 
 export async function decideCapabilityRequestAction(formData: FormData) {
   const requestId = String(formData.get("requestId") ?? "");
-  const decision = String(formData.get("decision") ?? "");
+  const decisionValue = String(formData.get("decision") ?? "");
   const supabase = await createSupabaseServerClient();
   const { user } = await requireAuthenticatedUser();
 
-  const { data: request } = await supabase.from("capability_requests").select("*").eq("id", requestId).maybeSingle();
-  if (!request) redirect("/capabilities?error=request_not_found");
-  await requireWorkspaceRole(request.workspace_id, ["owner", "admin"]);
+  const { data: capRequest } = await supabase.from("capability_requests").select("*").eq("id", requestId).maybeSingle();
+  if (!capRequest) redirect("/capabilities?error=request_not_found");
 
-  if (decision === "approve") {
+  const runtimeDecision = await authorizeRuntimeAction(
+    buildEnterpriseRuntimeRequest({
+      user,
+      action: SDK_GOVERNANCE_ACTIONS.CAPABILITIES_MANAGE,
+      routeId: "decideCapabilityRequestAction",
+      workspaceId: capRequest.workspace_id,
+      resourceType: capRequest.target_resource_type,
+      resourceId: capRequest.target_resource_id,
+      metadata: { requestId, capabilityDecision: decisionValue, requestedPermission: capRequest.requested_permission },
+    }),
+  );
+  if (!runtimeDecision.allowed) redirect("/capabilities?error=forbidden");
+
+  if (decisionValue === "approve") {
     await supabase.from("capability_requests").update({ status: "approved", evaluator_user_id: user.id, decided_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", requestId);
-    const { data: grant } = await supabase.from("capability_grants").insert({ capability_request_id: requestId, workspace_id: request.workspace_id, granted_user_id: request.requester_user_id, granted_by_user_id: user.id, target_resource_type: request.target_resource_type, target_resource_id: request.target_resource_id, permission: request.requested_permission, scope: request.requested_scope, expires_at: request.grant_expires_at ?? null }).select("id").single<{ id: string }>();
-    await supabase.from("capability_audit_events").insert({ workspace_id: request.workspace_id, request_id: requestId, grant_id: grant?.id ?? null, actor_user_id: user.id, event_type: "approved", event_detail: { decision: "approved" } });
+    const { data: grant } = await supabase.from("capability_grants").insert({ capability_request_id: requestId, workspace_id: capRequest.workspace_id, granted_user_id: capRequest.requester_user_id, granted_by_user_id: user.id, target_resource_type: capRequest.target_resource_type, target_resource_id: capRequest.target_resource_id, permission: capRequest.requested_permission, scope: capRequest.requested_scope, expires_at: capRequest.grant_expires_at ?? null }).select("id").single<{ id: string }>();
+    await supabase.from("capability_audit_events").insert({ workspace_id: capRequest.workspace_id, request_id: requestId, grant_id: grant?.id ?? null, actor_user_id: user.id, event_type: "approved", event_detail: { decision: "approved", runtimeDecisionId: runtimeDecision.decisionId, runtimeAuthoritative: runtimeDecision.authoritative } });
   }
 
-  if (decision === "deny") {
+  if (decisionValue === "deny") {
     await supabase.from("capability_requests").update({ status: "denied", evaluator_user_id: user.id, decided_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", requestId);
-    await supabase.from("capability_audit_events").insert({ workspace_id: request.workspace_id, request_id: requestId, actor_user_id: user.id, event_type: "denied", event_detail: { decision: "denied" } });
+    await supabase.from("capability_audit_events").insert({ workspace_id: capRequest.workspace_id, request_id: requestId, actor_user_id: user.id, event_type: "denied", event_detail: { decision: "denied", runtimeDecisionId: runtimeDecision.decisionId } });
   }
 
   redirect("/capabilities?updated=1");
@@ -48,9 +62,23 @@ export async function revokeCapabilityGrantAction(formData: FormData) {
   const { user } = await requireAuthenticatedUser();
   const { data: grant } = await supabase.from("capability_grants").select("*").eq("id", grantId).maybeSingle();
   if (!grant) redirect("/capabilities?error=grant_not_found");
-  await requireWorkspaceRole(grant.workspace_id, ["owner", "admin"]);
+
+  // Runtime must authorize revocation before any DB write.
+  const runtimeDecision = await authorizeRuntimeAction(
+    buildEnterpriseRuntimeRequest({
+      user,
+      action: SDK_GOVERNANCE_ACTIONS.CAPABILITIES_MANAGE,
+      routeId: "revokeCapabilityGrantAction",
+      workspaceId: grant.workspace_id,
+      resourceType: grant.target_resource_type,
+      resourceId: grant.target_resource_id,
+      metadata: { grantId, requestedPermission: grant.permission },
+    }),
+  );
+  if (!runtimeDecision.allowed) redirect("/capabilities?error=forbidden");
+
   await supabase.from("capability_grants").update({ status: "revoked", revoked_at: new Date().toISOString(), revoked_by_user_id: user.id }).eq("id", grantId);
   await supabase.from("capability_requests").update({ status: "revoked", updated_at: new Date().toISOString() }).eq("id", grant.capability_request_id);
-  await supabase.from("capability_audit_events").insert({ workspace_id: grant.workspace_id, grant_id: grantId, request_id: grant.capability_request_id, actor_user_id: user.id, event_type: "revoked", event_detail: { decision: "revoked" } });
+  await supabase.from("capability_audit_events").insert({ workspace_id: grant.workspace_id, grant_id: grantId, request_id: grant.capability_request_id, actor_user_id: user.id, event_type: "revoked", event_detail: { decision: "revoked", runtimeDecisionId: runtimeDecision.decisionId, runtimeAuthoritative: runtimeDecision.authoritative } });
   redirect("/capabilities?revoked=1");
 }
