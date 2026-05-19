@@ -214,6 +214,7 @@ export function GettingStartedFlow() {
   const [step, setStep] = useState<StepId>(0);
   const [submitting, setSubmitting] = useState(false);
   const [activating, setActivating] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [form, setForm] = useState<OnboardingForm>({
     companyName: "",
     pmoMaturity: "Developing",
@@ -296,25 +297,34 @@ export function GettingStartedFlow() {
 
   const submit = async (demo = false) => {
     setSubmitting(true);
-    const response = await fetch("/api/getting-started", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ form, templates: rows, loadDemo: demo }),
-    });
-    setSubmitting(false);
-    if (response.ok) {
-      completedRef.current = true;
-      void fetch("/api/telemetry/first-user", {
+    setSubmitError(null);
+    try {
+      const response = await fetch("/api/getting-started", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ eventType: "onboarding_completed", metadata: { readinessScore: readiness.readinessScore } }),
+        body: JSON.stringify({ form, templates: rows, loadDemo: demo }),
       });
-      setActivating(true);
+      if (response.ok) {
+        completedRef.current = true;
+        void fetch("/api/telemetry/first-user", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ eventType: "onboarding_completed", metadata: { readinessScore: readiness.readinessScore } }),
+        });
+        setActivating(true);
+      } else {
+        const body = await response.json().catch(() => ({})) as { error?: string };
+        setSubmitError(body.error ?? `Activation failed (${response.status}). Please retry.`);
+      }
+    } catch {
+      setSubmitError("Network error — please check your connection and retry.");
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const handleTransitionComplete = useCallback(() => {
-    router.push("/executive?from=getting-started");
+    router.push("/command-center?from=onboarding");
   }, [router]);
 
   // Step 0: Welcome / Activation Entry
@@ -387,6 +397,12 @@ export function GettingStartedFlow() {
                 {submitting ? "Loading..." : "Explore PMFreak demo"}
               </button>
             </div>
+
+            {submitError && (
+              <p className="rounded-xl border border-rose-400/25 bg-rose-400/[0.06] px-4 py-2.5 text-xs text-rose-300">
+                {submitError}
+              </p>
+            )}
 
             {/* What activates */}
             <div className="grid grid-cols-2 gap-3 pt-2 sm:grid-cols-4">
@@ -694,6 +710,11 @@ export function GettingStartedFlow() {
                   Load demo project
                 </button>
               </div>
+              {submitError && (
+                <p className="rounded-xl border border-rose-400/25 bg-rose-400/[0.06] px-4 py-2.5 text-xs text-rose-300">
+                  {submitError}
+                </p>
+              )}
             </div>
           )}
 

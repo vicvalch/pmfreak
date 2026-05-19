@@ -1,13 +1,58 @@
 import { ExecutiveDashboard } from "@/components/pmfreak/executive/executive-dashboard";
 import { getAuthUser } from "@/lib/auth";
-import { buildExecutiveSynthesis } from "@/lib/executive-synthesis";
+import { buildExecutiveSynthesis, type ExecutiveSynthesisSnapshot } from "@/lib/executive-synthesis";
+import Link from "next/link";
+
+async function safelyBuildSynthesis(companyId: string): Promise<{ snapshot: ExecutiveSynthesisSnapshot | null; error: string | null }> {
+  try {
+    const snapshot = await buildExecutiveSynthesis(companyId, null);
+    return { snapshot, error: null };
+  } catch (err) {
+    console.error("[executive] synthesis failed", { companyId, error: String(err) });
+    return { snapshot: null, error: String(err) };
+  }
+}
 
 export default async function ExecutivePage({ searchParams }: { searchParams: Promise<{ from?: string }> }) {
   const user = await getAuthUser();
   if (!user) return null;
-  const snapshot = await buildExecutiveSynthesis(user.companyId, null);
+
   const params = await searchParams;
   const fromActivation = params.from === "getting-started";
+
+  const { snapshot, error: synthError } = await safelyBuildSynthesis(user.companyId);
+
+  if (!snapshot) {
+    return (
+      <main className="space-y-5 pb-8">
+        <header className="rounded-3xl border border-white/8 bg-white/[0.03] p-6">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-indigo-400">PMFreak Executive Layer</p>
+          <h1 className="mt-2 text-2xl font-semibold text-slate-100">Executive Operational Intelligence</h1>
+        </header>
+        <div className="rounded-2xl border border-amber-400/20 bg-amber-400/[0.05] p-6">
+          <p className="text-sm font-semibold text-amber-200">Intelligence synthesis unavailable</p>
+          <p className="mt-1 text-xs text-slate-400">
+            PMFreak could not build the executive synthesis at this time. This may occur before operational
+            memory records are established or if the data layer is initializing.
+          </p>
+          {synthError && (
+            <p className="mt-2 rounded border border-white/10 bg-white/5 px-3 py-2 font-mono text-[10px] text-slate-500">
+              {synthError.slice(0, 200)}
+            </p>
+          )}
+          <div className="mt-4 flex gap-3">
+            <Link href="/command-center" className="rounded-xl border border-indigo-400/40 bg-indigo-400/10 px-4 py-2 text-xs font-medium text-indigo-200 transition hover:bg-indigo-400/15">
+              Go to Command Center
+            </Link>
+            <Link href="/projects" className="rounded-xl border border-white/10 px-4 py-2 text-xs text-slate-400 transition hover:border-white/20 hover:text-slate-300">
+              View Projects
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   const weakest = snapshot.weakestDomains[0];
 
   return (

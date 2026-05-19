@@ -11,7 +11,69 @@ const fetcher = async (url: string) => {
 
 import { CoordinationQueueCard, InterventionCard, OperationalHealthCard, RecoveryWorkflowCard, RiskCard, StakeholderPressureCard } from "@/features/command-center/widgets";
 
-export function CommandCenterClient() {
+const FIRST_RUN_ACTIONS = [
+  { label: "Add stakeholders", sublabel: "activates political risk sensing" },
+  { label: "Paste meeting notes", sublabel: "establishes accountability tracking" },
+  { label: "Create your first milestone baseline", sublabel: "anchors delivery confidence telemetry" },
+  { label: "Log a follow-up commitment", sublabel: "starts follow-up pressure monitoring" },
+];
+
+function FirstRunWelcomePanel() {
+  return (
+    <div className="relative overflow-hidden rounded-3xl border border-indigo-400/30 bg-gradient-to-br from-indigo-400/[0.08] via-white/[0.02] to-transparent p-6 shadow-[0_16px_50px_-20px_rgba(99,102,241,0.3)]">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(99,102,241,0.1),transparent_60%)]" />
+      <div className="relative space-y-5">
+        <div className="flex items-start gap-3">
+          <span className="relative mt-1 flex h-2.5 w-2.5 shrink-0">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-indigo-400 opacity-50" />
+            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-indigo-400" />
+          </span>
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-indigo-400">
+              Operational intelligence active
+            </p>
+            <h2 className="mt-1 text-xl font-semibold text-slate-100">
+              PMFreak is now monitoring your initiative
+            </h2>
+            <p className="mt-1 text-sm text-slate-400">
+              Your first operational context has been activated. The intelligence layer is live — signals
+              will populate as you add context below.
+            </p>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-indigo-400/15 bg-indigo-400/[0.05] px-4 py-3">
+          <div className="flex gap-2">
+            <span className="mt-px shrink-0 text-[9px] font-bold uppercase tracking-widest text-indigo-400">AI</span>
+            <p className="text-[11px] leading-relaxed text-indigo-200/80">
+              PMFreak will begin sensing stakeholder confidence drift once interactions are logged.
+              Operational risk telemetry becomes more accurate as meetings are ingested.
+            </p>
+          </div>
+        </div>
+
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+            Recommended next actions
+          </p>
+          <ul className="space-y-2">
+            {FIRST_RUN_ACTIONS.map((action) => (
+              <li key={action.label} className="flex items-start gap-2 text-sm text-slate-400">
+                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-400/50" />
+                <span>
+                  {action.label}
+                  <span className="ml-1 text-slate-600">— {action.sublabel}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function CommandCenterClient({ firstRun = false }: { firstRun?: boolean }) {
   const swrOptions = { refreshInterval: 20000, revalidateOnFocus: true, dedupingInterval: 3000 };
   const risk = useSWR("/api/intelligence/execution-risk", fetcher, swrOptions);
   const stakeholders = useSWR("/api/intelligence/stakeholders", fetcher, swrOptions);
@@ -37,6 +99,8 @@ export function CommandCenterClient() {
 
   return (
     <div className="space-y-5 pb-8">
+      {firstRun && <FirstRunWelcomePanel />}
+
       <header className="rounded-3xl border border-white/15 bg-white/90 p-6 shadow-2xl shadow-black/50">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>

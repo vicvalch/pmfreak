@@ -5,10 +5,16 @@ import { ensureUserWorkspace } from "@/lib/workspaces";
 import { CommandCenterClient } from "@/features/command-center/command-center-client";
 import { GuidedEmptyState } from "@/components/pmfreak/onboarding/GuidedEmptyState";
 
-export default async function CommandCenterPage() {
+export default async function CommandCenterPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ from?: string }>;
+}) {
   const user = await requireAuthUser();
   const workspace = await ensureUserWorkspace(user.id);
   const supabase = await createSupabaseServerClient();
+  const params = await searchParams;
+  const fromOnboarding = params.from === "onboarding";
 
   const { data: projects } = await supabase
     .from("projects")
@@ -180,5 +186,5 @@ export default async function CommandCenterPage() {
     );
   }
 
-  return <CommandCenterClient />;
+  return <CommandCenterClient firstRun={fromOnboarding} />;
 }
