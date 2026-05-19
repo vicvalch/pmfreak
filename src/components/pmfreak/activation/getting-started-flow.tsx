@@ -233,6 +233,7 @@ export function GettingStartedFlow() {
   const [rows, setRows] = useState<DomainTemplate[]>(templates);
   const completedRef = useRef(false);
   const stepRef = useRef<StepId>(0);
+  const createdProjectIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     stepRef.current = step;
@@ -305,6 +306,8 @@ export function GettingStartedFlow() {
         body: JSON.stringify({ form, templates: rows, loadDemo: demo }),
       });
       if (response.ok) {
+        const body = await response.json().catch(() => ({})) as { ok?: boolean; projectId?: string };
+        createdProjectIdRef.current = body.projectId ?? null;
         completedRef.current = true;
         void fetch("/api/telemetry/first-user", {
           method: "POST",
@@ -324,7 +327,11 @@ export function GettingStartedFlow() {
   };
 
   const handleTransitionComplete = useCallback(() => {
-    router.push("/command-center?from=onboarding");
+    const pid = createdProjectIdRef.current;
+    const dest = pid
+      ? `/command-center?projectId=${encodeURIComponent(pid)}&from=onboarding`
+      : "/command-center?from=onboarding";
+    router.push(dest);
   }, [router]);
 
   // Step 0: Welcome / Activation Entry
