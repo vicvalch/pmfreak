@@ -1,5 +1,7 @@
+import type { AuthUserContext } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/admin";
+import { resolveBootstrapRuntimeContext } from "@/lib/runtime/bootstrap/runtime";
 
 export type WorkspaceRow = {
   id: string;
@@ -11,71 +13,142 @@ export type WorkspaceContext = {
   role: "owner" | "admin" | "pm" | "viewer";
 };
 
-// PRIVILEGED_ACCESS: Workspace bootstrap runs before the user has any membership; RLS (which restricts access to existing members) would block workspace creation and initial membership writes.
-// AUDIT_REF: service-role-risk-register.md
-async function ensureWorkspaceMembership(userId: string, workspaceId: string, role: WorkspaceContext["role"] = "owner") {
-  const supabase = createSupabaseServiceRoleClient({ routeId: "lib.workspaces", operation: "ensure_membership", reason: "workspace_bootstrap", systemActor: "system", actorUserId: userId, workspaceId });
-  const { error } = await supabase.from("workspace_memberships").upsert({ workspace_id: workspaceId, user_id: userId, role }, { onConflict: "workspace_id,user_id", ignoreDuplicates: true });
-  if (error) throw new Error(`Unable to ensure workspace membership: ${error.message}`);
-}
-
 export async function ensureUserWorkspace(userId: string) {
-  const supabase = createSupabaseServiceRoleClient({ routeId: "lib.workspaces", operation: "ensure_workspace", reason: "workspace_bootstrap", systemActor: "system", actorUserId: userId });
+  const supabase = createSupabaseServiceRoleClient({
+    routeId: "lib.workspaces",
+    operation: "ensure_workspace",
+    reason: "workspace_bootstrap",
+    systemActor: "system",
+    actorUserId: userId,
+  });
 
-  const { data: existingMembership } = await supabase
+  const { data: oldestMembership, error: membershipError } = await supabase
     .from("workspace_memberships")
-    .select("workspace_id, role")
+    .select("workspace_id,role")
     .eq("user_id", userId)
     .order("created_at", { ascending: true })
     .limit(1)
     .maybeSingle<{ workspace_id: string; role: WorkspaceContext["role"] }>();
 
-  if (existingMembership?.workspace_id) {
-    return { workspaceId: existingMembership.workspace_id, role: existingMembership.role, created: false };
+  if (membershipError) {
+    throw new Error(`Unable to resolve workspace membership: ${membershipError.message}`);
   }
 
-  const { data: createdWorkspace, error: createError } = await supabase
+  if (oldestMembership?.workspace_id) {
+    return {
+      workspaceId: oldestMembership.workspace_id,
+      role: oldestMembership.role,
+      created: false,
+    };
+  }
+
+  const { data: createdWorkspace, error: workspaceError } = await supabase
     .from("workspaces")
-    .insert({ name: "Workspace", created_by_user_id: userId })
+    .insert({
+      name: "Workspace",
+      created_by_user_id: userId,
+    })
     .select("id")
     .single<{ id: string }>();
 
-  if (createError || !createdWorkspace?.id) {
-    console.error("[workspace-init] failed to create workspace", { userId, reason: createError?.message ?? "unknown" });
-    throw new Error("Unable to initialize workspace.");
+  if (workspaceError || !createdWorkspace?.id) {
+    throw new Error(`Unable to initialize workspace: ${workspaceError?.message ?? "unknown"}`);
   }
 
-  await ensureWorkspaceMembership(userId, createdWorkspace.id, "owner");
+  const { error: membershipCreateError } = await supabase
+    .from("workspace_memberships")
+    .insert({
+      workspace_id: createdWorkspace.id,
+      user_id: userId,
+      role: "owner",
+    });
 
-  return { workspaceId: createdWorkspace.id, role: "owner" as const, created: true };
+  if (membershipCreateError) {
+    throw new Error(`Unable to initialize workspace membership: ${membershipCreateError.message}`);
+  }
+
+  return {
+    workspaceId: createdWorkspace.id,
+    role: "owner" as const,
+    created: true,
+  };
 }
 
-export async function getActiveWorkspaceContext(userId: string): Promise<WorkspaceContext> {
-  const ensured = await ensureUserWorkspace(userId);
-  const supabase = await createSupabaseServerClient();
-  const { data } = await supabase
-    .from("workspace_memberships")
-    .select("workspace_id, role")
-    .eq("workspace_id", ensured.workspaceId)
-    .eq("user_id", userId)
-    .maybeSingle<{ workspace_id: string; role: WorkspaceContext["role"] }>();
+export async function ensureUserWorkspaceForAuthenticatedUser(user: AuthUserContext) {
+  const context = await resolveBootstrapRuntimeContext(user);
 
-  if (!data?.workspace_id) throw new Error("Workspace membership required.");
-
-  return { workspaceId: data.workspace_id, role: data.role };
+  return {
+    workspaceId: context.workspaceId,
+    role: "owner" as const,
+    created: context.createdWorkspace,
+  };
 }
 
 export async function getUserWorkspaces(userId: string): Promise<WorkspaceRow[]> {
   const supabase = await createSupabaseServerClient();
 
-  const { data } = await supabase
+  const { data: memberships, error: membershipsError } = await supabase
     .from("workspace_memberships")
-    .select("workspaces(id, name)")
-    .eq("user_id", userId);
+    .select("workspace_id")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: true });
 
-  return (data ?? []).flatMap((row) => {
-    const related = row.workspaces as WorkspaceRow | WorkspaceRow[] | null;
-    if (!related) return [];
-    return Array.isArray(related) ? related : [related];
-  });
+  if (membershipsError) {
+    throw new Error(`Unable to list workspace memberships: ${membershipsError.message}`);
+  }
+
+  const workspaceIds = [
+    ...new Set((memberships ?? []).map((row) => row.workspace_id).filter(Boolean)),
+  ];
+
+  if (!workspaceIds.length) {
+    return [];
+  }
+
+  const { data: workspaces, error: workspacesError } = await supabase
+    .from("workspaces")
+    .select("id,name")
+    .in("id", workspaceIds)
+    .order("created_at", { ascending: true });
+
+  if (workspacesError) {
+    throw new Error(`Unable to resolve workspaces: ${workspacesError.message}`);
+  }
+
+  return (workspaces ?? []) as WorkspaceRow[];
+}
+
+export function resolveCanonicalWorkspaceForUser(workspaces: WorkspaceRow[]): WorkspaceRow | null {
+  return workspaces[0] ?? null;
+}
+
+export async function getActiveWorkspaceContext(userId: string): Promise<WorkspaceContext> {
+  const workspaces = await getUserWorkspaces(userId);
+  const canonicalWorkspace = resolveCanonicalWorkspaceForUser(workspaces);
+
+  if (!canonicalWorkspace?.id) {
+    throw new Error("Workspace context required.");
+  }
+
+  const supabase = await createSupabaseServerClient();
+
+  const { data: membership, error: membershipError } = await supabase
+    .from("workspace_memberships")
+    .select("workspace_id,role")
+    .eq("workspace_id", canonicalWorkspace.id)
+    .eq("user_id", userId)
+    .maybeSingle<{ workspace_id: string; role: WorkspaceContext["role"] }>();
+
+  if (membershipError) {
+    throw new Error(`Unable to resolve active workspace membership: ${membershipError.message}`);
+  }
+
+  if (!membership?.workspace_id) {
+    throw new Error("Workspace membership required.");
+  }
+
+  return {
+    workspaceId: membership.workspace_id,
+    role: membership.role,
+  };
 }
