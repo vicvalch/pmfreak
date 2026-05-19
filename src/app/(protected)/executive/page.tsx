@@ -1,25 +1,80 @@
 import { ExecutiveDashboard } from "@/components/pmfreak/executive/executive-dashboard";
 import { requireAuthUser } from "@/lib/auth";
+import { ensureUserWorkspace } from "@/lib/workspaces";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { resolveActiveProject } from "@/lib/resolve-active-project";
 import { buildExecutiveSynthesis, type ExecutiveSynthesisSnapshot } from "@/lib/executive-synthesis";
 import Link from "next/link";
 
-async function safelyBuildSynthesis(companyId: string): Promise<{ snapshot: ExecutiveSynthesisSnapshot | null; error: string | null }> {
+async function safelyBuildSynthesis(
+  companyId: string,
+  projectId: string | null,
+): Promise<{ snapshot: ExecutiveSynthesisSnapshot | null; error: string | null }> {
   try {
-    const snapshot = await buildExecutiveSynthesis(companyId, null);
+    // buildExecutiveSynthesis is company-scoped when projectId is null,
+    // or project-narrowed when a valid projectId is provided.
+    const snapshot = await buildExecutiveSynthesis(companyId, projectId);
     return { snapshot, error: null };
   } catch (err) {
-    console.error("[executive] synthesis failed", { companyId, error: String(err) });
+    console.error("[executive] synthesis failed", { companyId, projectId, error: String(err) });
     return { snapshot: null, error: String(err) };
   }
 }
 
-export default async function ExecutivePage({ searchParams }: { searchParams: Promise<{ from?: string }> }) {
+export default async function ExecutivePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ from?: string; projectId?: string }>;
+}) {
   const user = await requireAuthUser();
-
+  const workspace = await ensureUserWorkspace(user.id);
+  const supabase = await createSupabaseServerClient();
   const params = await searchParams;
   const fromActivation = params.from === "getting-started";
 
-  const { snapshot, error: synthError } = await safelyBuildSynthesis(user.companyId);
+  const { data: projectRows } = await supabase
+    .from("projects")
+    .select("id,name")
+    .eq("workspace_id", workspace.workspaceId)
+    .order("created_at", { ascending: false });
+
+  const projectList = (projectRows ?? []) as { id: string; name: string }[];
+  const resolution = resolveActiveProject(projectList, params.projectId);
+
+  if (resolution.invalidId) {
+    return (
+      <main className="space-y-5 pb-8">
+        <header className="rounded-3xl border border-white/8 bg-white/[0.03] p-6">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-indigo-400">PMFreak Executive Layer</p>
+          <h1 className="mt-2 text-2xl font-semibold text-slate-100">Executive Operational Intelligence</h1>
+        </header>
+        <div className="rounded-2xl border border-amber-400/20 bg-amber-400/[0.05] p-6">
+          <p className="text-sm font-semibold text-amber-200">Project not found in this workspace</p>
+          <p className="mt-1 text-xs text-slate-400">
+            The project referenced in the URL does not belong to your active workspace or you do not
+            have access. The executive view will return to company-wide scope.
+          </p>
+          <Link
+            href="/executive"
+            className="mt-3 inline-block rounded-xl border border-indigo-400/40 bg-indigo-400/10 px-4 py-2 text-xs font-medium text-indigo-200 transition hover:bg-indigo-400/15"
+          >
+            View company-wide synthesis
+          </Link>
+        </div>
+      </main>
+    );
+  }
+
+  // activeProjectId is null when no projects exist (company-wide synthesis) or when
+  // no project was explicitly requested — synthesis runs across all company memory.
+  const activeProjectId = resolution.project?.id ?? null;
+  const scopeLabel = resolution.project
+    ? `Project: ${resolution.project.name}`
+    : projectList.length === 0
+      ? "Company-wide scope — no projects yet"
+      : "Company-wide scope";
+
+  const { snapshot, error: synthError } = await safelyBuildSynthesis(user.companyId, activeProjectId);
 
   if (!snapshot) {
     return (
@@ -60,6 +115,7 @@ export default async function ExecutivePage({ searchParams }: { searchParams: Pr
         <p className="text-xs uppercase tracking-[0.25em] text-slate-400">PMFreak Executive Layer</p>
         <h1 className="mt-2 text-3xl font-semibold text-white">Executive Operational Intelligence</h1>
         <p className="mt-2 text-sm text-slate-300">Deterministic cross-domain synthesis for intervention and escalation governance.</p>
+        <p className="mt-1 text-xs text-slate-500">{scopeLabel}</p>
       </header>
 
       {fromActivation ? (

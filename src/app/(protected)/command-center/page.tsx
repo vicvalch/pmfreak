@@ -4,11 +4,12 @@ import { requireAuthUser } from "@/lib/auth";
 import { ensureUserWorkspace } from "@/lib/workspaces";
 import { CommandCenterClient } from "@/features/command-center/command-center-client";
 import { GuidedEmptyState } from "@/components/pmfreak/onboarding/GuidedEmptyState";
+import { resolveActiveProject } from "@/lib/resolve-active-project";
 
 export default async function CommandCenterPage({
   searchParams,
 }: {
-  searchParams: Promise<{ from?: string }>;
+  searchParams: Promise<{ from?: string; projectId?: string }>;
 }) {
   const user = await requireAuthUser();
   const workspace = await ensureUserWorkspace(user.id);
@@ -186,6 +187,34 @@ export default async function CommandCenterPage({
     );
   }
 
-  const activeProjectId = projects![0].id as string;
-  return <CommandCenterClient firstRun={fromOnboarding} projectId={activeProjectId} />;
+  const projectList = (projects ?? []) as { id: string; name: string }[];
+  const resolution = resolveActiveProject(projectList, params.projectId);
+
+  if (resolution.invalidId) {
+    return (
+      <div className="rounded-2xl border border-amber-400/20 bg-amber-400/[0.05] p-6">
+        <p className="text-sm font-semibold text-amber-200">Project not found in this workspace</p>
+        <p className="mt-1 text-xs text-slate-400">
+          The project referenced in the URL does not belong to your active workspace or you do not have
+          access. Select a project below or navigate to the Command Center without a project filter.
+        </p>
+        <a
+          href="/command-center"
+          className="mt-3 inline-block rounded-xl border border-indigo-400/40 bg-indigo-400/10 px-4 py-2 text-xs font-medium text-indigo-200 transition hover:bg-indigo-400/15"
+        >
+          Reset to default project
+        </a>
+      </div>
+    );
+  }
+
+  return (
+    <CommandCenterClient
+      firstRun={fromOnboarding}
+      projectId={resolution.project!.id}
+      projectName={resolution.project!.name}
+      workspaceId={workspace.workspaceId}
+      projects={projectList}
+    />
+  );
 }

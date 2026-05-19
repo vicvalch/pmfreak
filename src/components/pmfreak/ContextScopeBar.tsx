@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { OPERATIONAL_FLOW } from "@/features/navigation/module-registry";
 import { LiveSignalPill } from "./LiveSignalPill";
@@ -24,6 +25,8 @@ export function ContextScopeBar({
   scopeLabel: string;
   hasProjects: boolean;
 }) {
+  const router = useRouter();
+  const pathname = usePathname();
   const [time, setTime] = useState<string | null>(null);
   const [date, setDate] = useState<string | null>(null);
 
@@ -46,7 +49,16 @@ export function ContextScopeBar({
           <span className="text-[10px] uppercase tracking-[0.2em] text-zinc-600">Scope</span>
           <select
             value={projectId}
-            onChange={(e) => onProjectChange(e.target.value)}
+            onChange={(e) => {
+              const id = e.target.value;
+              onProjectChange(id);
+              // Update URL so server components re-render with the correct projectId scope.
+              if (id) {
+                router.push(`${pathname}?projectId=${encodeURIComponent(id)}`);
+              } else {
+                router.push(pathname);
+              }
+            }}
             disabled={loading}
             className="rounded-lg border border-white/[0.12] bg-slate-800/80 px-3 py-1.5 text-sm text-slate-100 focus:outline-none focus:ring-1 focus:ring-cyan-500/40"
           >
