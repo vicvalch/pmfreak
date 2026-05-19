@@ -61,11 +61,28 @@ export function buildTimelineStore(signals: EnterpriseOperationalSignal[]): Oper
     .filter((event): event is OperationalTimelineEvent & { payload: EscalationSignal } => event.payload.type === "escalation_signal")
     .map((event) => ({ signalId: event.signalId, from: event.payload.from, to: event.payload.to, reason: event.payload.reason }));
 
+  // Build interventions only from signals that have cleared the priority weight threshold
+  const highPrioritySignalIds = events.filter((e) => e.priorityWeight >= 70).map((e) => e.signalId);
+  const escalationSignalIds = events.filter((e) => e.payload.type === "escalation_signal").map((e) => e.signalId);
+  const interventionSignalIds = [...new Set([...escalationSignalIds, ...highPrioritySignalIds])];
+
+  const interventions = interventionSignalIds.length > 0
+    ? [{
+        interventionId: "intv-primary",
+        signalIds: interventionSignalIds,
+        outcome: "pending" as const,
+        rationale: [
+          escalationSignalIds.length > 0 ? "escalation signal detected" : null,
+          highPrioritySignalIds.length > 0 ? `${highPrioritySignalIds.length} high-priority signal(s) above weight threshold` : null,
+        ].filter(Boolean).join("; "),
+      }]
+    : [];
+
   return {
     generatedAt: new Date().toISOString(),
     events,
     escalationChain,
-    interventions: [{ interventionId: "intv-primary", signalIds: events.slice(0, 3).map((e) => e.signalId), outcome: "pending", rationale: "deterministic intervention from pressure + blocker + escalation cluster" }],
+    interventions,
   };
 }
 

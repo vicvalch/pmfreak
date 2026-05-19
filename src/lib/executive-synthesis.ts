@@ -50,19 +50,29 @@ function correlateSignals(records: OperationalMemoryRecord[]): OperationalSignal
   const team = records.filter((r) => r.domain === "team_health");
   const gov = records.filter((r) => r.domain === "pmo_governance");
 
-  const stakeholderPressure = clamp(avg(stakeholder.map((r) => r.missingFields.length * 8 + (100 - r.confidenceScore) * 0.4)));
+  // Stakeholder pressure: low confidence + many escalation-related missing fields
+  // (missing fields in stakeholder domain indicate unknown relationship state, not pressure per se;
+  // weight completion inversion more heavily since unfilled stakeholder records signal blind spots)
+  const stakeholderPressure = clamp(avg(stakeholder.map((r) => (100 - r.confidenceScore) * 0.6 + (100 - r.completionScore) * 0.4)));
   const deliveryRisk = clamp(avg(delivery.map((r) => (100 - r.confidenceScore) * 0.7 + (100 - r.completionScore) * 0.3)));
-  const pmFatigue = clamp(avg(team.map((r) => r.missingFields.length * 7 + (100 - r.confidenceScore) * 0.45)));
-  const governanceFailure = clamp(avg(gov.map((r) => (100 - r.completionScore) * 0.8 + r.missingFields.length * 3)));
+  const pmFatigue = clamp(avg(team.map((r) => (100 - r.confidenceScore) * 0.55 + (100 - r.completionScore) * 0.45)));
+  const governanceFailure = clamp(avg(gov.map((r) => (100 - r.completionScore) * 0.8 + (100 - r.confidenceScore) * 0.2)));
+
+  // Confidence reflects data volume: more records in a domain = more trustworthy signal
+  const stakeholderConf = clamp(50 + stakeholder.length * 8);
+  const deliveryConf = clamp(50 + delivery.length * 8);
+  const teamConf = clamp(45 + team.length * 8);
+  const govConf = clamp(55 + gov.length * 8);
 
   const signals: OperationalSignal[] = [
-    { id: "stakeholder-pressure", signalType: "stakeholder_pressure", score: stakeholderPressure, domain: "stakeholder_intelligence", confidence: 80 },
-    { id: "delivery-risk", signalType: "delivery_risk", score: deliveryRisk, domain: "delivery_intelligence", confidence: 84 },
-    { id: "pm-fatigue", signalType: "pm_fatigue", score: pmFatigue, domain: "team_health", confidence: 74 },
-    { id: "governance-failure", signalType: "governance_failure", score: governanceFailure, domain: "pmo_governance", confidence: 88 },
+    { id: "stakeholder-pressure", signalType: "stakeholder_pressure", score: stakeholderPressure, domain: "stakeholder_intelligence", confidence: stakeholderConf },
+    { id: "delivery-risk", signalType: "delivery_risk", score: deliveryRisk, domain: "delivery_intelligence", confidence: deliveryConf },
+    { id: "pm-fatigue", signalType: "pm_fatigue", score: pmFatigue, domain: "team_health", confidence: teamConf },
+    { id: "governance-failure", signalType: "governance_failure", score: governanceFailure, domain: "pmo_governance", confidence: govConf },
   ];
 
-  return signals.filter((s) => s.score > 0);
+  // Only emit a signal if there are actual records to back it — no phantom signals from empty domains
+  return signals.filter((s) => s.score > 0 && s.confidence >= 50);
 }
 
 function buildInsights(signals: OperationalSignal[], escalation: EscalationRisk): ExecutiveInsight[] {
@@ -93,13 +103,15 @@ function buildInsights(signals: OperationalSignal[], escalation: EscalationRisk)
     });
   }
 
-  if (!insights.length) {
+  if (!insights.length && signals.length >= 2) {
+    // Only emit stable-state when there are real signals that were evaluated and found below threshold
+    const avgSignalConf = clamp(avg(signals.map((s) => s.confidence)));
     insights.push({
       id: "stable-state",
       title: "Operational state within normal thresholds",
-      summary: "No multi-domain pattern breached escalation thresholds.",
+      summary: "No multi-domain escalation pattern breached thresholds based on current signal coverage.",
       relatedDomains: ["operational_memory"],
-      confidence: 72,
+      confidence: avgSignalConf,
     });
   }
 
