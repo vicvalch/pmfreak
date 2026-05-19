@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { OPERATIONAL_FLOW } from "@/features/navigation/module-registry";
+import { ContextScopeBar } from "./ContextScopeBar";
+import { OperationalEventFeed } from "./OperationalEventFeed";
+import { ShellMetric } from "./ShellMetric";
 
 type UserProject = { id: string; name: string };
 
@@ -12,14 +14,18 @@ type OperationalShellProps = {
   user: { fullName: string; role: string; companyName: string };
 };
 
-const neuralNodes = [
-  { label: "Risk", href: "/projects", accent: "from-amber-300/20 to-red-300/10" },
-  { label: "Politics", href: "/stakeholder-intel", accent: "from-violet-300/20 to-indigo-300/10" },
-  { label: "Meetings", href: "/input-hub", accent: "from-cyan-300/20 to-blue-300/10" },
-  { label: "Memory", href: "/operational-memory", accent: "from-emerald-300/20 to-teal-300/10" },
-  { label: "Follow-up", href: "/follow-up-dashboard", accent: "from-fuchsia-300/20 to-pink-300/10" },
-  { label: "Executive", href: "/executive", accent: "from-slate-200/20 to-zinc-300/10" },
-  { label: "Command Center", href: "/command-center", accent: "from-cyan-300/20 to-fuchsia-300/10" },
+const PRIMARY_NAV = [
+  { label: "Command Center", href: "/command-center",   accent: "from-cyan-300/20 to-fuchsia-300/10", active: "border-cyan-200/30 bg-cyan-300/[0.07] text-cyan-100",     idle: "text-slate-300" },
+  { label: "Projects",       href: "/projects",          accent: "from-emerald-300/20 to-teal-300/10", active: "border-emerald-200/30 bg-emerald-300/[0.07] text-emerald-100", idle: "text-slate-300" },
+  { label: "Risk Center",    href: "/change-detection",  accent: "from-amber-300/20 to-red-300/10",    active: "border-amber-200/30 bg-amber-300/[0.07] text-amber-100",    idle: "text-slate-300" },
+  { label: "Stakeholders",   href: "/stakeholder-intel", accent: "from-violet-300/20 to-indigo-300/10",active: "border-violet-200/30 bg-violet-300/[0.07] text-violet-100",  idle: "text-slate-300" },
+  { label: "Meetings",       href: "/meetings",          accent: "from-sky-300/20 to-blue-300/10",     active: "border-sky-200/30 bg-sky-300/[0.07] text-sky-100",          idle: "text-slate-300" },
+  { label: "PMO Overview",   href: "/executive",         accent: "from-slate-200/20 to-zinc-300/10",   active: "border-slate-200/30 bg-slate-200/[0.07] text-slate-100",    idle: "text-slate-300" },
+];
+
+const SETUP_NAV = [
+  { label: "Activate Context", href: "/command-center", accent: "from-cyan-300/20 to-blue-300/10",  active: "border-cyan-200/30 bg-cyan-300/[0.07] text-cyan-100",      idle: "text-slate-300" },
+  { label: "Projects",         href: "/projects",       accent: "from-emerald-300/20 to-teal-300/10", active: "border-emerald-200/30 bg-emerald-300/[0.07] text-emerald-100", idle: "text-slate-300" },
 ];
 
 export function OperationalShell({ children, user }: OperationalShellProps) {
@@ -36,71 +42,253 @@ export function OperationalShell({ children, user }: OperationalShellProps) {
 
   useEffect(() => {
     let active = true;
-    async function loadProjects() {
-      setProjectsLoading(true); setProjectsError(null);
+    async function load() {
+      setProjectsLoading(true);
+      setProjectsError(null);
       try {
-        const response = await fetch("/api/projects", { cache: "no-store" });
-        if (!response.ok) throw new Error();
-        const data = (await response.json()) as { projects?: UserProject[] };
+        const res = await fetch("/api/projects", { cache: "no-store" });
+        if (!res.ok) throw new Error();
+        const data = (await res.json()) as { projects?: UserProject[] };
         if (active) setProjects(data.projects ?? []);
-      } catch { if (active) { setProjects([]); setProjectsError("Project list unavailable. Continue in portfolio scope or retry."); } }
-      finally { if (active) setProjectsLoading(false); }
+      } catch {
+        if (active) {
+          setProjects([]);
+          setProjectsError("Project list unavailable — continue in portfolio scope.");
+        }
+      } finally {
+        if (active) setProjectsLoading(false);
+      }
     }
-    void loadProjects(); return () => { active = false; };
+    void load();
+    return () => { active = false; };
   }, []);
 
-  useEffect(() => { if (projectId) globalThis.localStorage?.setItem("pmfreak.currentProjectId", projectId); }, [projectId]);
+  useEffect(() => {
+    if (projectId) globalThis.localStorage?.setItem("pmfreak.currentProjectId", projectId);
+  }, [projectId]);
 
-  const scopeLabel = useMemo(() => projects.find((p) => p.id === projectId)?.name ?? "Portfolio scope", [projectId, projects]);
-  const navHref = (href: string) => (projectId ? `${href}?projectId=${projectId}` : href);
   const hasProjects = projects.length > 0;
-  const visibleNodes = hasProjects
-    ? neuralNodes
-    : [
-        { label: "Setup Context", href: "/command-center", accent: "from-cyan-300/20 to-blue-300/10" },
-        { label: "Projects", href: "/projects", accent: "from-emerald-300/20 to-teal-300/10" },
-      ];
+  const scopeLabel = useMemo(
+    () => projects.find((p) => p.id === projectId)?.name ?? "Portfolio scope",
+    [projectId, projects]
+  );
+  const navHref = (href: string) => (projectId ? `${href}?projectId=${projectId}` : href);
+  const navItems = hasProjects ? PRIMARY_NAV : SETUP_NAV;
 
-  return <div className="min-h-screen bg-[#020617] text-slate-100">
-    <div className="mx-auto flex w-full max-w-[1540px] gap-4 px-3 py-4 md:gap-6 md:px-5 md:py-6">
-      <aside className="sticky top-4 hidden h-[calc(100vh-2rem)] w-[16.2rem] flex-col rounded-3xl border border-white/10 bg-slate-950/75 p-4 shadow-[0_36px_80px_-55px_rgba(14,116,144,0.5)] backdrop-blur-xl lg:flex">
-        <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/35 p-3.5">
-          <div className="pointer-events-none absolute -right-8 -top-8 h-28 w-28 rounded-full bg-cyan-400/20 blur-2xl" />
-          <p className="text-[10px] uppercase tracking-[0.34em] text-cyan-200/80">PMFREAK</p>
-          <h2 className="mt-1 text-sm font-semibold text-white">{hasProjects ? "Operational Intelligence Online" : "Setup Operational Context"}</h2>
-          <p className="mt-1 text-[11px] text-slate-400">{user.companyName}</p>
-          <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-emerald-300/35 bg-emerald-300/10 px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-emerald-100"><span className="h-1.5 w-1.5 rounded-full bg-emerald-300 motion-safe:animate-pulse" />{hasProjects ? "System pulse active" : "Agents on standby"}</div>
-        </div>
+  return (
+    <div className="min-h-screen bg-[#020617] text-slate-100">
+      <div className="mx-auto flex w-full max-w-[1540px] gap-4 px-3 py-4 md:gap-6 md:px-5 md:py-6">
 
-        <nav className="mt-4 space-y-1.5" aria-label="Neural rail">
-          {visibleNodes.map((item) => {
-            const active = pathname.startsWith(item.href);
-            return <Link key={item.href} href={navHref(item.href)} className={`group relative block overflow-hidden rounded-xl border px-3 py-2.5 transition-all duration-300 ${active ? "border-cyan-200/35 bg-cyan-300/[0.08]" : "border-white/5 bg-white/[0.01] hover:-translate-y-0.5 hover:border-white/20"}`}><span className={`pointer-events-none absolute inset-0 opacity-0 transition group-hover:opacity-100 bg-gradient-to-r ${item.accent}`} /><span className={`relative text-sm ${active ? "text-cyan-100" : "text-slate-200"}`}>{item.label}</span></Link>;
-          })}
-        </nav>
+        {/* ── Left rail ── */}
+        <aside className="sticky top-4 hidden h-[calc(100vh-2rem)] w-[15.5rem] flex-col rounded-3xl border border-white/[0.08] bg-slate-950/80 shadow-[0_36px_80px_-55px_rgba(14,116,144,0.4)] backdrop-blur-xl lg:flex overflow-hidden">
 
-        {hasProjects ? <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] p-3">
-          <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">Telemetry</p>
-          <ul className="mt-2 space-y-1.5 text-xs text-zinc-300"><li>Signal Drift <span className="text-amber-200">+12%</span></li><li>Political Tension <span className="text-violet-200">Rising</span></li><li>Memory Confidence <span className="text-emerald-200">Stable</span></li></ul>
-        </div> : <div className="mt-4 rounded-xl border border-cyan-200/20 bg-cyan-300/[0.06] p-3 text-xs text-cyan-100">Start by activating your first operational context in Command Center.</div>}
+          {/* Scrollable interior */}
+          <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-3.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
 
-        <div className="mt-auto rounded-xl border border-white/10 bg-white/[0.03] p-3 text-xs text-slate-300"><p className="font-semibold text-slate-100">{user.fullName}</p><p className="mt-0.5">{user.role}</p><Link href="/logout" className="mt-2 inline-flex text-cyan-200 hover:text-cyan-100">Logout</Link></div>
-      </aside>
+            {/* Identity block */}
+            <div className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-black/40 p-3.5">
+              {/* AI glow orb */}
+              <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-indigo-500/20 blur-2xl motion-safe:animate-[breathe_8s_ease-in-out_infinite]" />
+              <div className="pointer-events-none absolute -bottom-4 -left-4 h-16 w-16 rounded-full bg-cyan-500/15 blur-xl" />
 
-      <div className="flex-1 space-y-4 md:space-y-5">
-        <div className="rounded-3xl border border-white/10 bg-slate-900/55 p-4 shadow-[0_20px_50px_-35px_rgba(8,47,73,0.8)] backdrop-blur-xl md:p-5">
-          <div className="mb-4 grid gap-2.5 lg:hidden">
-            <p className="text-[10px] uppercase tracking-[0.24em] text-cyan-200/90">Neural Rail</p>
-            <div className="flex snap-x gap-2 overflow-x-auto pb-1">{visibleNodes.map((item) => <Link key={item.href} href={navHref(item.href)} className={`shrink-0 rounded-lg border px-3 py-2 text-xs ${pathname.startsWith(item.href) ? "border-cyan-200/40 bg-cyan-300/10 text-cyan-100" : "border-white/10 bg-white/[0.02] text-slate-300"}`}>{item.label}</Link>)}</div>
+              <div className="relative">
+                <div className="flex items-center gap-2">
+                  {/* AI pulse dot */}
+                  <span className="relative flex h-2 w-2 shrink-0">
+                    <span className="absolute inline-flex h-full w-full rounded-full bg-indigo-400/60 motion-safe:animate-ping" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-indigo-400" />
+                  </span>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.36em] text-indigo-200/80">PMFreak</p>
+                </div>
+
+                <h2 className="mt-2 text-sm font-semibold leading-snug text-white">
+                  {hasProjects ? "Operational Intelligence" : "Setup Your Context"}
+                </h2>
+                <p className="mt-0.5 text-[11px] text-zinc-500">{user.companyName}</p>
+
+                <div className="mt-2.5">
+                  {hasProjects ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300/30 bg-emerald-300/[0.08] px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] text-emerald-100">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 motion-safe:animate-pulse" />
+                      System pulse active
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-zinc-500/30 bg-zinc-500/[0.08] px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] text-zinc-400">
+                      <span className="h-1.5 w-1.5 rounded-full bg-zinc-500" />
+                      Agents on standby
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Primary navigation */}
+            <nav aria-label="Primary navigation" className="space-y-1">
+              <p className="mb-1.5 px-1 text-[9px] uppercase tracking-[0.3em] text-zinc-700">Navigation</p>
+              {navItems.map((item) => {
+                const isActive = pathname.startsWith(item.href);
+                return (
+                  <Link
+                    key={item.href}
+                    href={navHref(item.href)}
+                    className={`group relative block overflow-hidden rounded-xl border px-3 py-2.5 text-sm transition-all duration-200 ${
+                      isActive
+                        ? `${item.active} border-opacity-100`
+                        : `border-white/[0.05] bg-white/[0.01] ${item.idle} hover:border-white/[0.15] hover:bg-white/[0.04] hover:-translate-y-px`
+                    }`}
+                  >
+                    <span className={`pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-200 bg-gradient-to-r group-hover:opacity-100 ${item.accent}`} />
+                    <span className="relative">{item.label}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+
+            {/* AI Assistant */}
+            <div className="rounded-2xl border border-indigo-300/[0.12] bg-indigo-300/[0.04] p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="relative flex h-1.5 w-1.5 shrink-0">
+                  <span className="absolute inline-flex h-full w-full rounded-full bg-indigo-400/50 motion-safe:animate-ping" />
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-indigo-400" />
+                </span>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-indigo-300/80">AI Assistant</p>
+              </div>
+              <p className="text-[11px] leading-relaxed text-slate-400">
+                {hasProjects
+                  ? "Copilot is monitoring signals across projects, stakeholders, risks, and meetings."
+                  : "Copilot is ready. Activate an operational context to begin continuous monitoring."}
+              </p>
+              <Link
+                href="/copilot"
+                className="mt-2.5 inline-flex items-center gap-1.5 rounded-lg border border-indigo-300/25 bg-indigo-300/[0.06] px-3 py-1.5 text-[11px] font-medium text-indigo-200 transition-all hover:border-indigo-300/40 hover:bg-indigo-300/[0.10]"
+              >
+                Open Copilot
+                <span className="opacity-60">→</span>
+              </Link>
+            </div>
+
+            {/* Operational signal feed */}
+            {hasProjects && (
+              <div>
+                <p className="mb-1.5 px-1 text-[9px] uppercase tracking-[0.3em] text-zinc-700">Live Signals</p>
+                <OperationalEventFeed maxVisible={3} />
+              </div>
+            )}
+
+            {/* Empty state — no projects */}
+            {!hasProjects && !projectsLoading && (
+              <div className="rounded-2xl border border-cyan-300/[0.12] bg-cyan-300/[0.04] p-3">
+                <p className="text-[10px] uppercase tracking-[0.2em] text-cyan-400/70 mb-1.5">Get Started</p>
+                <p className="text-[11px] leading-relaxed text-slate-400">
+                  Activate your first operational context to unlock AI telemetry, risk sensing, and stakeholder signals.
+                </p>
+                <Link
+                  href="/command-center"
+                  className="mt-2 inline-flex text-[11px] font-medium text-cyan-300 underline underline-offset-2 hover:text-cyan-200"
+                >
+                  Activate in Command Center →
+                </Link>
+              </div>
+            )}
+
+            {/* Context awareness metrics */}
+            {hasProjects && (
+              <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-3">
+                <p className="mb-2.5 text-[9px] uppercase tracking-[0.28em] text-zinc-700">Workspace</p>
+                <div className="grid grid-cols-2 gap-2.5">
+                  <ShellMetric
+                    label="Projects"
+                    value={String(projects.length)}
+                    delta="Active contexts"
+                    trend="stable"
+                  />
+                  <ShellMetric
+                    label="Signal drift"
+                    value="+12%"
+                    delta="vs. last week"
+                    trend="warning"
+                  />
+                  <ShellMetric
+                    label="Tension"
+                    value="Rising"
+                    delta="Political layer"
+                    trend="down"
+                  />
+                  <ShellMetric
+                    label="Memory"
+                    value="Stable"
+                    delta="Confidence OK"
+                    trend="up"
+                  />
+                </div>
+              </div>
+            )}
           </div>
-          <div className="flex flex-wrap items-center gap-3"><span className="text-[10px] uppercase tracking-[0.2em] text-cyan-200/90">Operational Scope</span><select value={projectId} onChange={(e) => setProjectId(e.target.value)} className="rounded-lg border border-white/15 bg-slate-900 px-3 py-1.5 text-sm text-slate-100" disabled={projectsLoading}><option value="">Portfolio scope</option>{projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select><span className="text-xs text-slate-400">Current: {scopeLabel}</span></div>
-          {projectsLoading ? <p className="mt-2 text-xs text-slate-500">Loading contexts…</p> : null}
-          {projectsError ? <p className="mt-2 text-xs text-amber-200">{projectsError}</p> : null}
-          {!projectsLoading && !projectsError && !hasProjects ? <p className="mt-2 text-xs text-cyan-200">No operational contexts yet. Activate one to unlock full Command Center telemetry.</p> : null}
-          {hasProjects ? <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-400">{OPERATIONAL_FLOW.map((step, idx) => <span key={step}>{step}{idx < OPERATIONAL_FLOW.length - 1 ? " →" : ""}</span>)}</div> : null}
+
+          {/* User block — pinned bottom */}
+          <div className="shrink-0 border-t border-white/[0.07] px-3.5 py-3">
+            <div className="flex items-center justify-between">
+              <div className="min-w-0">
+                <p className="truncate text-xs font-semibold text-slate-200">{user.fullName}</p>
+                <p className="truncate text-[10px] text-zinc-600">{user.role}</p>
+              </div>
+              <Link
+                href="/logout"
+                className="shrink-0 rounded-lg border border-white/[0.08] px-2.5 py-1.5 text-[10px] uppercase tracking-[0.12em] text-zinc-600 transition-colors hover:border-white/20 hover:text-slate-300"
+              >
+                Sign out
+              </Link>
+            </div>
+          </div>
+        </aside>
+
+        {/* ── Main content region ── */}
+        <div className="flex min-w-0 flex-1 flex-col gap-4 md:gap-5">
+
+          {/* Mobile nav strip */}
+          <div className="rounded-2xl border border-white/[0.08] bg-slate-900/60 p-3 backdrop-blur-xl lg:hidden">
+            <div className="mb-2 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="absolute inline-flex h-full w-full rounded-full bg-indigo-400/50 motion-safe:animate-ping" />
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-indigo-400" />
+                </span>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-indigo-300/80">PMFreak</p>
+              </div>
+              <span className="text-[10px] text-zinc-600">{user.companyName}</span>
+            </div>
+            <div className="flex snap-x gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {navItems.map((item) => (
+                <Link
+                  key={item.href}
+                  href={navHref(item.href)}
+                  className={`shrink-0 snap-start rounded-lg border px-3 py-1.5 text-xs transition-colors ${
+                    pathname.startsWith(item.href)
+                      ? "border-cyan-200/30 bg-cyan-300/[0.08] text-cyan-100"
+                      : "border-white/[0.08] bg-white/[0.02] text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          {/* Context scope bar */}
+          <ContextScopeBar
+            projects={projects}
+            projectId={projectId}
+            onProjectChange={setProjectId}
+            loading={projectsLoading}
+            error={projectsError}
+            scopeLabel={scopeLabel}
+            hasProjects={hasProjects}
+          />
+
+          {/* Page content */}
+          <main className="min-w-0">{children}</main>
         </div>
-        <main>{children}</main>
       </div>
     </div>
-  </div>;
+  );
 }
