@@ -186,5 +186,6 @@ export default async function CommandCenterPage({
     );
   }
 
-  return <CommandCenterClient firstRun={fromOnboarding} />;
+  const activeProjectId = projects![0].id as string;
+  return <CommandCenterClient firstRun={fromOnboarding} projectId={activeProjectId} />;
 }

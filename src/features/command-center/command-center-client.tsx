@@ -3,8 +3,9 @@
 import useSWR from "swr";
 
 type AnyRecord = Record<string, unknown>;
-const fetcher = async (url: string) => {
-  const response = await fetch(url, { cache: "no-store" });
+const fetcher = async ([url, projectId]: [string, string]) => {
+  const target = `${url}?projectId=${encodeURIComponent(projectId)}`;
+  const response = await fetch(target, { cache: "no-store" });
   if (!response.ok) throw new Error(`Failed ${url}`);
   return response.json();
 };
@@ -73,20 +74,28 @@ function FirstRunWelcomePanel() {
   );
 }
 
-export function CommandCenterClient({ firstRun = false }: { firstRun?: boolean }) {
+export function CommandCenterClient({ firstRun = false, projectId }: { firstRun?: boolean; projectId: string }) {
   const swrOptions = { refreshInterval: 20000, revalidateOnFocus: true, dedupingInterval: 3000 };
-  const risk = useSWR("/api/intelligence/execution-risk", fetcher, swrOptions);
-  const stakeholders = useSWR("/api/intelligence/stakeholders", fetcher, swrOptions);
-  const interventions = useSWR("/api/intelligence/interventions", fetcher, swrOptions);
-  const coordination = useSWR("/api/intelligence/coordination", fetcher, swrOptions);
-  const liveOps = useSWR("/api/intelligence/operational-live", fetcher, swrOptions);
+  const key = (path: string) => projectId ? ([path, projectId] as [string, string]) : null;
+  const risk = useSWR(key("/api/intelligence/execution-risk"), fetcher, swrOptions);
+  const stakeholders = useSWR(key("/api/intelligence/stakeholders"), fetcher, swrOptions);
+  const interventions = useSWR(key("/api/intelligence/interventions"), fetcher, swrOptions);
+  const coordination = useSWR(key("/api/intelligence/coordination"), fetcher, swrOptions);
+  const liveOps = useSWR(key("/api/intelligence/operational-live"), fetcher, swrOptions);
+
+  if (!projectId) {
+    return (
+      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+        <p className="text-sm text-slate-400">Project context is still initializing. Please wait or refresh.</p>
+      </div>
+    );
+  }
 
   const loading = [risk, stakeholders, interventions, coordination, liveOps].some((r) => r.isLoading);
   const lastSync = [risk.data?.generatedAt, stakeholders.data?.generatedAt, interventions.data?.generatedAt, coordination.data?.generatedAt, liveOps.data?.generatedAt].filter(Boolean).sort().at(-1);
 
-  const refreshAll = async () => {
-    await Promise.all([risk.mutate(), stakeholders.mutate(), interventions.mutate(), coordination.mutate(), liveOps.mutate()]);
-  };
+  const refreshAll = () =>
+    Promise.all([risk.mutate(), stakeholders.mutate(), interventions.mutate(), coordination.mutate(), liveOps.mutate()]);
 
   const actions = (coordination.data?.coordination?.operational_priority_queue?.actions ?? coordination.data?.operational_priority_queue?.actions ?? []) as AnyRecord[];
   const commentary = [

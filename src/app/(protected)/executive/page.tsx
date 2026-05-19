@@ -1,5 +1,5 @@
 import { ExecutiveDashboard } from "@/components/pmfreak/executive/executive-dashboard";
-import { getAuthUser } from "@/lib/auth";
+import { requireAuthUser } from "@/lib/auth";
 import { buildExecutiveSynthesis, type ExecutiveSynthesisSnapshot } from "@/lib/executive-synthesis";
 import Link from "next/link";
 
@@ -14,8 +14,7 @@ async function safelyBuildSynthesis(companyId: string): Promise<{ snapshot: Exec
 }
 
 export default async function ExecutivePage({ searchParams }: { searchParams: Promise<{ from?: string }> }) {
-  const user = await getAuthUser();
-  if (!user) return null;
+  const user = await requireAuthUser();
 
   const params = await searchParams;
   const fromActivation = params.from === "getting-started";
