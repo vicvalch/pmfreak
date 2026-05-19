@@ -296,11 +296,13 @@ export function buildOperationalCoordinationSnapshot(input: {
   const recoveryWorkflow = buildDeliveryRecoveryWorkflow(queue);
   const escalationSequence = buildEscalationWorkflow(queue);
 
-  const competingEscalations = queue.actions.filter((a) => a.type === "executive_escalation" || a.type === "executive_communication").length;
+  // Only count escalation actions that have actually crossed the urgency threshold (>=65);
+  // having the action type in the queue doesn't constitute overload if urgency is low
+  const competingEscalations = queue.actions.filter((a) => (a.type === "executive_escalation" || a.type === "executive_communication") && a.urgency >= 65).length;
   const overloadRisk: OperationalCoordinationSnapshot["escalation_overload_risk"] = {
     level: competingEscalations >= 2 ? "high" : competingEscalations === 1 ? "watch" : "none",
     competingEscalations,
-    commentary: competingEscalations >= 2 ? "multiple escalations competing simultaneously" : "escalation load is contained",
+    commentary: competingEscalations >= 2 ? "multiple high-urgency escalations competing simultaneously" : "escalation load is contained",
   };
 
   const coordinationUrgency = queue.actions[0]?.priority ?? "low";
@@ -330,7 +332,6 @@ export function buildOperationalCoordinationSnapshot(input: {
       "Intervention ordering matters. Incorrect escalation sequence may destabilize alignment.",
       queue.actions.filter((action) => action.status === "blocked").length >= 2 ? "Operational coordination overload detected." : "Coordination load remains manageable.",
       input.timelineIntelligence.stale ? "Timeline intelligence indicates stale execution updates; intervention sequencing should start immediately." : "Timeline signal is fresh enough for deterministic orchestration.",
-      "Future architecture: autonomous coordination agents, AI meeting orchestration, AI escalation negotiation, cross-project coordination systems, org-wide execution orchestration, execution swarm coordination, governance-aware orchestration, AI operational command center.",
     ],
   };
 }

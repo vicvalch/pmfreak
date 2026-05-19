@@ -23,11 +23,14 @@ export function generateExecutiveTimeline(records: OperationalMemoryRecord[]): E
     .slice(-30)
     .map((record) => {
       const severity = record.confidenceScore < 45 ? "high" : record.completionScore < 40 ? "watch" : "info";
+      const severityLabel = record.confidenceScore < 45 ? "low confidence" : record.completionScore < 40 ? "incomplete" : null;
       return {
         id: record.id,
         timestamp: record.updatedAt,
-        title: `${record.domain.replaceAll("_", " ")} updated`,
-        detail: `${record.title} · confidence ${record.confidenceScore} · completion ${record.completionScore}`,
+        title: record.title,
+        detail: severityLabel
+          ? `[${severityLabel}] confidence ${record.confidenceScore} · completion ${record.completionScore}`
+          : `confidence ${record.confidenceScore} · completion ${record.completionScore}`,
         domain: record.domain,
         severity,
       };

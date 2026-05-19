@@ -265,13 +265,10 @@ export function buildInterventionSnapshot(projectId: string | null, snapshot: Pr
       recommended_intervention_type: recommendedInterventionType,
       escalation_target: escalationTarget,
     },
-    commentary: [
-      "Execution stability deteriorating without corrective intervention.",
-      "Stakeholder escalation pressure now exceeds delivery confidence.",
-      "Project drift detected across operational checkpoints.",
-      "Repeated escalation patterns indicate unresolved organizational friction.",
-      "Intervention recommended before executive escalation occurs.",
-    ],
+    commentary: triggers
+      .filter((t) => t.active)
+      .map((t) => t.reason)
+      .slice(0, 5),
     deliveryInstability,
     operationalDriftSignal,
     stakeholderBreakdown,
