@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ContextScopeBar } from "./ContextScopeBar";
 import { OperationalEventFeed } from "./OperationalEventFeed";
 import { ShellMetric } from "./ShellMetric";
@@ -30,8 +30,10 @@ const SETUP_NAV = [
 
 export function OperationalShell({ children, user }: OperationalShellProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const [projects, setProjects] = useState<UserProject[]>([]);
   const [projectsLoading, setProjectsLoading] = useState(true);
+  const initializedRef = useRef(false);
   const [projectsError, setProjectsError] = useState<string | null>(null);
   const [projectId, setProjectId] = useState<string>(() => {
     if (typeof window === "undefined") return "";
@@ -66,6 +68,37 @@ export function OperationalShell({ children, user }: OperationalShellProps) {
   useEffect(() => {
     if (projectId) globalThis.localStorage?.setItem("pmfreak.currentProjectId", projectId);
   }, [projectId]);
+
+  // Once projects finish loading: clean stale localStorage and hydrate URL from stored id.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (projectsLoading || initializedRef.current) return;
+    initializedRef.current = true;
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlProjectId = urlParams.get("projectId");
+    const validIds = new Set(projects.map((p) => p.id));
+
+    if (urlProjectId) {
+      // Explicit URL projectId — validate but do not redirect (guarded state for invalid urls).
+      if (!validIds.has(urlProjectId)) {
+        globalThis.localStorage?.removeItem("pmfreak.currentProjectId");
+        setProjectId("");
+      }
+      return;
+    }
+
+    // No projectId in URL — check stored id.
+    if (projectId && validIds.has(projectId)) {
+      // Valid stored id — hydrate URL to eliminate server/client drift.
+      urlParams.set("projectId", projectId);
+      router.replace(`${window.location.pathname}?${urlParams.toString()}`);
+    } else if (projectId && !validIds.has(projectId)) {
+      // Stale stored id — clean up without redirecting.
+      globalThis.localStorage?.removeItem("pmfreak.currentProjectId");
+      setProjectId("");
+    }
+  }, [projectsLoading]);
 
   const hasProjects = projects.length > 0;
   const scopeLabel = useMemo(
