@@ -45,18 +45,27 @@ export function OperationalShell({ children, user }: OperationalShellProps) {
     async function load() {
       setProjectsLoading(true);
       setProjectsError(null);
-      try {
-        const res = await fetch("/api/projects", { cache: "no-store" });
-        if (!res.ok) throw new Error();
-        const data = (await res.json()) as { projects?: UserProject[] };
-        if (active) setProjects(data.projects ?? []);
-      } catch {
-        if (active) {
-          setProjects([]);
-          setProjectsError("Project list unavailable — continue in portfolio scope.");
+      const delays = [0, 1500, 3500];
+      let lastError: unknown;
+      for (const delay of delays) {
+        if (!active) return;
+        if (delay > 0) await new Promise((r) => setTimeout(r, delay));
+        if (!active) return;
+        try {
+          const res = await fetch("/api/projects", { cache: "no-store" });
+          if (!res.ok) throw new Error(`status ${res.status}`);
+          const data = (await res.json()) as { projects?: UserProject[] };
+          if (active) { setProjects(data.projects ?? []); setProjectsLoading(false); }
+          return;
+        } catch (err) {
+          lastError = err;
         }
-      } finally {
-        if (active) setProjectsLoading(false);
+      }
+      if (active) {
+        console.warn("[operational-shell] project hydration failed after retries", { error: String(lastError) });
+        setProjects([]);
+        setProjectsError("Project list unavailable — continue in portfolio scope.");
+        setProjectsLoading(false);
       }
     }
     void load();

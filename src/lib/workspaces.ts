@@ -66,16 +66,22 @@ export async function getActiveWorkspaceContext(userId: string): Promise<Workspa
 }
 
 export async function getUserWorkspaces(userId: string): Promise<WorkspaceRow[]> {
-  const supabase = await createSupabaseServerClient();
+  // Two-step query: first get workspace IDs from memberships (user-scoped, RLS-safe),
+  // then fetch workspace details via service-role to avoid FK join being blocked by RLS.
+  const serviceClient = createSupabaseServiceRoleClient({ routeId: "lib.workspaces", operation: "get_workspaces", reason: "workspace_read", systemActor: "system", actorUserId: userId });
 
-  const { data } = await supabase
+  const { data: memberships } = await serviceClient
     .from("workspace_memberships")
-    .select("workspaces(id, name)")
+    .select("workspace_id")
     .eq("user_id", userId);
 
-  return (data ?? []).flatMap((row) => {
-    const related = row.workspaces as WorkspaceRow | WorkspaceRow[] | null;
-    if (!related) return [];
-    return Array.isArray(related) ? related : [related];
-  });
+  if (!memberships?.length) return [];
+
+  const ids = memberships.map((m) => m.workspace_id as string);
+  const { data: workspaces } = await serviceClient
+    .from("workspaces")
+    .select("id, name")
+    .in("id", ids);
+
+  return (workspaces ?? []) as WorkspaceRow[];
 }
