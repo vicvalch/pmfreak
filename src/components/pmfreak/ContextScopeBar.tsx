@@ -52,12 +52,15 @@ export function ContextScopeBar({
             onChange={(e) => {
               const id = e.target.value;
               onProjectChange(id);
-              // Update URL so server components re-render with the correct projectId scope.
+              // Preserve existing query params — only update/remove projectId.
+              const params = new URLSearchParams(window.location.search);
               if (id) {
-                router.push(`${pathname}?projectId=${encodeURIComponent(id)}`);
+                params.set("projectId", id);
               } else {
-                router.push(pathname);
+                params.delete("projectId");
               }
+              const query = params.toString();
+              router.push(`${pathname}${query ? `?${query}` : ""}`);
             }}
             disabled={loading}
             className="rounded-lg border border-white/[0.12] bg-slate-800/80 px-3 py-1.5 text-sm text-slate-100 focus:outline-none focus:ring-1 focus:ring-cyan-500/40"
