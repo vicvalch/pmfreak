@@ -43,6 +43,22 @@ const FAIL_CLOSED_REQUIRED_PATTERNS = [
   "src/lib/security/access-guards.ts",
 ];
 
+// SDK API routes under src/app/api/sdk/ that handle governance-sensitive data.
+// Each must call authorizeRuntimeAction before returning data.
+const SDK_GOVERNANCE_ROUTES = [
+  "src/app/api/sdk/agents/route.ts",
+  "src/app/api/sdk/agents/[id]/route.ts",
+  "src/app/api/sdk/agents/scopes/route.ts",
+  "src/app/api/sdk/audit/agents/route.ts",
+  "src/app/api/sdk/audit/capabilities/route.ts",
+  "src/app/api/sdk/audit/resources/route.ts",
+  "src/app/api/sdk/audit/timeline/route.ts",
+  "src/app/api/sdk/capabilities/grants/route.ts",
+  "src/app/api/sdk/capabilities/requests/route.ts",
+  "src/app/api/sdk/policies/route.ts",
+  "src/app/api/sdk/policies/[id]/route.ts",
+];
+
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 function walk(dir) {
@@ -152,6 +168,28 @@ for (const full of files) {
         warn(relPath, lineNo, "capability_grants insert without nearby runtime authorization. Verify grant creation is runtime-authorized.");
       }
     }
+  }
+}
+
+// Verify SDK governance routes each call authorizeRuntimeAction and check decision.allowed.
+for (const relPath of SDK_GOVERNANCE_ROUTES) {
+  const full = path.join(root, relPath);
+  if (!fs.existsSync(full)) {
+    warn(relPath, 0, "Expected SDK governance route not found.");
+    continue;
+  }
+  const src = fs.readFileSync(full, "utf8");
+  if (!src.includes("authorizeRuntimeAction")) {
+    error(relPath, 0, "SDK governance route does not call authorizeRuntimeAction. Runtime must be consulted before returning governance data.");
+  } else if (!src.includes("SDK_GOVERNANCE_ACTIONS")) {
+    warn(relPath, 0, "SDK governance route calls authorizeRuntimeAction but does not use SDK_GOVERNANCE_ACTIONS constants. Use canonical action mapping.");
+  }
+  if (!src.includes("decision.allowed")) {
+    error(relPath, 0, "SDK governance route does not check decision.allowed. Must gate data access on runtime authorization result.");
+  }
+  // Must not use requireWorkspaceRole as terminal authority after adding runtime auth.
+  if (/requireWorkspaceRole/.test(src)) {
+    error(relPath, 0, "SDK governance route still uses requireWorkspaceRole as terminal authority. Replace with authorizeRuntimeAction.");
   }
 }
 

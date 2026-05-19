@@ -12,10 +12,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-const capabilityFlow = readFileSync("src/lib/security/capability-flow.ts", "utf8");
-const accessGuards   = readFileSync("src/lib/security/access-guards.ts", "utf8");
-const agentAccess    = readFileSync("src/lib/security/agent-access.ts", "utf8");
-const serverAuth     = readFileSync("src/lib/security/server-authorization.ts", "utf8");
+const capabilityFlow  = readFileSync("src/lib/security/capability-flow.ts", "utf8");
+const accessGuards    = readFileSync("src/lib/security/access-guards.ts", "utf8");
+const agentAccess     = readFileSync("src/lib/security/agent-access.ts", "utf8");
+const serverAuth      = readFileSync("src/lib/security/server-authorization.ts", "utf8");
+const governanceActions = readFileSync("src/lib/aoc/runtime/governance-actions.ts", "utf8");
 
 // ── capability-flow.ts ────────────────────────────────────────────────────────
 
@@ -53,7 +54,9 @@ test("capability-flow: createCapabilityRequest fails closed when runtime is unav
   assert.match(capabilityFlow, /runtimeDecision === null[\s\S]{0,40}denied/, "runtime_unavailable must produce denied status");
 });
 
-test("capability-flow: PERMISSION_TO_GOVERNANCE_ACTION covers all sensitive permissions", () => {
+test("governance-actions: canonical PERMISSION_TO_GOVERNANCE_ACTION covers all sensitive permissions", () => {
+  // After refactor, the canonical map lives in governance-actions.ts.
+  // capability-flow.ts imports it; check the source of truth directly.
   const sensitivePermissions = [
     "manage_billing",
     "manage_workspace",
@@ -62,8 +65,10 @@ test("capability-flow: PERMISSION_TO_GOVERNANCE_ACTION covers all sensitive perm
     "manage_ai",
   ];
   for (const perm of sensitivePermissions) {
-    assert.match(capabilityFlow, new RegExp(perm), `PERMISSION_TO_GOVERNANCE_ACTION must include ${perm}`);
+    assert.match(governanceActions, new RegExp(perm), `PERMISSION_TO_GOVERNANCE_ACTION must include ${perm}`);
   }
+  // capability-flow.ts must import from governance-actions (no local copy allowed)
+  assert.match(capabilityFlow, /from "@\/lib\/aoc\/runtime\/governance-actions"/, "capability-flow must import canonical action mapping");
 });
 
 // ── access-guards.ts ──────────────────────────────────────────────────────────

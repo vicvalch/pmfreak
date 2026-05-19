@@ -1,6 +1,9 @@
 import { getAuthUser } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createCapabilityRequest } from "@/lib/security/capability-flow";
+import { authorizeRuntimeAction } from "@/lib/aoc/enterprise/authorization";
+import { buildEnterpriseRuntimeRequest } from "@/lib/aoc/pmfreak-runtime-consumer";
+import { SDK_GOVERNANCE_ACTIONS } from "@/lib/aoc/runtime/governance-actions";
 import { apiCreated, apiPaginated, apiUnauthorized, apiValidationError, getRequestId } from "@/lib/api/http";
 import { parsePagination, requireId } from "@/lib/api/validation";
 
@@ -12,6 +15,12 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const workspaceId = requireId("workspaceId", url.searchParams.get("workspaceId"));
     const { limit } = parsePagination(url);
+
+    const decision = await authorizeRuntimeAction(
+      buildEnterpriseRuntimeRequest({ user, action: SDK_GOVERNANCE_ACTIONS.CAPABILITIES_READ, routeId: "/api/sdk/capabilities/requests", workspaceId, resourceType: "workspace", resourceId: workspaceId }),
+    );
+    if (!decision.allowed) return Response.json({ error: "Forbidden", decisionId: decision.decisionId }, { status: 403 });
+
     const supabase = await createSupabaseServerClient();
     const { data, error } = await supabase.from("capability_requests").select("*").eq("workspace_id", workspaceId).order("created_at", { ascending: false }).limit(limit + 1);
     if (error) throw new Error("query_failed");

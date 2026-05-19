@@ -4,38 +4,12 @@ import { AccessDeniedError, requireWorkspaceRole } from "@/lib/security/access-g
 import { requireAuthenticatedUser } from "@/lib/security/server-authorization";
 import { authorizeRuntimeAction } from "@/lib/aoc/enterprise/authorization";
 import { buildEnterpriseRuntimeRequest } from "@/lib/aoc/pmfreak-runtime-consumer";
-import type { GovernanceAction } from "@aoc-enterprise/runtime";
+import { CAPABILITY_PERMISSION_TO_GOVERNANCE_ACTION, PERMISSION_TO_GOVERNANCE_ACTION } from "@/lib/aoc/runtime/governance-actions";
 
 export type CapabilityPermission = "read" | "write" | "approve" | "manage" | "execute" | "delegate";
 export type CapabilityResourceType = "workspace" | "project" | "operational_memory" | "governance_object" | "ai_coprocess";
 
 function nowIso() { return new Date().toISOString(); }
-
-// Maps CapabilityPermission to the closest GovernanceAction for runtime evaluation.
-const CAPABILITY_PERMISSION_TO_GOVERNANCE_ACTION: Record<CapabilityPermission, GovernanceAction> = {
-  read: "project.read",
-  write: "project.write",
-  execute: "ai.execute",
-  manage: "workspace.manage",
-  approve: "workspace.manage",
-  delegate: "workspace.manage",
-};
-
-const PERMISSION_TO_GOVERNANCE_ACTION: Record<Permission, GovernanceAction> = {
-  read: "project.read",
-  write: "project.write",
-  delete: "project.write",
-  write_memory: "memory.write",
-  delete_memory: "memory.write",
-  manage_members: "members.manage",
-  manage_projects: "workspace.manage",
-  manage_workspace: "workspace.manage",
-  manage_ai: "workspace.manage",
-  manage_billing: "billing.manage",
-  execute_ai_action: "ai.execute",
-  view_executive: "executive.view",
-  upload_documents: "document.upload",
-};
 
 async function audit(workspaceId: string, eventType: "requested" | "approved" | "denied" | "revoked" | "expired" | "consumed", actorUserId: string, detail: Record<string, unknown>, ids: { requestId?: string; grantId?: string } = {}) {
   const supabase = await createSupabaseServerClient();

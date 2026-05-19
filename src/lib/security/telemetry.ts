@@ -1,6 +1,7 @@
 import { createPrivilegedSupabaseClient } from "@/lib/security/privileged-access";
 
 export type SecurityEventType =
+  | "governance_action_allowed"
   | "auth_denied"
   | "workspace_scope_violation"
   | "project_scope_violation"
