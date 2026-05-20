@@ -31,8 +31,9 @@
     "check:forbidden-imports": "node scripts/check-forbidden-imports.mjs",
     "check:tarball-purity": "node scripts/check-tarball-purity.mjs",
     "check:build-reproducibility": "node scripts/check-build-reproducibility.mjs",
-    "check:package-purity": "npm run check:forbidden-imports && npm run check:package-exports && npm run check:tarball-purity",
-    "check:publish-integrity": "npm run build:aoc && npm run check:package-purity && npm run check:build-reproducibility"
+    "check:package-purity": "npm run check:forbidden-imports && npm run check:package-exports && npm run check:typescript-package-isolation && npm run check:tarball-purity",
+    "check:publish-integrity": "npm run build:aoc && npm run check:package-purity && npm run check:build-reproducibility",
+    "check:typescript-package-isolation": "node scripts/check-typescript-package-isolation.mjs"
   },
   "dependencies": {
     "@aoc-enterprise/runtime": "file:src/aoc/enterprise",
