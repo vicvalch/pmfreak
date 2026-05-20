@@ -2,7 +2,7 @@ import {
   evaluateAgentAccess as evaluateLegacyAgentAccess,
   grantAgentScope,
   requireAgentScope as requireLegacyAgentScope,
-} from "@/lib/security/agent-access";
+} from "@/aoc/enterprise/runtime/agent-access-bridge";
 
 export { grantAgentScope };
 

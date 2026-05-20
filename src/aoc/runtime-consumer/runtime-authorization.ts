@@ -1,6 +1,6 @@
 import type { GovernanceEvaluationInput } from "@aoc-enterprise/runtime";
-import { authorizeRuntimeAction as authorizeEnterpriseRuntimeAction } from "@/lib/aoc/enterprise/authorization";
-import { enforceRuntimeAuthorization as enforceEnterpriseRuntimeAuthorization } from "@/lib/aoc/enterprise/runtime";
+import { authorizeRuntimeAction as authorizeEnterpriseRuntimeAction } from "@/aoc/enterprise/runtime/authorization-bridge";
+import { enforceRuntimeAuthorization as enforceEnterpriseRuntimeAuthorization } from "@/aoc/enterprise/runtime/authorization-bridge";
 import { RuntimeDependencyUnavailableError } from "./runtime-errors";
 
 const failClosedResponse = (routeId: string) =>
