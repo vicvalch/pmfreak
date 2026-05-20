@@ -10,6 +10,7 @@ import {
   type OperationalContradiction,
   type HiddenRiskPattern,
 } from "@/lib/cross-signal-reasoning";
+import { buildAdaptiveOperationalProfile, type AdaptiveOperationalProfile } from "@/lib/adaptive-operational-intelligence";
 
 export type OperationalSignal = {
   id: string;
@@ -49,6 +50,7 @@ export type ExecutiveSynthesisSnapshot = {
   missingInformationWarnings: string[];
   contradictions: OperationalContradiction[];
   hiddenRiskPattern: HiddenRiskPattern | null;
+  adaptiveProfile: AdaptiveOperationalProfile | null;
 };
 
 const clamp = (value: number) => Math.max(0, Math.min(100, Math.round(value)));
@@ -120,6 +122,7 @@ function buildInsights(
   records: OperationalMemoryRecord[],
   contradictions: OperationalContradiction[],
   hiddenRisk: HiddenRiskPattern | null,
+  adaptiveProfile: AdaptiveOperationalProfile | null,
 ): ExecutiveInsight[] {
   const insights: ExecutiveInsight[] = [];
   const byType = new Map(signals.map((signal) => [signal.signalType, signal] as const));
@@ -230,7 +233,85 @@ function buildInsights(
     }
   }
 
-  // 7. Stable state fallback — only when nothing else triggers
+  // 7. Adaptive pattern insights — surface historical learning when evidence exists
+  if (adaptiveProfile) {
+    const failureCycle = adaptiveProfile.patterns.find((p) => p.type === "repeated_failure_cycle");
+    if (failureCycle && failureCycle.confidence >= 50) {
+      insights.push({
+        id: "adaptive-repeated-failure-cycle",
+        title: `Repeated failure cycle detected (${failureCycle.recurrenceCount}× recurrence)`,
+        summary: `${failureCycle.description} This is not a new incident — it is a recurring pattern. Addressing root cause is more effective than another point-in-time intervention.`,
+        relatedDomains: ["delivery_intelligence", "stakeholder_intelligence", "operational_memory"],
+        confidence: failureCycle.confidence,
+      });
+    }
+
+    const escalationTraj = adaptiveProfile.patterns.find((p) => p.type === "escalation_trajectory");
+    if (escalationTraj && escalationTraj.confidence >= 50) {
+      insights.push({
+        id: "adaptive-escalation-trajectory",
+        title: "Escalation trajectory worsening across records",
+        summary: `${escalationTraj.description} Stakeholder pressure appears volatile rather than stable — confidence in a smooth resolution path should be reduced.`,
+        relatedDomains: ["stakeholder_intelligence", "executive_context"],
+        confidence: escalationTraj.confidence,
+      });
+    }
+
+    const govGap = adaptiveProfile.patterns.find((p) => p.type === "chronic_governance_gap");
+    if (govGap && govGap.confidence >= 50) {
+      insights.push({
+        id: "adaptive-chronic-governance-gap",
+        title: "Governance gaps are chronic, not incidental",
+        summary: `${govGap.description} Governance incompleteness is structural — one-off remediations are unlikely to resolve it without ownership accountability changes.`,
+        relatedDomains: ["pmo_governance", "operational_memory"],
+        confidence: govGap.confidence,
+      });
+    }
+
+    const interventionFatigue = adaptiveProfile.patterns.find((p) => p.type === "intervention_fatigue");
+    if (interventionFatigue && interventionFatigue.confidence >= 50) {
+      insights.push({
+        id: "adaptive-intervention-fatigue",
+        title: "Intervention fatigue — same signals persisting without improvement",
+        summary: `${interventionFatigue.description} Consider consolidating recommendations or escalating framing — repeating the same guidance without change is not reducing the signal.`,
+        relatedDomains: ["operational_memory", "executive_context"],
+        confidence: interventionFatigue.confidence,
+      });
+    }
+
+    const recovery = adaptiveProfile.patterns.find((p) => p.type === "recovery_pattern");
+    if (recovery && recovery.confidence >= 45) {
+      insights.push({
+        id: "adaptive-recovery-pattern",
+        title: "Recovery pattern detected — operational signals improving",
+        summary: `${recovery.description} Delivery risk is improving after recent operational changes. Monitor before withdrawing oversight — recovery is directional, not yet confirmed.`,
+        relatedDomains: ["delivery_intelligence", "operational_memory"],
+        confidence: recovery.confidence,
+      });
+    }
+
+    if (adaptiveProfile.pmEnvironmentStyle) {
+      const styleDescriptions: Record<string, string> = {
+        overloaded_coordinator: "PM coordination capacity appears strained — workload and fatigue signals are co-occurring across multiple records.",
+        reactive_firefighter: "PM environment is operating in reactive mode — fatigue and escalation signals co-occur, suggesting inadequate proactive governance.",
+        escalation_prone_environment: "This environment shows a recurring escalation pattern — structural causes may need addressing beyond individual incidents.",
+        governance_oriented: "PM environment shows consistent governance discipline — high completion and delivery confidence are co-occurring.",
+        fast_resolver: "PM environment shows a pattern of rapid resolution — delivery confidence is high with low overload signals.",
+      };
+      const styleDesc = styleDescriptions[adaptiveProfile.pmEnvironmentStyle];
+      if (styleDesc) {
+        insights.push({
+          id: "adaptive-pm-environment",
+          title: `PM environment pattern: ${adaptiveProfile.pmEnvironmentStyle.replaceAll("_", " ")}`,
+          summary: `${styleDesc} This pattern is inferred from repeated signals across ${records.length} operational records — not from a single event.`,
+          relatedDomains: ["team_health", "operational_memory"],
+          confidence: 55,
+        });
+      }
+    }
+  }
+
+  // 8. Stable state fallback — only when nothing else triggers
   if (!insights.length) {
     const domainCount = new Set(records.map((r) => r.domain)).size;
     insights.push({
@@ -242,7 +323,7 @@ function buildInsights(
     });
   }
 
-  // 8. Critical escalation always surfaces when threshold is crossed
+  // 9. Critical escalation always surfaces when threshold is crossed
   if (escalation.level === "critical") {
     insights.push({
       id: "critical-escalation",
@@ -279,13 +360,16 @@ export async function buildExecutiveSynthesis(companyId: string, projectId: stri
     escalationProbability: clamp((100 - health.overall) * 0.45 + (100 - coherence.overall) * 0.2),
   });
 
+  // Adaptive pattern detection over historical records — learns recurrence, cycles, and trajectories.
+  const adaptiveProfile = records.length >= 2 ? buildAdaptiveOperationalProfile(records) : null;
+
   const hasGovernanceGap = governanceFailure >= 55;
   const level = computeEscalationLevel({ health, coherence, hasGovernanceGap, stakeholderPressure, deliveryRisk, compoundSeverityBoost });
 
-  // Probability score accounts for compound signal reinforcement and contradiction-induced uncertainty.
-  // Contradictions don't just penalize coherence — they also reduce confidence in any "green" readings.
+  // Probability score: compound signals + adaptive severity delta from historical patterns.
+  // Adaptive delta is bounded ±30 so it can't overwhelm single-snapshot reasoning.
   const baseProbability = clamp((100 - health.overall) * 0.45 + (100 - coherence.overall) * 0.2 + stakeholderPressure * 0.2 + deliveryRisk * 0.15);
-  const probabilityScore = clamp(baseProbability + compoundSeverityBoost);
+  const probabilityScore = clamp(baseProbability + compoundSeverityBoost + (adaptiveProfile?.adaptedSeverityDelta ?? 0));
 
   const escalationRisk: EscalationRisk = {
     level,
@@ -297,13 +381,19 @@ export async function buildExecutiveSynthesis(companyId: string, projectId: stri
       contradictions.length >= 1 ? "operational narrative contradictions reducing confidence" : "",
       compoundSeverityBoost >= 10 ? "compound multi-signal deterioration detected" : "",
       hiddenRiskPattern ? "hidden risk accumulation pattern active" : "",
+      adaptiveProfile?.patterns.some((p) => p.type === "repeated_failure_cycle" && p.confidence >= 50)
+        ? "repeated failure cycle detected across historical records"
+        : "",
+      adaptiveProfile?.patterns.some((p) => p.type === "escalation_trajectory" && p.confidence >= 50)
+        ? "escalation trajectory worsening over time"
+        : "",
     ].filter(Boolean),
   };
 
   const interventions = buildExecutiveInterventions({ escalationLevel: level, stakeholderPressure, deliveryRisk, pmFatigue, governanceGap: hasGovernanceGap });
   const timeline = generateExecutiveTimeline(records);
   const trends = calculateOperationalTrends(records);
-  const insights = buildInsights(signals, escalationRisk, records, contradictions, hiddenRiskPattern);
+  const insights = buildInsights(signals, escalationRisk, records, contradictions, hiddenRiskPattern, adaptiveProfile);
 
   const weakestDomains = OPERATIONAL_DOMAINS.map((domain) => {
     const domainRecords = records.filter((record) => record.domain === domain);
@@ -333,5 +423,6 @@ export async function buildExecutiveSynthesis(companyId: string, projectId: stri
     missingInformationWarnings,
     contradictions,
     hiddenRiskPattern,
+    adaptiveProfile,
   };
 }
