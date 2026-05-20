@@ -5,14 +5,21 @@
   "license": "UNLICENSED",
   "type": "module",
   "exports": {
-    ".": "./index.ts",
-    "./contracts": "./contracts/index.ts",
-    "./contracts/*": "./contracts/*.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./contracts": {
+      "types": "./dist/contracts/index.d.ts",
+      "import": "./dist/contracts/index.js"
+    },
+    "./contracts/*": {
+      "types": "./dist/contracts/*.d.ts",
+      "import": "./dist/contracts/*.js"
+    }
   },
   "files": [
-    "**/*.ts",
-    "!**/*.test.ts",
-    "!**/*.spec.ts"
+    "dist"
   ],
   "engines": {
     "node": ">=20"
@@ -26,9 +33,13 @@
     "url": "https://github.com/Architects-of-Change-Protocol/pmfreak.git",
     "directory": "src/aoc/protocol"
   },
-  "main": "./index.ts",
-  "module": "./index.ts",
-  "types": "./index.ts",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "sideEffects": false,
-  "peerDependencies": {}
+  "peerDependencies": {},
+  "scripts": {
+    "clean": "rm -rf dist",
+    "build": "npm run clean && tsc -p tsconfig.build.json"
+  }
 }
