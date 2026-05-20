@@ -1,0 +1,11 @@
+import { spawnSync } from 'node:child_process';
+
+const checks = [
+  ['node', ['scripts/check-package-exports.mjs']],
+  ['npm', ['run', 'publish:dry-run']]
+];
+for (const [cmd, args] of checks) {
+  const r = spawnSync(cmd, args, { stdio: 'inherit' });
+  if (r.status !== 0) process.exit(r.status ?? 1);
+}
+console.log('[publish] publish-readiness checks passed');

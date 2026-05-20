@@ -15,18 +15,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-          registry-url: 'https://npm.pkg.github.com'
-          scope: '@aoc-enterprise'
+          cache: npm
+      - run: npm ci
+      - run: npm run check:publish-ready
       - name: Publish @aoc-enterprise/runtime
         working-directory: src/aoc/enterprise
         run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          registry-url: 'https://npm.pkg.github.com'
-          scope: '@aoc'
       - name: Publish @aoc/protocol
         working-directory: src/aoc/protocol
         run: npm publish
