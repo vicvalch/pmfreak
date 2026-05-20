@@ -101,11 +101,11 @@ test('src/aoc imports from @/lib/security only via runtime-consumer adapters', (
   }
   const lines = output.trim().split('\n').filter(Boolean);
   const allowlist = [
-    'src/aoc/runtime-consumer/runtime-execution-grants.ts',
-    'src/aoc/runtime-consumer/runtime-delegation.ts',
-    'src/aoc/runtime-consumer/runtime-agent-access.ts',
-    'src/aoc/runtime-consumer/runtime-capabilities.ts',
+    'src/aoc/enterprise/runtime/execution-grants-bridge.ts',
+    'src/aoc/enterprise/runtime/delegated-capabilities-bridge.ts',
+    'src/aoc/enterprise/runtime/agent-access-bridge.ts',
+    'src/aoc/enterprise/runtime/access-guards-bridge.ts',
   ];
   const disallowed = lines.filter((line) => !allowlist.some((allowed) => line.startsWith(`${allowed}:`)));
-  assert.strictEqual(disallowed.length, 0, `src/aoc must only import @/lib/security via runtime-consumer adapters but found: ${disallowed.join('\n')}`);
+  assert.strictEqual(disallowed.length, 0, `src/aoc must only import @/lib/security via enterprise runtime bridge modules but found: ${disallowed.join('\n')}`);
 });

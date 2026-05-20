@@ -6,4 +6,4 @@ export {
   requireWorkspaceMembership,
   requireWorkspaceRole,
   AccessDeniedError,
-} from "@/aoc/enterprise/runtime/access-guards-bridge";
+} from "@/lib/security/access-guards";

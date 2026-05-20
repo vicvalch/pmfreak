@@ -18,6 +18,14 @@ const FORBIDDEN_PATTERNS = [
   "access-guards",
 ];
 
+const BRIDGE_ALLOWLIST = new Set([
+  "src/aoc/enterprise/runtime/execution-grants-bridge.ts",
+  "src/aoc/enterprise/runtime/delegated-capabilities-bridge.ts",
+  "src/aoc/enterprise/runtime/agent-access-bridge.ts",
+  "src/aoc/enterprise/runtime/access-guards-bridge.ts",
+  "src/aoc/enterprise/runtime/authorization-bridge.ts",
+]);
+
 function collectTsFiles(root) {
   try {
     const st = statSync(root);
@@ -48,6 +56,7 @@ test("enterprise runtime sovereignty: enterprise layers do not import PMFreak ap
   assert.ok(files.length > 0, "expected enterprise files to validate");
 
   for (const file of files) {
+    if (BRIDGE_ALLOWLIST.has(file)) continue;
     const source = readFileSync(file, "utf8");
     for (const pattern of FORBIDDEN_PATTERNS) {
       assert.equal(

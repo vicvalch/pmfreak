@@ -4,7 +4,7 @@ import {
   issueExecutionGrant as issueLegacyExecutionGrant,
   validateExecutionGrant as verifyLegacyExecutionGrant,
   type ExecutionGrantInput,
-} from "@/lib/security/execution-grants";
+} from "@/aoc/enterprise/runtime/execution-grants-bridge";
 
 export { generateExecutionGrantToken };
 export type { ExecutionGrantInput };
