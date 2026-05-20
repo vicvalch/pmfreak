@@ -36,7 +36,8 @@
     "check:typescript-package-isolation": "node scripts/check-typescript-package-isolation.mjs",
     "test:launch-smoke": "node scripts/run-launch-smoke-tests.mjs",
     "diag:runtime": "node scripts/runtime-diagnostics-report.mjs",
-    "check:launch-readiness": "node scripts/check-launch-readiness.mjs"
+    "check:launch-readiness": "node scripts/check-launch-readiness.mjs",
+    "smoke-test:vault": "node scripts/smoke-test-vault-digestion.mjs"
   },
   "dependencies": {
     "@aoc-enterprise/runtime": "file:src/aoc/enterprise",
