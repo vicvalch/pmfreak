@@ -1,8 +1,8 @@
 # Vault Digestive System — Smoke Test Report
 
-**Generated:** 2026-05-20T14:46:08.509Z
+**Generated:** 2026-05-20T15:12:07.637Z
 **Dataset:** LATAM Enterprise PM — 5 projects across 51 operational artifacts
-**Elapsed:** 46ms
+**Elapsed:** 54ms
 
 ## 1. Digestive Overview
 
@@ -165,7 +165,74 @@ No systematic missed signals detected.
 | persistenceReadiness | 100/100 |
 | **OVERALL** | **86/100** |
 
-## 9. Validation Summary
+## 9. Learned Patterns
+
+**Total patterns detected:** 37
+
+### Pattern Type Distribution
+| Pattern Type | Count |
+|-------------|-------|
+| delivery_drift_pattern | 7 |
+| escalation_trajectory_pattern | 5 |
+| recurring_blocker_pattern | 4 |
+| recurring_dependency_pattern | 4 |
+| stakeholder_pressure_pattern | 4 |
+| ambiguity_accumulation_pattern | 4 |
+| recovery_pattern | 4 |
+| governance_degradation_pattern | 3 |
+| financial_friction_pattern | 2 |
+
+### Patterns by Project
+**proj-mep-14156** (9 patterns)
+- governance_degradation_pattern | severity: high | confidence: 0.4 | status: emerging | recurrences: 2
+- delivery_drift_pattern | severity: medium | confidence: 0.4 | status: emerging | recurrences: 2
+- recurring_blocker_pattern | severity: high | confidence: 0.74 | status: chronic | recurrences: 8
+- recurring_dependency_pattern | severity: medium | confidence: 0.8 | status: chronic | recurrences: 8
+- stakeholder_pressure_pattern | severity: medium | confidence: 0.72 | status: chronic | recurrences: 6
+- delivery_drift_pattern | severity: medium | confidence: 0.54 | status: confirmed | recurrences: 5
+- escalation_trajectory_pattern | severity: high | confidence: 0.74 | status: chronic | recurrences: 6
+- ambiguity_accumulation_pattern | severity: low | confidence: 0.48 | status: confirmed | recurrences: 4
+- recovery_pattern | severity: low | confidence: 0.4 | status: recovering | recurrences: 3
+
+**proj-muc-13098** (5 patterns)
+- escalation_trajectory_pattern | severity: high | confidence: 0.42 | status: emerging | recurrences: 2
+- delivery_drift_pattern | severity: medium | confidence: 0.46 | status: confirmed | recurrences: 3
+- delivery_drift_pattern | severity: medium | confidence: 0.64 | status: confirmed | recurrences: 4
+- ambiguity_accumulation_pattern | severity: low | confidence: 0.8 | status: chronic | recurrences: 10
+- financial_friction_pattern | severity: high | confidence: 0.64 | status: confirmed | recurrences: 4
+
+**proj-ice-9298** (7 patterns)
+- financial_friction_pattern | severity: high | confidence: 0.8 | status: chronic | recurrences: 9
+- escalation_trajectory_pattern | severity: high | confidence: 0.65 | status: confirmed | recurrences: 7
+- recurring_blocker_pattern | severity: high | confidence: 0.74 | status: chronic | recurrences: 7
+- stakeholder_pressure_pattern | severity: medium | confidence: 0.44 | status: confirmed | recurrences: 3
+- delivery_drift_pattern | severity: medium | confidence: 0.58 | status: confirmed | recurrences: 4
+- recurring_dependency_pattern | severity: medium | confidence: 0.72 | status: chronic | recurrences: 7
+- recovery_pattern | severity: low | confidence: 0.4 | status: recovering | recurrences: 2
+
+**proj-gch-15992** (8 patterns)
+- recurring_blocker_pattern | severity: high | confidence: 0.82 | status: chronic | recurrences: 6
+- governance_degradation_pattern | severity: high | confidence: 0.56 | status: confirmed | recurrences: 6
+- delivery_drift_pattern | severity: medium | confidence: 0.54 | status: confirmed | recurrences: 3
+- ambiguity_accumulation_pattern | severity: low | confidence: 0.64 | status: confirmed | recurrences: 6
+- stakeholder_pressure_pattern | severity: medium | confidence: 0.6 | status: confirmed | recurrences: 5
+- escalation_trajectory_pattern | severity: high | confidence: 0.52 | status: confirmed | recurrences: 5
+- recurring_dependency_pattern | severity: medium | confidence: 0.8 | status: chronic | recurrences: 11
+- recovery_pattern | severity: low | confidence: 0.4 | status: recovering | recurrences: 3
+
+**proj-hsa-15576** (8 patterns)
+- recurring_blocker_pattern | severity: high | confidence: 0.6 | status: confirmed | recurrences: 5
+- recurring_dependency_pattern | severity: medium | confidence: 0.64 | status: confirmed | recurrences: 7
+- stakeholder_pressure_pattern | severity: medium | confidence: 0.79 | status: chronic | recurrences: 10
+- escalation_trajectory_pattern | severity: high | confidence: 0.57 | status: confirmed | recurrences: 6
+- ambiguity_accumulation_pattern | severity: low | confidence: 0.72 | status: chronic | recurrences: 6
+- delivery_drift_pattern | severity: medium | confidence: 0.68 | status: chronic | recurrences: 5
+- governance_degradation_pattern | severity: high | confidence: 0.52 | status: confirmed | recurrences: 5
+- recovery_pattern | severity: low | confidence: 0.4 | status: recovering | recurrences: 1
+
+✓ All expected pattern types detected.
+
+## 10. Validation Summary
 
 | Check | Result |
 |-------|--------|

@@ -1,9 +1,9 @@
 {
   "metadata": {
-    "generatedAt": "2026-05-20T14:46:08.509Z",
+    "generatedAt": "2026-05-20T15:12:07.637Z",
     "artifactCount": 51,
-    "elapsedMs": 46,
-    "smokeTestVersion": "1.1.0",
+    "elapsedMs": 54,
+    "smokeTestVersion": "1.2.0",
     "datasetDescription": "LATAM Enterprise PM — 5 projects across 51 operational artifacts"
   },
   "overview": {
@@ -874,5 +874,366 @@
     "explainabilityReadiness": 100,
     "persistenceReadiness": 100,
     "overall": 86
+  },
+  "learnedPatterns": {
+    "totalPatterns": 37,
+    "typeDistribution": {
+      "governance_degradation_pattern": 3,
+      "delivery_drift_pattern": 7,
+      "escalation_trajectory_pattern": 5,
+      "recurring_blocker_pattern": 4,
+      "recurring_dependency_pattern": 4,
+      "stakeholder_pressure_pattern": 4,
+      "ambiguity_accumulation_pattern": 4,
+      "financial_friction_pattern": 2,
+      "recovery_pattern": 4
+    },
+    "byProject": {
+      "proj-mep-14156": [
+        {
+          "patternType": "governance_degradation_pattern",
+          "title": "Governance Degradation: Timeline pressure: client committed to cybersecurity audit by April 18 — this delay puts us at risk.",
+          "severity": "high",
+          "confidence": 0.4,
+          "status": "emerging",
+          "trajectory": "stable",
+          "recurrenceCount": 2
+        },
+        {
+          "patternType": "delivery_drift_pattern",
+          "title": "Delivery Drift: Timeline pressure: client committed to cybersecurity audit by April 18 — this delay puts us at risk.",
+          "severity": "medium",
+          "confidence": 0.4,
+          "status": "emerging",
+          "trajectory": "stable",
+          "recurrenceCount": 2
+        },
+        {
+          "patternType": "recurring_blocker_pattern",
+          "title": "Recurring Blocker: Tenant provisioning is blocked by Cisco SASE portal access issue.",
+          "severity": "high",
+          "confidence": 0.74,
+          "status": "chronic",
+          "trajectory": "stable",
+          "recurrenceCount": 8
+        },
+        {
+          "patternType": "recurring_dependency_pattern",
+          "title": "Recurring Dependency: Dependency: onboarding schedule depends on receiving admin credentials from Cisco.",
+          "severity": "medium",
+          "confidence": 0.8,
+          "status": "chronic",
+          "trajectory": "stable",
+          "recurrenceCount": 8
+        },
+        {
+          "patternType": "stakeholder_pressure_pattern",
+          "title": "Stakeholder Pressure: The project is losing momentum and the client is losing patience with the delays.",
+          "severity": "medium",
+          "confidence": 0.72,
+          "status": "chronic",
+          "trajectory": "stable",
+          "recurrenceCount": 6
+        },
+        {
+          "patternType": "delivery_drift_pattern",
+          "title": "Delivery Drift: Timeline pressure: client committed to cybersecurity audit by April 18 — this delay puts us at risk.",
+          "severity": "medium",
+          "confidence": 0.54,
+          "status": "confirmed",
+          "trajectory": "stable",
+          "recurrenceCount": 5
+        },
+        {
+          "patternType": "escalation_trajectory_pattern",
+          "title": "Escalation Trajectory: Escalation raised to client IT Director Jorge Paredes.",
+          "severity": "high",
+          "confidence": 0.74,
+          "status": "chronic",
+          "trajectory": "stable",
+          "recurrenceCount": 6
+        },
+        {
+          "patternType": "ambiguity_accumulation_pattern",
+          "title": "Ambiguity Accumulation: Open question on MFA enrollment for branch office staff.",
+          "severity": "low",
+          "confidence": 0.48,
+          "status": "confirmed",
+          "trajectory": "stable",
+          "recurrenceCount": 4
+        },
+        {
+          "patternType": "recovery_pattern",
+          "title": "Recovery Pattern: Risk: if not resolved by April 12, the mobile device rollout cannot start before the audit window.",
+          "severity": "low",
+          "confidence": 0.4,
+          "status": "recovering",
+          "trajectory": "decreasing",
+          "recurrenceCount": 3
+        }
+      ],
+      "proj-muc-13098": [
+        {
+          "patternType": "escalation_trajectory_pattern",
+          "title": "Escalation Trajectory: Executive attention needed: project manager needs to align with business sponsor on realistic demo s",
+          "severity": "high",
+          "confidence": 0.42,
+          "status": "emerging",
+          "trajectory": "stable",
+          "recurrenceCount": 2
+        },
+        {
+          "patternType": "delivery_drift_pattern",
+          "title": "Delivery Drift: Client feedback delay creating sprint dependency.",
+          "severity": "medium",
+          "confidence": 0.46,
+          "status": "confirmed",
+          "trajectory": "stable",
+          "recurrenceCount": 3
+        },
+        {
+          "patternType": "delivery_drift_pattern",
+          "title": "Delivery Drift: Timeline pressure: if feedback is not received by April 14, sprint 2 start date slips.",
+          "severity": "medium",
+          "confidence": 0.64,
+          "status": "confirmed",
+          "trajectory": "stable",
+          "recurrenceCount": 4
+        },
+        {
+          "patternType": "ambiguity_accumulation_pattern",
+          "title": "Ambiguity Accumulation: Open question: does this scope change require a formal change request process or can it be absorbed?",
+          "severity": "low",
+          "confidence": 0.8,
+          "status": "chronic",
+          "trajectory": "stable",
+          "recurrenceCount": 10
+        },
+        {
+          "patternType": "financial_friction_pattern",
+          "title": "Financial Friction: Financial concern: integration costs are not included in current project budget.",
+          "severity": "high",
+          "confidence": 0.64,
+          "status": "confirmed",
+          "trajectory": "stable",
+          "recurrenceCount": 4
+        }
+      ],
+      "proj-ice-9298": [
+        {
+          "patternType": "financial_friction_pattern",
+          "title": "Financial Friction: Financial status: PO approved, budget allocated, but payment not yet executed.",
+          "severity": "high",
+          "confidence": 0.8,
+          "status": "chronic",
+          "trajectory": "stable",
+          "recurrenceCount": 9
+        },
+        {
+          "patternType": "escalation_trajectory_pattern",
+          "title": "Escalation Trajectory: Critical financial escalation requiring immediate attention.",
+          "severity": "high",
+          "confidence": 0.65,
+          "status": "confirmed",
+          "trajectory": "stable",
+          "recurrenceCount": 7
+        },
+        {
+          "patternType": "recurring_blocker_pattern",
+          "title": "Recurring Blocker: Financial impediment is blocking the entire storage expansion delivery.",
+          "severity": "high",
+          "confidence": 0.74,
+          "status": "chronic",
+          "trajectory": "stable",
+          "recurrenceCount": 7
+        },
+        {
+          "patternType": "stakeholder_pressure_pattern",
+          "title": "Stakeholder Pressure: Escalated to client CFO Patricia Morales — no response yet.",
+          "severity": "medium",
+          "confidence": 0.44,
+          "status": "confirmed",
+          "trajectory": "stable",
+          "recurrenceCount": 3
+        },
+        {
+          "patternType": "delivery_drift_pattern",
+          "title": "Delivery Drift: Internal operational note on finance delay.",
+          "severity": "medium",
+          "confidence": 0.58,
+          "status": "confirmed",
+          "trajectory": "stable",
+          "recurrenceCount": 4
+        },
+        {
+          "patternType": "recurring_dependency_pattern",
+          "title": "Recurring Dependency: Dependency: data center access booking depends on confirmed delivery date from Dell logistics.",
+          "severity": "medium",
+          "confidence": 0.72,
+          "status": "chronic",
+          "trajectory": "stable",
+          "recurrenceCount": 7
+        },
+        {
+          "patternType": "recovery_pattern",
+          "title": "Recovery Pattern: Timeline: if resolved today, delivery can be rescheduled for April 14-15.",
+          "severity": "low",
+          "confidence": 0.4,
+          "status": "recovering",
+          "trajectory": "decreasing",
+          "recurrenceCount": 2
+        }
+      ],
+      "proj-gch-15992": [
+        {
+          "patternType": "recurring_blocker_pattern",
+          "title": "Recurring Blocker: Cannot proceed with Cisco DNA Center deployment until licenses are assigned.",
+          "severity": "high",
+          "confidence": 0.82,
+          "status": "chronic",
+          "trajectory": "stable",
+          "recurrenceCount": 6
+        },
+        {
+          "patternType": "governance_degradation_pattern",
+          "title": "Governance Degradation: Compliance concern: deployed devices are running in evaluation mode — this creates audit exposure.",
+          "severity": "high",
+          "confidence": 0.56,
+          "status": "confirmed",
+          "trajectory": "stable",
+          "recurrenceCount": 6
+        },
+        {
+          "patternType": "delivery_drift_pattern",
+          "title": "Delivery Drift: Approval required from Cisco regional team to override the activation delay.",
+          "severity": "medium",
+          "confidence": 0.54,
+          "status": "confirmed",
+          "trajectory": "stable",
+          "recurrenceCount": 3
+        },
+        {
+          "patternType": "ambiguity_accumulation_pattern",
+          "title": "Ambiguity Accumulation: The process for MFA reset is unclear — Cisco documentation shows two different flows depending on ac",
+          "severity": "low",
+          "confidence": 0.64,
+          "status": "confirmed",
+          "trajectory": "stable",
+          "recurrenceCount": 6
+        },
+        {
+          "patternType": "stakeholder_pressure_pattern",
+          "title": "Stakeholder Pressure: Client is frustrated with the vendor response time and considers this a breach of service commitment",
+          "severity": "medium",
+          "confidence": 0.6,
+          "status": "confirmed",
+          "trajectory": "stable",
+          "recurrenceCount": 5
+        },
+        {
+          "patternType": "escalation_trajectory_pattern",
+          "title": "Escalation Trajectory: Escalation raised by client IT Director.",
+          "severity": "high",
+          "confidence": 0.52,
+          "status": "confirmed",
+          "trajectory": "stable",
+          "recurrenceCount": 5
+        },
+        {
+          "patternType": "recurring_dependency_pattern",
+          "title": "Recurring Dependency: Dependency: network policy configuration depends on DNA Center access.",
+          "severity": "medium",
+          "confidence": 0.8,
+          "status": "chronic",
+          "trajectory": "stable",
+          "recurrenceCount": 11
+        },
+        {
+          "patternType": "recovery_pattern",
+          "title": "Recovery Pattern: Executive review requested: client wants weekly status call with Cisco executive until resolved.",
+          "severity": "low",
+          "confidence": 0.4,
+          "status": "recovering",
+          "trajectory": "decreasing",
+          "recurrenceCount": 3
+        }
+      ],
+      "proj-hsa-15576": [
+        {
+          "patternType": "recurring_blocker_pattern",
+          "title": "Recurring Blocker: Blocked by: civil contractor has not finished conduit installation in areas C and D.",
+          "severity": "high",
+          "confidence": 0.6,
+          "status": "confirmed",
+          "trajectory": "stable",
+          "recurrenceCount": 5
+        },
+        {
+          "patternType": "recurring_dependency_pattern",
+          "title": "Recurring Dependency: Dependency: camera installation depends on conduit availability from civil contractor.",
+          "severity": "medium",
+          "confidence": 0.64,
+          "status": "confirmed",
+          "trajectory": "stable",
+          "recurrenceCount": 7
+        },
+        {
+          "patternType": "stakeholder_pressure_pattern",
+          "title": "Stakeholder Pressure: Client sponsor is losing confidence in the project timeline.",
+          "severity": "medium",
+          "confidence": 0.79,
+          "status": "chronic",
+          "trajectory": "stable",
+          "recurrenceCount": 10
+        },
+        {
+          "patternType": "escalation_trajectory_pattern",
+          "title": "Escalation Trajectory: Escalated to our project director — requesting executive review of remaining scope.",
+          "severity": "high",
+          "confidence": 0.57,
+          "status": "confirmed",
+          "trajectory": "stable",
+          "recurrenceCount": 6
+        },
+        {
+          "patternType": "ambiguity_accumulation_pattern",
+          "title": "Ambiguity Accumulation: Ambiguity: unclear whether vendor will send advance replacement or require defective units returned ",
+          "severity": "low",
+          "confidence": 0.72,
+          "status": "chronic",
+          "trajectory": "stable",
+          "recurrenceCount": 6
+        },
+        {
+          "patternType": "delivery_drift_pattern",
+          "title": "Delivery Drift: Timeline pressure: NVR must be configured and tested before April 28 to allow full system validation",
+          "severity": "medium",
+          "confidence": 0.68,
+          "status": "chronic",
+          "trajectory": "stable",
+          "recurrenceCount": 5
+        },
+        {
+          "patternType": "governance_degradation_pattern",
+          "title": "Governance Degradation: Acceptance governance ambiguity.",
+          "severity": "high",
+          "confidence": 0.52,
+          "status": "confirmed",
+          "trajectory": "stable",
+          "recurrenceCount": 5
+        },
+        {
+          "patternType": "recovery_pattern",
+          "title": "Recovery Pattern: Back on track for the server room scope — 2 days ahead of the revised plan.",
+          "severity": "low",
+          "confidence": 0.4,
+          "status": "recovering",
+          "trajectory": "decreasing",
+          "recurrenceCount": 1
+        }
+      ]
+    },
+    "expectedMissed": [],
+    "patternReadinessImpact": 10
   }
 }

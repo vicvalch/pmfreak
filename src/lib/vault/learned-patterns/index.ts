@@ -1,0 +1,51 @@
+/**
+ * Vault Learned Pattern Layer — public exports.
+ *
+ * Consumers should import exclusively from this module, not from
+ * individual sub-modules.
+ */
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+export type {
+  LearnedPatternType,
+  PatternStatus,
+  PatternTrajectory,
+  PatternSeverity,
+  PatternPromotionReason,
+  LearnedPatternEvidence,
+  LearnedPatternSignal,
+  PatternRecurrenceProfile,
+  VaultLearnedPattern,
+  PatternContext,
+  PatternLearningResult,
+  PatternLearningContext,
+} from "./types";
+
+// ─── Learning Service (primary API) ──────────────────────────────────────────
+
+export {
+  learnPatternsFromDigestion,
+  learnPatternsForProject,
+  getLearnedPatternContext,
+  getTopOperationalPatterns,
+  updatePatternFromNutrients,
+} from "./learning-service";
+
+// ─── Scoring ──────────────────────────────────────────────────────────────────
+
+export { computePatternScores, computeRecoveryScores } from "./pattern-scoring";
+export type { PatternScores } from "./pattern-scoring";
+
+// ─── Detection Internals (for testing and advanced use) ──────────────────────
+
+export { detectRecurringSignalGroups } from "./recurrence-engine";
+export type { SignalGroup, SignalGroupMethod } from "./recurrence-engine";
+
+export { evaluatePromotionRules, detectRecoveryPatternCandidates } from "./promotion-rules";
+export type { PromotionCandidate } from "./promotion-rules";
+
+// ─── Persistence ─────────────────────────────────────────────────────────────
+
+export { persistLearnedPatterns } from "./persistence";
+export type { VaultPatternPersistenceResult } from "./persistence";
