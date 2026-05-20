@@ -35,6 +35,10 @@ export type StakeholderRelationshipSnapshot = {
   escalationTrajectory: EscalationBehavior;
   executiveAlignment: AlignmentStatus;
   stakeholderPressure: StakeholderPressureLevel;
+  // 0–100 composite volatility score: accounts for oscillating sentiment, escalation behavior,
+  // and alignment fragmentation. Higher = more volatile organizational landscape.
+  volatilityScore: number;
+  volatilityReason: string;
   profiles: StakeholderProfile[];
   signals: StakeholderRiskSignal[];
   commentary: string[];
@@ -123,6 +127,38 @@ export function calculatePoliticalRisk(input: {
   return "low";
 }
 
+const clampStakeholder = (v: number) => Math.max(0, Math.min(100, Math.round(v)));
+
+// Computes a 0–100 volatility score from current-snapshot signals.
+// Escalation acceleration = 35, fragmented alignment = 25, volatile communication = 20, critical pressure = 20.
+export function computeStakeholderVolatilityScore(input: {
+  escalation: EscalationBehavior;
+  alignment: AlignmentStatus;
+  communication: CommunicationVolatility;
+  pressure: StakeholderPressureLevel;
+}): { score: number; reason: string } {
+  let score = 0;
+  const reasons: string[] = [];
+
+  if (input.escalation === "accelerating") { score += 35; reasons.push("escalation accelerating"); }
+  else if (input.escalation === "patterned") { score += 20; reasons.push("escalation patterned"); }
+  else if (input.escalation === "reactive") { score += 8; reasons.push("escalation reactive"); }
+
+  if (input.alignment === "fragmented") { score += 25; reasons.push("alignment fragmented"); }
+  else if (input.alignment === "mixed") { score += 12; reasons.push("alignment mixed"); }
+
+  if (input.communication === "volatile") { score += 20; reasons.push("communication volatile"); }
+  else if (input.communication === "watching") { score += 8; reasons.push("communication watchful"); }
+
+  if (input.pressure === "critical") { score += 20; reasons.push("stakeholder pressure critical"); }
+  else if (input.pressure === "high") { score += 10; reasons.push("stakeholder pressure high"); }
+
+  return {
+    score: clampStakeholder(score),
+    reason: reasons.length > 0 ? reasons.join("; ") : "no significant volatility signals detected",
+  };
+}
+
 export function buildStakeholderRelationshipSnapshot(projectId: string | null, snapshot: ProjectMemorySnapshot | null): StakeholderRelationshipSnapshot {
   const stakeholders = snapshot?.stakeholders ?? [];
   const pressure = detectStakeholderPressure(stakeholders);
@@ -134,6 +170,7 @@ export function buildStakeholderRelationshipSnapshot(projectId: string | null, s
   const executiveStakeholders = stakeholders.filter((s) => normalizeInfluence(s) === "executive" || s.influence === "high");
   const executiveAlignment = detectAlignmentRisk(executiveStakeholders);
   const executivePressure: StakeholderRelationshipSnapshot["executivePressure"] = pressure === "critical" || escalation === "accelerating" ? "critical" : pressure === "high" ? "increasing" : "stable";
+  const { score: volatilityScore, reason: volatilityReason } = computeStakeholderVolatilityScore({ escalation, alignment, communication, pressure });
 
   const profiles = stakeholders.map<StakeholderProfile>((s) => ({
     name: s.name,
@@ -192,6 +229,8 @@ export function buildStakeholderRelationshipSnapshot(projectId: string | null, s
     escalationTrajectory: escalation,
     executiveAlignment,
     stakeholderPressure: pressure,
+    volatilityScore,
+    volatilityReason,
     profiles,
     signals,
     commentary,

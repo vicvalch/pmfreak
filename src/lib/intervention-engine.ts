@@ -2,6 +2,7 @@ import { buildExecutionRiskSnapshot } from "@/lib/execution-risk";
 import type { ProjectMemorySnapshot } from "@/lib/memory/organization-memory";
 import { buildStakeholderRelationshipSnapshot } from "@/lib/stakeholder-intelligence";
 import { detectCoordinationCollapseRisk, detectOrganizationalDrift, type CoordinationCollapseRisk } from "@/lib/cross-signal-reasoning";
+import type { AdaptiveOperationalProfile } from "@/lib/adaptive-operational-intelligence";
 
 export type InterventionSeverity = "none" | "watch" | "elevated" | "critical";
 export type InterventionCategory = "delivery_recovery" | "stakeholder_alignment" | "execution_unblock" | "capacity_protection" | "escalation_governance";
@@ -177,9 +178,15 @@ export function detectExecutionDeadlock(snapshot: ProjectMemorySnapshot | null):
 export function generateInterventionRecommendations(
   triggers: InterventionTrigger[],
   snapshot?: ProjectMemorySnapshot | null,
+  adaptiveProfile?: AdaptiveOperationalProfile | null,
 ): InterventionRecommendation[] {
   const active = new Set(triggers.filter((item) => item.active).map((item) => item.key));
   const recommendations: InterventionRecommendation[] = [];
+
+  // Adaptive context: enrich rationale with recurrence and fatigue signals when available.
+  const failureCycle = adaptiveProfile?.patterns.find((p) => p.type === "repeated_failure_cycle" && p.confidence >= 50);
+  const interventionFatigue = adaptiveProfile?.patterns.find((p) => p.type === "intervention_fatigue" && p.confidence >= 50);
+  const recoveryPattern = adaptiveProfile?.patterns.find((p) => p.type === "recovery_pattern" && p.confidence >= 45);
 
   // Pull actual operational entities for grounded action text
   const topBlocker = snapshot?.project.blockers[0];
@@ -192,45 +199,63 @@ export function generateInterventionRecommendations(
 
   if (active.has("unresolved_blockers_increasing") || active.has("unstable_delivery_cadence")) {
     const blockerRef = topBlocker ? `"${topBlocker.slice(0, 60)}${topBlocker.length > 60 ? "…" : ""}"` : null;
+    // When a recovery pattern is active, reduce urgency and recommend monitoring instead of escalation.
+    const isImproving = recoveryPattern && !failureCycle;
+    const recurrenceNote = failureCycle
+      ? ` This blocker pattern has recurred ${failureCycle.recurrenceCount} time${failureCycle.recurrenceCount !== 1 ? "s" : ""} — root-cause action is needed, not another point-in-time intervention.`
+      : "";
     recommendations.push({
       category: "execution_unblock",
-      severity: "elevated",
+      severity: isImproving ? "watch" : "elevated",
       triggerKeys: (["unresolved_blockers_increasing", "unstable_delivery_cadence"] as const).filter((key) => active.has(key)),
-      action: blockerRef
-        ? `Assign owner and deadline for oldest active blocker: ${blockerRef}.`
-        : "Run a blocker-burn session — assign owner and deadline to each of the unresolved execution constraints.",
-      rationale: `${blockerCount} unresolved item${blockerCount !== 1 ? "s" : ""} accumulating without owner accountability. Execution stability declining.`,
+      action: isImproving
+        ? "Monitor blocker resolution — recovery signals are active. Confirm ownership before escalating."
+        : (blockerRef
+            ? `Assign owner and deadline for oldest active blocker: ${blockerRef}.`
+            : "Run a blocker-burn session — assign owner and deadline to each of the unresolved execution constraints."),
+      rationale: `${blockerCount} unresolved item${blockerCount !== 1 ? "s" : ""} accumulating without owner accountability. Execution stability declining.${recurrenceNote}`,
     });
   }
   if (active.has("pressure_confidence_divergence") || active.has("repeated_escalation_without_resolution")) {
     const stakeholderRef = pressuredStakeholders.length > 0 ? ` (${pressuredStakeholders.join(", ")})` : "";
     const decisionRef = unresolvedDecisionCount > 0 ? ` ${unresolvedDecisionCount} unresolved decision${unresolvedDecisionCount !== 1 ? "s" : ""} pending.` : "";
+    const fatigueNote = interventionFatigue
+      ? ` This recommendation is escalated because the same escalation pattern has recurred without improvement — standard alignment checkpoints have not resolved the underlying pressure.`
+      : "";
     recommendations.push({
       category: "stakeholder_alignment",
       severity: "critical",
       triggerKeys: (["pressure_confidence_divergence", "repeated_escalation_without_resolution"] as const).filter((key) => active.has(key)),
-      action: `Reset stakeholder expectations with a single alignment checkpoint — clarify tradeoffs, decision gates, and delivery confidence${stakeholderRef}.`,
-      rationale: `Escalation pressure${stakeholderRef} exceeds delivery confidence.${decisionRef} Pattern indicates organizational misalignment.`,
+      action: interventionFatigue
+        ? `Escalate to executive steering — standard alignment checkpoints are not resolving stakeholder pressure${stakeholderRef}. Structural intervention required.`
+        : `Reset stakeholder expectations with a single alignment checkpoint — clarify tradeoffs, decision gates, and delivery confidence${stakeholderRef}.`,
+      rationale: `Escalation pressure${stakeholderRef} exceeds delivery confidence.${decisionRef} Pattern indicates organizational misalignment.${fatigueNote}`,
     });
   }
   if (active.has("no_recent_execution_updates") || active.has("organizational_silence_after_escalation")) {
     const daysSilent = triggers.find((t) => t.key === "no_recent_execution_updates")?.active ? "7+" : "10+";
+    const persistenceNote = failureCycle
+      ? ` This pattern has persisted across ${failureCycle.recurrenceCount} operational records — silence following escalation is a recurring cycle, not a one-time gap.`
+      : "";
     recommendations.push({
       category: "delivery_recovery",
       severity: "elevated",
       triggerKeys: (["no_recent_execution_updates", "organizational_silence_after_escalation"] as const).filter((key) => active.has(key)),
       action: "Re-establish operating cadence: enforce a deterministic update window with explicit owner accountability within 24h.",
-      rationale: `${daysSilent} days without execution signal. Operational drift detected across delivery checkpoints.`,
+      rationale: `${daysSilent} days without execution signal. Operational drift detected across delivery checkpoints.${persistenceNote}`,
     });
   }
 
   if (recommendations.length === 0) {
+    const monitorNote = recoveryPattern
+      ? " Recovery signals are active — this issue is improving. Continue monitoring."
+      : "";
     recommendations.push({
       category: "capacity_protection",
       severity: "watch",
       triggerKeys: [],
       action: "Maintain current execution cadence and monitor intervention thresholds daily.",
-      rationale: "No deterministic threshold breach currently requires intervention.",
+      rationale: `No deterministic threshold breach currently requires intervention.${monitorNote}`,
     });
   }
 
@@ -272,7 +297,7 @@ export function generateEscalationRecommendations(input: { escalationProbability
 // Architectural runway: deterministic intervention snapshots intentionally preserve typed machine rails
 // for autonomous escalation agents, AI-driven intervention orchestration, PM coaching systems,
 // portfolio-wide intervention prioritization, organizational execution graphs, and AI execution governance.
-export function buildInterventionSnapshot(projectId: string | null, snapshot: ProjectMemorySnapshot | null): InterventionSnapshot {
+export function buildInterventionSnapshot(projectId: string | null, snapshot: ProjectMemorySnapshot | null, adaptiveProfile?: AdaptiveOperationalProfile | null): InterventionSnapshot {
   const executionRisk = buildExecutionRiskSnapshot(projectId, snapshot);
   const stakeholderIntel = buildStakeholderRelationshipSnapshot(projectId, snapshot);
   const deliveryInstability = detectDeliveryInstability(snapshot);
@@ -392,7 +417,7 @@ export function buildInterventionSnapshot(projectId: string | null, snapshot: Pr
 
   const escalationProbability = detectEscalationNeed({ deliveryInstability, operationalDriftSignal, stakeholderBreakdown, executionDeadlock });
   const interventionUrgency = toSeverity(clamp((deliveryInstability.instabilityScore + operationalDriftSignal.driftScore + escalationProbability) / 3));
-  const interventions = generateInterventionRecommendations(triggers, snapshot);
+  const interventions = generateInterventionRecommendations(triggers, snapshot, adaptiveProfile);
   const escalations = generateEscalationRecommendations({ escalationProbability, stakeholderBreakdown, executionDeadlock, operationalDriftSignal });
 
   const interventionRequired = interventionUrgency === "elevated" || interventionUrgency === "critical";
