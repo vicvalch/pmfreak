@@ -100,7 +100,8 @@ function correlateSignals(records: OperationalMemoryRecord[]): OperationalSignal
     { id: "governance-failure", signalType: "governance_failure", score: governanceFailureAdjusted, domain: "pmo_governance", confidence: gov.length ? 88 : 50 },
   ];
 
-  return signals.filter((s) => s.score > 0);
+  // Only emit a signal if there are actual records to back it — no phantom signals from empty domains
+  return signals.filter((s) => s.score > 0 && s.confidence >= 50);
 }
 
 function buildInsights(signals: OperationalSignal[], escalation: EscalationRisk, records: OperationalMemoryRecord[]): ExecutiveInsight[] {
@@ -156,7 +157,7 @@ function buildInsights(signals: OperationalSignal[], escalation: EscalationRisk,
       title: "Operational state within normal thresholds",
       summary: `No multi-domain escalation pattern detected across ${domainCount} domain${domainCount !== 1 ? "s" : ""} monitored.`,
       relatedDomains: ["operational_memory"],
-      confidence: 72,
+      confidence: avgSignalConf,
     });
   }
 
