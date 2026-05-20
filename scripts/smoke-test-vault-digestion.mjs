@@ -1743,6 +1743,34 @@ function runSmokeTest() {
     console.log('');
   }
 
+  // Phase 7: Learned pattern analysis
+  console.log('\n→ Phase 7: Running learned pattern analysis...');
+  const learnedPatternAnalysis = runLearnedPatternAnalysis(digestedResults);
+  console.log(`  ✓ Learned patterns detected: ${learnedPatternAnalysis.totalPatterns}`);
+  const patternTypeCounts = Object.entries(learnedPatternAnalysis.typeDistribution)
+    .sort((a, b) => b[1] - a[1])
+    .map(([t, c]) => `${t}(${c})`).join(', ');
+  if (patternTypeCounts) console.log(`  ✓ Pattern type distribution: ${patternTypeCounts}`);
+
+  // Validate expected patterns
+  const expectedMissed = [];
+  for (const [projectId, expectedTypes] of Object.entries(EXPECTED_PATTERNS_BY_PROJECT)) {
+    const projectPatterns = learnedPatternAnalysis.byProject[projectId] ?? [];
+    const detectedTypes = new Set(projectPatterns.map((p) => p.patternType));
+    for (const expectedType of expectedTypes) {
+      if (!detectedTypes.has(expectedType)) {
+        expectedMissed.push({ projectId, missingType: expectedType });
+      }
+    }
+  }
+  if (expectedMissed.length > 0) {
+    console.log(`  ⚠ Missing expected patterns: ${expectedMissed.length}`);
+    expectedMissed.forEach((m) => console.log(`    - [${m.projectId}] expected ${m.missingType}`));
+  } else {
+    console.log(`  ✓ All expected pattern types detected across projects`);
+  }
+  console.log('');
+
   const elapsedMs = Date.now() - startTime;
   console.log(`Smoke test completed in ${elapsedMs}ms\n`);
 
@@ -1760,8 +1788,14 @@ function runSmokeTest() {
   }
 
   const afterSignalQualityPct = Math.round(allNutrients.filter((n) => n.scoring.confidence >= 0.7).length / Math.max(1, allNutrients.length) * 100);
+
+  // Compute pattern readiness score impact
+  const patternReadinessImpact = learnedPatternAnalysis.totalPatterns > 0
+    ? Math.min(10, Math.round(learnedPatternAnalysis.totalPatterns * 0.7))
+    : 0;
+
   const report = {
-    metadata: { generatedAt: new Date().toISOString(), artifactCount: SIMULATION_ARTIFACTS.length, elapsedMs, smokeTestVersion: '1.1.0', datasetDescription: 'LATAM Enterprise PM — 5 projects across 51 operational artifacts' },
+    metadata: { generatedAt: new Date().toISOString(), artifactCount: SIMULATION_ARTIFACTS.length, elapsedMs, smokeTestVersion: '1.2.0', datasetDescription: 'LATAM Enterprise PM — 5 projects across 51 operational artifacts' },
     overview: { totalNutrients: allNutrients.length, totalResidue: allResidue.length, avgNutrientsPerArtifact: parseFloat(signalDensity.avgNutrients.toFixed(2)), avgResiduePerArtifact: parseFloat(signalDensity.avgResidue.toFixed(2)), projectCount: 5 },
     beforeAfterComparison: {
       before: BASELINE_METRICS,
@@ -1780,6 +1814,18 @@ function runSmokeTest() {
     },
     decayObservations,
     cognitionReadinessScore: readiness,
+    learnedPatterns: {
+      totalPatterns: learnedPatternAnalysis.totalPatterns,
+      typeDistribution: learnedPatternAnalysis.typeDistribution,
+      byProject: Object.fromEntries(
+        Object.entries(learnedPatternAnalysis.byProject).map(([k, patterns]) => [
+          k,
+          patterns.map((p) => ({ patternType: p.patternType, title: p.title, severity: p.severity, confidence: p.confidence, status: p.status, trajectory: p.trajectory, recurrenceCount: p.recurrenceCount })),
+        ])
+      ),
+      expectedMissed,
+      patternReadinessImpact,
+    },
   };
 
   // ─── Write JSON report ──────────────────────────────────────────────────────
@@ -1896,7 +1942,39 @@ function buildMarkdownReport(report, digestedResults) {
   lines.push(`| **OVERALL** | **${report.cognitionReadinessScore.overall}/100** |`);
   lines.push('');
 
-  lines.push('## 9. Validation Summary');
+  lines.push('## 9. Learned Patterns');
+  lines.push('');
+  lines.push(`**Total patterns detected:** ${report.learnedPatterns.totalPatterns}`);
+  lines.push('');
+  if (report.learnedPatterns.totalPatterns > 0) {
+    lines.push('### Pattern Type Distribution');
+    lines.push('| Pattern Type | Count |');
+    lines.push('|-------------|-------|');
+    for (const [type, count] of Object.entries(report.learnedPatterns.typeDistribution).sort((a, b) => b[1] - a[1])) {
+      lines.push(`| ${type} | ${count} |`);
+    }
+    lines.push('');
+    lines.push('### Patterns by Project');
+    for (const [projectId, patterns] of Object.entries(report.learnedPatterns.byProject)) {
+      lines.push(`**${projectId}** (${patterns.length} patterns)`);
+      for (const p of patterns) {
+        lines.push(`- ${p.patternType} | severity: ${p.severity} | confidence: ${p.confidence} | status: ${p.status} | recurrences: ${p.recurrenceCount}`);
+      }
+      lines.push('');
+    }
+    if (report.learnedPatterns.expectedMissed.length > 0) {
+      lines.push('### ⚠ Missing Expected Patterns');
+      for (const m of report.learnedPatterns.expectedMissed) {
+        lines.push(`- [${m.projectId}] Expected: ${m.missingType}`);
+      }
+      lines.push('');
+    } else {
+      lines.push('✓ All expected pattern types detected.');
+      lines.push('');
+    }
+  }
+
+  lines.push('## 10. Validation Summary');
   lines.push('');
   lines.push(`| Check | Result |`);
   lines.push(`|-------|--------|`);
@@ -1909,6 +1987,292 @@ function buildMarkdownReport(report, digestedResults) {
 
   return lines.join('\n');
 }
+
+// ─── Learned Pattern Engine (mirrors src/lib/vault/learned-patterns/*) ────────
+// Inline JS implementation mirrors TypeScript source for deterministic validation.
+
+const PATTERN_STOP_WORDS = new Set([
+  'the', 'a', 'an', 'is', 'are', 'was', 'has', 'have', 'been', 'be',
+  'to', 'of', 'in', 'for', 'on', 'with', 'as', 'by', 'at', 'from',
+  'that', 'this', 'it', 'its', 'and', 'or', 'but', 'not', 'so',
+  'we', 'our', 'they', 'their', 'you', 'your', 'will', 'can',
+  'still', 'now', 'also', 'just', 'very', 'some', 'any', 'all',
+  'being', 'would', 'could', 'should', 'may', 'might', 'must',
+  'shall', 'does', 'did', 'had', 'into', 'than', 'then',
+]);
+
+function extractPatternThemeWords(text) {
+  return text.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/)
+    .filter((w) => w.length > 3 && !PATTERN_STOP_WORDS.has(w)).slice(0, 6);
+}
+
+function buildPatternThemeKey(type, summary) {
+  return `${type}:${extractPatternThemeWords(summary).slice(0, 3).join('_')}`;
+}
+
+function patternJaccard(a, b) {
+  const sa = new Set(a); const sb = new Set(b);
+  const inter = [...sa].filter((x) => sb.has(x)).length;
+  const union = new Set([...sa, ...sb]).size;
+  return union === 0 ? 0 : inter / union;
+}
+
+function nutrientToPatternSignal(n) {
+  return {
+    nutrientId: n.id,
+    nutrientType: n.nutrientType,
+    summary: n.summary,
+    artifactId: n.evidence[0]?.sourceArtifactId ?? null,
+    digestionRunId: n.digestionRunId,
+    createdAt: n.createdAt,
+    severity: n.scoring.severity,
+    confidence: n.scoring.confidence,
+  };
+}
+
+function computePatternRecurrenceProfile(signals) {
+  const distinctArtifacts = new Set(signals.map((s) => s.artifactId).filter(Boolean)).size;
+  const distinctRuns = new Set(signals.map((s) => s.digestionRunId)).size;
+  const ts = signals.map((s) => Date.parse(s.createdAt)).filter((t) => !isNaN(t));
+  const timeSpanDays = ts.length > 1 ? (Math.max(...ts) - Math.min(...ts)) / 86_400_000 : 0;
+  const multiDaySpread = new Set(signals.map((s) => s.createdAt.slice(0, 10))).size > 1;
+  return { totalOccurrences: signals.length, distinctArtifacts, distinctDigestionRuns: distinctRuns, timeSpanDays: Math.round(timeSpanDays * 10) / 10, multiDaySpread };
+}
+
+function detectPatternThemeGroups(nutrients) {
+  const augmented = nutrients.map((n) => ({
+    ...nutrientToPatternSignal(n),
+    themeKey: buildPatternThemeKey(n.nutrientType, n.summary),
+    themeWords: extractPatternThemeWords(n.summary),
+    workspaceId: n.workspaceId,
+    projectId: n.projectId,
+  }));
+  const exactGroups = new Map();
+  for (const sig of augmented) {
+    const key = `${sig.workspaceId}:${sig.projectId ?? ''}:${sig.themeKey}`;
+    const ex = exactGroups.get(key); if (ex) ex.push(sig); else exactGroups.set(key, [sig]);
+  }
+  const groupEntries = [...exactGroups.entries()].map(([k, sigs]) => ({
+    key: k, sigs, nutrientType: sigs[0].nutrientType, themeWords: sigs[0].themeWords,
+    wpScope: `${sigs[0].workspaceId}:${sigs[0].projectId ?? ''}`,
+    workspaceId: sigs[0].workspaceId, projectId: sigs[0].projectId,
+  }));
+  const mergedIdx = new Set(); const mergedGroups = [];
+  for (let i = 0; i < groupEntries.length; i++) {
+    if (mergedIdx.has(i)) continue;
+    let cur = { ...groupEntries[i], sigs: [...groupEntries[i].sigs] };
+    for (let j = i + 1; j < groupEntries.length; j++) {
+      if (mergedIdx.has(j)) continue;
+      const other = groupEntries[j];
+      if (cur.nutrientType !== other.nutrientType || cur.wpScope !== other.wpScope) continue;
+      if (patternJaccard(cur.themeWords, other.themeWords) >= 0.4) {
+        cur = { ...cur, sigs: [...cur.sigs, ...other.sigs] }; mergedIdx.add(j);
+      }
+    }
+    mergedGroups.push(cur);
+  }
+  const result = [];
+  for (const g of mergedGroups) {
+    const distinctRuns = new Set(g.sigs.map((s) => s.digestionRunId));
+    if (distinctRuns.size < 2) continue;
+    const signals = g.sigs.map(({ themeKey: _tk, themeWords: _tw, wpScope: _ws, workspaceId: _wid, projectId: _pid, ...rest }) => rest);
+    result.push({ groupKey: g.key, primaryNutrientType: g.nutrientType, groupingMethod: 'specific_theme', signals, recurrenceProfile: computePatternRecurrenceProfile(signals), involvedNutrientIds: signals.map((s) => s.nutrientId), workspaceId: g.workspaceId, projectId: g.projectId });
+  }
+  return result;
+}
+
+function detectPatternProjectTypeAggregates(nutrients) {
+  const groups = new Map();
+  for (const n of nutrients) {
+    const key = `${n.workspaceId}:${n.projectId ?? ''}:${n.nutrientType}`;
+    const ex = groups.get(key); if (ex) ex.push(n); else groups.set(key, [n]);
+  }
+  const result = [];
+  for (const [key, gNutrients] of groups) {
+    const signals = gNutrients.map(nutrientToPatternSignal);
+    const distinctRuns = new Set(signals.map((s) => s.digestionRunId));
+    // Minimum bar: 2+ occurrences from 2+ distinct runs.
+    // Promotion rules apply type-specific thresholds on top.
+    if (signals.length < 2 || distinctRuns.size < 2) continue;
+    const profile = computePatternRecurrenceProfile(signals);
+    result.push({ groupKey: `project-agg:${key}`, primaryNutrientType: gNutrients[0].nutrientType, groupingMethod: 'project_type_aggregate', signals, recurrenceProfile: profile, involvedNutrientIds: signals.map((s) => s.nutrientId), workspaceId: gNutrients[0].workspaceId, projectId: gNutrients[0].projectId });
+  }
+  return result;
+}
+
+function detectRecurringPatternSignalGroups(nutrients) {
+  const themeGroups = detectPatternThemeGroups(nutrients);
+  const aggregateGroups = detectPatternProjectTypeAggregates(nutrients);
+  const coveredByTheme = new Set(themeGroups.map((g) => `${g.workspaceId}:${g.projectId ?? ''}:${g.primaryNutrientType}`));
+  const filteredAggregates = aggregateGroups.filter((ag) => !coveredByTheme.has(`${ag.workspaceId}:${ag.projectId ?? ''}:${ag.primaryNutrientType}`));
+  return [...themeGroups, ...filteredAggregates];
+}
+
+const SEVERITY_RANK = { low: 1, medium: 2, high: 3, critical: 4 };
+
+function highestPatternSeverity(severities) {
+  return severities.reduce((best, s) => SEVERITY_RANK[s] > SEVERITY_RANK[best] ? s : best, 'low');
+}
+
+function computePatternTrajectory(group) {
+  const sigs = [...group.signals].sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
+  if (sigs.length < 2) return 'unknown';
+  const mid = Math.ceil(sigs.length / 2);
+  const avgFirst = sigs.slice(0, mid).reduce((s, x) => s + (SEVERITY_RANK[x.severity] ?? 2), 0) / mid;
+  const avgSecond = sigs.slice(mid).reduce((s, x) => s + (SEVERITY_RANK[x.severity] ?? 2), 0) / Math.max(1, sigs.length - mid);
+  if (avgSecond > avgFirst + 0.5) return 'increasing';
+  if (avgFirst > avgSecond + 0.5) return 'decreasing';
+  return 'stable';
+}
+
+function computePatternStatus(group) {
+  const { totalOccurrences, distinctDigestionRuns } = group.recurrenceProfile;
+  if (totalOccurrences >= 5 && distinctDigestionRuns >= 4) return 'chronic';
+  if (totalOccurrences >= 3 && distinctDigestionRuns >= 2) return 'confirmed';
+  return 'emerging';
+}
+
+function computePatternScores(group) {
+  const { totalOccurrences, distinctArtifacts, distinctDigestionRuns, timeSpanDays } = group.recurrenceProfile;
+  const occF = Math.min(1, totalOccurrences / 6);
+  const runF = Math.min(1, distinctDigestionRuns / 5);
+  const timeF = Math.min(1, timeSpanDays / 14);
+  const recurrenceStrength = 0.4 * occF + 0.4 * runF + 0.2 * timeF;
+  const avgConf = group.signals.reduce((s, x) => s + x.confidence, 0) / Math.max(1, group.signals.length);
+  const artF = Math.min(1, distinctArtifacts / 5);
+  const evidenceStrength = 0.6 * avgConf + 0.4 * artF;
+  const confidence = Math.round((0.6 * recurrenceStrength + 0.4 * evidenceStrength) * 100) / 100;
+  const severity = highestPatternSeverity(group.signals.map((s) => s.severity));
+  return { recurrenceStrength: Math.round(recurrenceStrength * 100) / 100, evidenceStrength: Math.round(evidenceStrength * 100) / 100, confidence, severity, trajectory: computePatternTrajectory(group) };
+}
+
+function evaluatePatternPromotionRules(group) {
+  const { primaryNutrientType: type, recurrenceProfile: rp } = group;
+  const { totalOccurrences: occ, distinctDigestionRuns: runs } = rp;
+  const severity = highestPatternSeverity(group.signals.map((s) => s.severity));
+  const top = [...group.signals].sort((a, b) => b.confidence - a.confidence)[0]?.summary?.slice(0, 100) ?? 'unknown';
+  const status = computePatternStatus(group);
+  const trajectory = computePatternTrajectory(group);
+
+  if (type === 'blocker_signal' && occ >= 3 && runs >= 2 && severity !== 'low')
+    return { patternType: 'recurring_blocker_pattern', promotionReason: 'repeated_blocker_threshold_met', title: `Recurring Blocker: ${top}`, summary: `A blocker has recurred ${occ} times across ${runs} digestion runs.`, severity, status, trajectory };
+  if (type === 'dependency_signal' && occ >= 3 && runs >= 2)
+    return { patternType: 'recurring_dependency_pattern', promotionReason: 'repeated_dependency_threshold_met', title: `Recurring Dependency: ${top}`, summary: `A dependency has recurred ${occ} times across ${runs} runs.`, severity, status, trajectory };
+  if (type === 'financial_impediment_signal' && occ >= 2 && runs >= 2)
+    return { patternType: 'financial_friction_pattern', promotionReason: 'financial_friction_threshold_met', title: `Financial Friction: ${top}`, summary: `A financial impediment has recurred ${occ} times across ${runs} runs.`, severity, status, trajectory };
+  if (type === 'governance_gap_signal' && occ >= 2 && runs >= 2)
+    return { patternType: 'governance_degradation_pattern', promotionReason: 'governance_gap_accumulation', title: `Governance Degradation: ${top}`, summary: `Governance gaps have recurred ${occ} times across ${runs} runs.`, severity, status, trajectory };
+  if (type === 'escalation_signal' && occ >= 2 && runs >= 2)
+    return { patternType: 'escalation_trajectory_pattern', promotionReason: 'escalation_frequency_threshold', title: `Escalation Trajectory: ${top}`, summary: `Escalation signals have recurred ${occ} times across ${runs} runs.`, severity, status, trajectory };
+  if (type === 'stakeholder_signal' && occ >= 3 && runs >= 2)
+    return { patternType: 'stakeholder_pressure_pattern', promotionReason: 'stakeholder_pressure_accumulation', title: `Stakeholder Pressure: ${top}`, summary: `Stakeholder pressure has appeared ${occ} times across ${runs} runs.`, severity, status, trajectory };
+  if ((type === 'delivery_drift_signal' || type === 'timeline_pressure_signal') && occ >= 2 && runs >= 2)
+    return { patternType: 'delivery_drift_pattern', promotionReason: 'delivery_drift_accumulation', title: `Delivery Drift: ${top}`, summary: `Delivery drift has recurred ${occ} times across ${runs} runs.`, severity, status, trajectory };
+  if (type === 'ambiguity_signal' && occ >= 3 && runs >= 2)
+    return { patternType: 'ambiguity_accumulation_pattern', promotionReason: 'ambiguity_accumulation_threshold', title: `Ambiguity Accumulation: ${top}`, summary: `Ambiguity signals have accumulated ${occ} times across ${runs} runs.`, severity, status, trajectory };
+  if (type === 'risk_signal' && occ >= 3 && runs >= 3 && rp.timeSpanDays >= 3)
+    return { patternType: 'chronic_risk_pattern', promotionReason: 'chronic_risk_persistence', title: `Chronic Risk: ${top}`, summary: `Risk signals have persisted ${occ} times across ${runs} runs over ${Math.round(rp.timeSpanDays)} days.`, severity, status, trajectory };
+  return null;
+}
+
+function detectPatternRecoveryCandidates(nutrients, residue) {
+  const recoveries = nutrients.filter((n) => n.nutrientType === 'recovery_signal');
+  const antecedents = nutrients.filter((n) => ['blocker_signal', 'risk_signal', 'dependency_signal'].includes(n.nutrientType));
+  const scopeKeys = new Set(nutrients.map((n) => `${n.workspaceId}:${n.projectId ?? ''}`));
+  const results = [];
+  for (const scopeKey of scopeKeys) {
+    const [ws, proj] = scopeKey.split(':', 2);
+    const sr = recoveries.filter((n) => n.workspaceId === ws && (n.projectId ?? '') === (proj ?? ''));
+    const sa = antecedents.filter((n) => n.workspaceId === ws && (n.projectId ?? '') === (proj ?? ''));
+    if (sr.length < 1 || sa.length < 2) continue;
+    const earliestA = Math.min(...sa.map((n) => Date.parse(n.createdAt)).filter((t) => !isNaN(t)));
+    const latestR = Math.max(...sr.map((n) => Date.parse(n.createdAt)).filter((t) => !isNaN(t)));
+    if (latestR <= earliestA) continue;
+    const topR = [...sr].sort((a, b) => b.scoring.confidence - a.scoring.confidence)[0];
+    results.push({ patternType: 'recovery_pattern', promotionReason: 'recovery_after_blockers', title: `Recovery Pattern: ${topR.summary.slice(0, 100)}`, summary: `Recovery signals appeared after ${sa.length} blocker/risk signals.`, severity: 'low', status: 'recovering', trajectory: 'decreasing', workspaceId: ws, projectId: proj || null, involvedNutrientIds: [...sr.map((n) => n.id), ...sa.map((n) => n.id)], involvedResidueIds: residue.filter((r) => r.workspaceId === ws && (r.projectId ?? '') === (proj ?? '')).map((r) => r.id) });
+  }
+  return results;
+}
+
+function buildPatternEvidenceReferences(patternId, workspaceId, nutrients, involvedNutrientIds) {
+  const inv = new Set(involvedNutrientIds);
+  const now = new Date().toISOString();
+  return nutrients.filter((n) => inv.has(n.id)).slice(0, 10).map((n) => ({
+    id: crypto.randomUUID(), patternId, workspaceId, nutrientId: n.id, residueId: null,
+    sourceArtifactId: n.evidence[0]?.sourceArtifactId ?? null,
+    excerpt: (n.evidence[0]?.excerpt ?? n.summary).slice(0, 300),
+    evidenceTimestamp: n.evidence[0]?.timestamp ?? n.createdAt,
+    contributionReason: `${n.nutrientType} matched with confidence ${n.scoring.confidence.toFixed(2)}`,
+    createdAt: now,
+  }));
+}
+
+function buildPatternsFromNutrientsJS(allNutrients, allResidue) {
+  const now = new Date().toISOString();
+  const groups = detectRecurringPatternSignalGroups(allNutrients);
+  const patterns = [];
+
+  for (const group of groups) {
+    const candidate = evaluatePatternPromotionRules(group);
+    if (!candidate) continue;
+    const scores = computePatternScores(group);
+    const patternId = crypto.randomUUID();
+    const sortedSigs = [...group.signals].sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
+    const firstSeenAt = sortedSigs[0]?.createdAt ?? now;
+    const lastSeenAt = sortedSigs[sortedSigs.length - 1]?.createdAt ?? now;
+    const evidenceReferences = buildPatternEvidenceReferences(patternId, group.workspaceId, allNutrients, group.involvedNutrientIds);
+    patterns.push({ id: patternId, workspaceId: group.workspaceId, projectId: group.projectId, patternType: candidate.patternType, title: candidate.title, summary: candidate.summary, firstSeenAt, lastSeenAt, recurrenceCount: group.recurrenceProfile.totalOccurrences, involvedNutrientIds: group.involvedNutrientIds, involvedResidueIds: [], evidenceReferences, confidence: scores.confidence, severity: scores.severity, trajectory: scores.trajectory, status: candidate.status, promotionReason: candidate.promotionReason, recurrenceProfile: group.recurrenceProfile, createdAt: now, updatedAt: now });
+  }
+
+  const recoveryCandidates = detectPatternRecoveryCandidates(allNutrients, allResidue);
+  for (const rc of recoveryCandidates) {
+    const patternId = crypto.randomUUID();
+    const recovNuts = allNutrients.filter((n) => n.nutrientType === 'recovery_signal' && n.workspaceId === rc.workspaceId && (n.projectId ?? '') === (rc.projectId ?? ''));
+    const antNuts = allNutrients.filter((n) => ['blocker_signal','risk_signal','dependency_signal'].includes(n.nutrientType) && n.workspaceId === rc.workspaceId && (n.projectId ?? '') === (rc.projectId ?? ''));
+    const allSorted = [...recovNuts, ...antNuts].sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
+    const evidenceReferences = buildPatternEvidenceReferences(patternId, rc.workspaceId, allNutrients, rc.involvedNutrientIds);
+    patterns.push({ id: patternId, workspaceId: rc.workspaceId, projectId: rc.projectId, patternType: 'recovery_pattern', title: rc.title, summary: rc.summary, firstSeenAt: allSorted[0]?.createdAt ?? now, lastSeenAt: allSorted[allSorted.length - 1]?.createdAt ?? now, recurrenceCount: recovNuts.length, involvedNutrientIds: rc.involvedNutrientIds, involvedResidueIds: rc.involvedResidueIds, evidenceReferences, confidence: 0.4, severity: 'low', trajectory: 'decreasing', status: 'recovering', promotionReason: 'recovery_after_blockers', recurrenceProfile: { totalOccurrences: recovNuts.length, distinctArtifacts: new Set(recovNuts.map((n) => n.evidence[0]?.sourceArtifactId).filter(Boolean)).size, distinctDigestionRuns: new Set(recovNuts.map((n) => n.digestionRunId)).size, timeSpanDays: 0, multiDaySpread: false }, createdAt: now, updatedAt: now });
+  }
+
+  return patterns;
+}
+
+/**
+ * Runs the learned pattern analysis on all digested simulation artifacts.
+ * Returns patterns grouped by project.
+ */
+export function runLearnedPatternAnalysis(digestedResults) {
+  const allNutrients = digestedResults.flatMap((r) => r.result.nutrients);
+  const allResidue = digestedResults.flatMap((r) => r.result.residue);
+  const patterns = buildPatternsFromNutrientsJS(allNutrients, allResidue);
+
+  // Group by projectId
+  const byProject = {};
+  for (const pattern of patterns) {
+    const key = pattern.projectId ?? 'unknown';
+    if (!byProject[key]) byProject[key] = [];
+    byProject[key].push(pattern);
+  }
+
+  // Compute type distribution
+  const typeDistribution = {};
+  for (const p of patterns) {
+    typeDistribution[p.patternType] = (typeDistribution[p.patternType] ?? 0) + 1;
+  }
+
+  return { patterns, byProject, typeDistribution, totalPatterns: patterns.length };
+}
+
+/**
+ * Expected pattern types per project for smoke test validation.
+ */
+export const EXPECTED_PATTERNS_BY_PROJECT = {
+  'proj-mep-14156': ['recurring_blocker_pattern', 'recurring_dependency_pattern', 'escalation_trajectory_pattern', 'recovery_pattern'],
+  'proj-ice-9298': ['financial_friction_pattern', 'escalation_trajectory_pattern'],
+  'proj-gch-15992': ['recurring_dependency_pattern', 'governance_degradation_pattern'],
+  'proj-hsa-15576': ['recurring_blocker_pattern', 'recurring_dependency_pattern'],
+  'proj-muc-13098': ['delivery_drift_pattern'],
+};
 
 // Export for test consumption
 export { runSmokeTest, validateOverTriggering, validateUnderTriggering, validateSignalDensity, validateLineageIntegrity, validateDeterminism, digestArtifact };
