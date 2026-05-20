@@ -1,7 +1,7 @@
 import { getAuthUser } from "@/lib/auth";
 import { getCompanySubscription, updateCompanySubscription } from "@/lib/billing";
 import { denyResponse } from "@/lib/security/deny-response";
-import { enforceRuntimeAuthorization } from "@/lib/aoc/enterprise/runtime";
+import { enforceRuntimeAuthorization } from "@/aoc/runtime-consumer";
 import { getStripeServerClient } from "@/lib/stripe";
 
 type CheckoutPayload = {

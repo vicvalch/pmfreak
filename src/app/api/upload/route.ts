@@ -6,7 +6,7 @@ import { cancelUploadQuota, commitUploadQuota, reserveUploadQuota } from "@/lib/
 import mammoth from "mammoth";
 import { PDFParse } from "pdf-parse";
 import { appendOperationalMemory, extractOperationalMemoryCandidates } from "@/lib/operational-memory-v1";
-import { enforceRuntimeAuthorization } from "@/lib/aoc/enterprise/runtime";
+import { enforceRuntimeAuthorization } from "@/aoc/runtime-consumer";
 import { getUploadProvider, type StorageProvider } from "@/lib/storage/upload-provider";
 
 type ExtractionStatus = "completed" | "timeout" | "failed";
