@@ -1,6 +1,6 @@
 import { getAuthUser } from "@/lib/auth";
 import { getCompanySubscription } from "@/lib/billing";
-import { enforceRuntimeAuthorization } from "@/lib/aoc/enterprise/runtime";
+import { enforceRuntimeAuthorization } from "@/aoc/runtime-consumer";
 import { denyResponse } from "@/lib/security/deny-response";
 import { getStripeServerClient } from "@/lib/stripe";
 

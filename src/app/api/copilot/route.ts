@@ -7,7 +7,7 @@ import { buildPmNativeResponse } from "@/lib/pm-response-shaping";
 import { readProjectMemory, type StoredProjectAnalysis } from "@/lib/project-memory";
 import { getRuntimeAuthorityView } from "@/lib/aoc/runtime-observability";
 import { appendOperationalMemory, buildContinuityContext, extractOperationalMemoryCandidates } from "@/lib/operational-memory-v1";
-import { enforceRuntimeAuthorization } from "@/lib/aoc/enterprise/runtime";
+import { enforceRuntimeAuthorization } from "@/aoc/runtime-consumer";
 import { consumeExecutionGrant } from "@/lib/security/execution-grants";
 import { buildAuthorityLineage, consumeDelegatedCapability, explainDelegationChain } from "@/lib/security/delegated-capabilities";
 import { evaluateAgentAccess } from "@/lib/security/agent-access";
