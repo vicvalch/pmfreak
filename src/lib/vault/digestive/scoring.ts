@@ -3,6 +3,8 @@ import type { VaultNutrientType, VaultNutrientScoring } from "./types";
 export type ScoringInputs = {
   nutrientType: VaultNutrientType;
   confidence: number;
+  /** Deterministic significance score 0..1. Defaults to confidence if not provided. */
+  significanceScore?: number;
   isResolved?: boolean;
   isRecurring?: boolean;
 };
@@ -73,5 +75,6 @@ export function scoreNutrient(inputs: ScoringInputs): VaultNutrientScoring {
     actionability,
     evidenceStrength,
     decayProfile,
+    significanceScore: inputs.significanceScore,
   };
 }

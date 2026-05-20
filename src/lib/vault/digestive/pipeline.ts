@@ -9,6 +9,7 @@ import type {
 import { normalizeRawMaterial } from "./normalizer";
 import { extractEntities } from "./entity-extractor";
 import { extractNutrientCandidates } from "./nutrient-extractor";
+import { deduplicateCandidates } from "./deduplicator";
 import { scoreNutrient } from "./scoring";
 import { extractSemanticResidue } from "./residue";
 import { buildEvidenceLineage } from "./lineage";
@@ -23,9 +24,10 @@ import { buildEvidenceLineage } from "./lineage";
  *   A. Input normalization
  *   B. Entity extraction (rule-based)
  *   C. Nutrient candidate extraction (pattern-based)
- *   D. Evidence lineage construction
- *   E. Nutrient scoring
- *   F. Semantic residue extraction
+ *   D. Significance filtering & deduplication
+ *   E. Evidence lineage construction
+ *   F. Nutrient scoring
+ *   G. Semantic residue extraction
  */
 export function runDigestivePipeline(
   rawMaterial: VaultRawMaterial,
@@ -40,11 +42,16 @@ export function runDigestivePipeline(
   // B. Extract entities
   const entities = extractEntities(normalized.lines);
 
-  // C. Extract nutrient candidates
-  const nutrientCandidates = extractNutrientCandidates(normalized.lines);
+  // C. Extract nutrient candidates (all, including suppressed)
+  const allCandidates = extractNutrientCandidates(normalized.lines);
 
-  // D + E. Build nutrients with lineage and scoring
-  const nutrients: VaultNutrient[] = nutrientCandidates.map((candidate) => {
+  // D. Filter suppressed candidates and deduplicate active ones
+  const suppressedCandidateCount = allCandidates.filter((c) => c.suppressed).length;
+  const activeCandidates = allCandidates.filter((c) => !c.suppressed);
+  const deduplicatedCandidates = deduplicateCandidates(activeCandidates);
+
+  // E + F. Build nutrients with lineage and scoring
+  const nutrients: VaultNutrient[] = deduplicatedCandidates.map((candidate) => {
     const evidence = buildEvidenceLineage({
       rawMaterial,
       excerpt: candidate.excerpt,
@@ -55,6 +62,7 @@ export function runDigestivePipeline(
     const scoring = scoreNutrient({
       nutrientType: candidate.nutrientType,
       confidence: candidate.confidence,
+      significanceScore: candidate.significanceScore,
     });
 
     // Include entities whose excerpt overlaps with this nutrient's line
@@ -69,6 +77,7 @@ export function runDigestivePipeline(
       entities: relatedEntities,
       evidence: [evidence],
       scoring,
+      duplicateMergeCount: candidate.duplicateMergeCount,
       workspaceId: context.workspaceId,
       projectId: context.projectId,
       digestionRunId: runId,
@@ -76,7 +85,7 @@ export function runDigestivePipeline(
     };
   });
 
-  // F. Semantic residue
+  // G. Semantic residue
   const residue = extractSemanticResidue(
     normalized.lines,
     context.workspaceId,
@@ -98,6 +107,7 @@ export function runDigestivePipeline(
     nutrientCount: nutrients.length,
     residueCount: residue.length,
     entityCount: entities.length,
+    suppressedCandidateCount,
   };
 
   return { digestivePass, nutrients, residue, entities };

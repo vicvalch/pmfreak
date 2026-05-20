@@ -26,6 +26,8 @@ export type { NutrientCandidate } from "./nutrient-extractor";
 export type { NormalizedInput } from "./normalizer";
 export type { ScoringInputs } from "./scoring";
 export type { VaultPersistenceResult } from "./persistence";
+export type { DeduplicatedCandidate } from "./deduplicator";
+export { SIGNIFICANCE_THRESHOLD, STAKEHOLDER_PRESSURE_PATTERNS, evaluateSignificance } from "./significance";
 
 export type DigestVaultMaterialOptions = {
   /** Set to false to skip Supabase persistence (e.g. for dry-run/testing). Default: true */

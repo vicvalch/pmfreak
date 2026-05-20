@@ -1,4 +1,5 @@
 import type { VaultNutrientType } from "./types";
+import { evaluateSignificance } from "./significance";
 
 export type NutrientCandidate = {
   nutrientType: VaultNutrientType;
@@ -6,6 +7,9 @@ export type NutrientCandidate = {
   excerpt: string;
   matchedPattern: string;
   confidence: number; // 0..1
+  significanceScore: number;
+  suppressed: boolean;
+  suppressionReason: string | null;
 };
 
 type NutrientRule = {
@@ -166,6 +170,11 @@ const NUTRIENT_RULES: NutrientRule[] = [
   },
 ];
 
+/**
+ * Extract nutrient candidates from lines, returning ALL candidates including
+ * suppressed ones (marked with suppressed: true). The pipeline filters active
+ * candidates and counts suppressions separately.
+ */
 export function extractNutrientCandidates(lines: string[]): NutrientCandidate[] {
   const candidates: NutrientCandidate[] = [];
   const seen = new Set<string>();
@@ -188,12 +197,17 @@ export function extractNutrientCandidates(lines: string[]): NutrientCandidate[] 
       if (isResolved && nutrientType === "recovery_signal") confidence = Math.min(0.9, confidence + 0.15);
       confidence = Math.round(Math.min(0.95, confidence) * 100) / 100;
 
+      const sig = evaluateSignificance(line, nutrientType, matched.length);
+
       candidates.push({
         nutrientType,
         summary: line.slice(0, 300),
         excerpt: line.slice(0, 200),
         matchedPattern: matched[0].toString(),
         confidence,
+        significanceScore: sig.score,
+        suppressed: sig.suppressed,
+        suppressionReason: sig.reason,
       });
     }
   }

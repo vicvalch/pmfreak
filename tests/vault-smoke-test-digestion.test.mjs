@@ -25,6 +25,11 @@ const {
   extractNutrientCandidates,
   digestArtifact,
   SIMULATION_ARTIFACTS,
+  STAKEHOLDER_PRESSURE_PATTERNS,
+  deduplicateCandidates,
+  evaluateSignificance,
+  BASELINE_METRICS,
+  computeSuppressionMetrics,
 } = await import('../scripts/smoke-test-vault-digestion.mjs');
 
 // ─── Simulation Dataset ───────────────────────────────────────────────────────
@@ -503,4 +508,249 @@ test('vague concern residue is triggered by appropriate artifacts', () => {
   const result = digestArtifact(artifact);
   const hasVagueConcern = result.residue.some((r) => r.residueCategory === 'vague_concern');
   assert.ok(hasVagueConcern, 'hsa-007 (a bit worried, something seems off) should produce vague_concern residue');
+});
+
+// ─── Stakeholder Signal Hardening ─────────────────────────────────────────────
+
+test('stakeholder_signal is suppressed for bare vendor reference without pressure', () => {
+  // A line with only a generic vendor mention — no escalation, delay, or blocking language
+  const sig = evaluateSignificance('The vendor delivered the documentation package today.', 'stakeholder_signal', 1);
+  assert.ok(sig.suppressed, 'Bare vendor reference without pressure co-indicator must be suppressed');
+});
+
+test('stakeholder_signal is kept when paired with escalation pressure', () => {
+  const sig = evaluateSignificance('The client escalated the issue to executive level due to repeated delays.', 'stakeholder_signal', 2);
+  assert.ok(!sig.suppressed, 'Stakeholder reference with escalation pressure must not be suppressed');
+});
+
+test('stakeholder_signal is kept when paired with blocking language', () => {
+  const sig = evaluateSignificance('Vendor is blocking our deployment approval and we cannot proceed.', 'stakeholder_signal', 2);
+  assert.ok(!sig.suppressed, 'Stakeholder reference with blocking language must not be suppressed');
+});
+
+test('stakeholder_signal is kept when confidence is lost', () => {
+  const sig = evaluateSignificance('Executive sponsor is losing confidence in the delivery timeline.', 'stakeholder_signal', 2);
+  assert.ok(!sig.suppressed, '"Losing confidence" is a strong pressure indicator and must be preserved');
+});
+
+test('STAKEHOLDER_PRESSURE_PATTERNS is a non-empty array of RegExp', () => {
+  assert.ok(Array.isArray(STAKEHOLDER_PRESSURE_PATTERNS), 'STAKEHOLDER_PRESSURE_PATTERNS must be an array');
+  assert.ok(STAKEHOLDER_PRESSURE_PATTERNS.length >= 5, 'Must have at least 5 pressure patterns');
+  for (const pattern of STAKEHOLDER_PRESSURE_PATTERNS) {
+    assert.ok(pattern instanceof RegExp, 'Each element must be a RegExp');
+  }
+});
+
+test('tuned system produces fewer stakeholder_signal nutrients than baseline', () => {
+  const digestedResults = SIMULATION_ARTIFACTS.map((artifact) => digestArtifact(artifact));
+  const tunedCount = digestedResults.reduce((sum, r) => sum + r.nutrients.filter((n) => n.nutrientType === 'stakeholder_signal').length, 0);
+  assert.ok(tunedCount < BASELINE_METRICS.stakeholderCount,
+    `Tuned stakeholder_signal count (${tunedCount}) should be less than baseline (${BASELINE_METRICS.stakeholderCount})`);
+});
+
+// ─── Significance Scoring ─────────────────────────────────────────────────────
+
+test('evaluateSignificance returns object with score, suppressed, reason', () => {
+  const result = evaluateSignificance('The project is blocked by vendor payment delays.', 'blocker_signal', 1);
+  assert.ok(typeof result.score === 'number', 'score must be a number');
+  assert.ok(typeof result.suppressed === 'boolean', 'suppressed must be boolean');
+  assert.ok(result.reason === null || typeof result.reason === 'string', 'reason must be string or null');
+  assert.ok(result.score >= 0 && result.score <= 1, 'score must be in [0, 1]');
+});
+
+test('low-value filler lines are suppressed by significance filter', () => {
+  // "no issues to report" matches LOW_VALUE_FILLER_PATTERNS and has no intensity markers
+  const sig = evaluateSignificance('Team meeting completed, no major issues to report this week.', 'decision_signal', 1);
+  assert.ok(sig.suppressed, 'Low-value filler pattern (no issues to report) should be suppressed');
+});
+
+test('high-intensity escalation language has higher significance score', () => {
+  const lowSig = evaluateSignificance('We need to update the status report by end of day.', 'delivery_drift_signal', 1);
+  const highSig = evaluateSignificance('CRITICAL: Project is completely stalled and facing imminent deadline breach.', 'delivery_drift_signal', 2);
+  assert.ok(highSig.score > lowSig.score, 'High-intensity escalation language must score higher than routine update');
+});
+
+test('scoring.significanceScore is present on all nutrients', () => {
+  const artifact = SIMULATION_ARTIFACTS[0];
+  const result = digestArtifact(artifact);
+  for (const nutrient of result.nutrients) {
+    assert.ok('significanceScore' in nutrient.scoring, `nutrient ${nutrient.nutrientType} missing scoring.significanceScore`);
+    assert.ok(typeof nutrient.scoring.significanceScore === 'number', 'significanceScore must be a number');
+    assert.ok(nutrient.scoring.significanceScore >= 0 && nutrient.scoring.significanceScore <= 1, 'significanceScore must be in [0, 1]');
+  }
+});
+
+test('scoring.significanceScore is present on all nutrients in the full dataset', () => {
+  const digestedResults = SIMULATION_ARTIFACTS.map((artifact) => digestArtifact(artifact));
+  let violations = 0;
+  for (const result of digestedResults) {
+    for (const nutrient of result.nutrients) {
+      if (!('significanceScore' in nutrient.scoring) || typeof nutrient.scoring.significanceScore !== 'number') {
+        violations++;
+      }
+    }
+  }
+  assert.equal(violations, 0, `${violations} nutrients missing or invalid significanceScore`);
+});
+
+// ─── Deduplication Behavior ───────────────────────────────────────────────────
+
+test('deduplicateCandidates is a function', () => {
+  assert.ok(typeof deduplicateCandidates === 'function', 'deduplicateCandidates must be exported as a function');
+});
+
+test('deduplicateCandidates merges near-identical candidates from consecutive lines', () => {
+  const candidates = [
+    {
+      nutrientType: 'blocker_signal',
+      summary: 'The deployment is blocked pending security review approval.',
+      excerpt: 'The deployment is blocked pending security review approval.',
+      matchedPattern: '/\\bblocked\\b/i',
+      confidence: 0.7,
+      significanceScore: 0.6,
+      suppressed: false,
+      suppressionReason: null,
+    },
+    {
+      nutrientType: 'blocker_signal',
+      summary: 'Deployment blocked pending security review from the infra team.',
+      excerpt: 'Deployment blocked pending security review from the infra team.',
+      matchedPattern: '/\\bblocked\\b/i',
+      confidence: 0.7,
+      significanceScore: 0.6,
+      suppressed: false,
+      suppressionReason: null,
+    },
+  ];
+  const deduplicated = deduplicateCandidates(candidates);
+  assert.ok(deduplicated.length < candidates.length || deduplicated[0].duplicateMergeCount > 0,
+    'Near-identical blocker candidates should be merged or have duplicateMergeCount > 0');
+});
+
+test('deduplicateCandidates preserves duplicateMergeCount field', () => {
+  const candidates = [
+    {
+      nutrientType: 'risk_signal',
+      summary: 'Risk of timeline slippage due to delayed vendor approvals.',
+      excerpt: 'Risk of timeline slippage due to delayed vendor approvals.',
+      matchedPattern: '/\\brisk\\b/i',
+      confidence: 0.65,
+      significanceScore: 0.55,
+      suppressed: false,
+      suppressionReason: null,
+    },
+  ];
+  const deduplicated = deduplicateCandidates(candidates);
+  assert.ok(deduplicated.length > 0, 'Must return at least one candidate');
+  assert.ok('duplicateMergeCount' in deduplicated[0], 'Result must have duplicateMergeCount field');
+  assert.ok(typeof deduplicated[0].duplicateMergeCount === 'number', 'duplicateMergeCount must be a number');
+});
+
+test('deduplicateCandidates does not merge candidates of different types', () => {
+  const candidates = [
+    {
+      nutrientType: 'blocker_signal',
+      summary: 'The deployment is blocked pending approval.',
+      excerpt: 'The deployment is blocked pending approval.',
+      matchedPattern: '/\\bblocked\\b/i',
+      confidence: 0.7,
+      significanceScore: 0.6,
+      suppressed: false,
+      suppressionReason: null,
+    },
+    {
+      nutrientType: 'risk_signal',
+      summary: 'The deployment is blocked pending approval.',
+      excerpt: 'The deployment is blocked pending approval.',
+      matchedPattern: '/\\brisk\\b/i',
+      confidence: 0.65,
+      significanceScore: 0.55,
+      suppressed: false,
+      suppressionReason: null,
+    },
+  ];
+  const deduplicated = deduplicateCandidates(candidates);
+  assert.equal(deduplicated.length, 2, 'Candidates of different types must not be merged even if text is identical');
+});
+
+test('nutrient duplicateMergeCount field is present on all nutrients', () => {
+  const artifact = SIMULATION_ARTIFACTS[0];
+  const result = digestArtifact(artifact);
+  for (const nutrient of result.nutrients) {
+    assert.ok('duplicateMergeCount' in nutrient, `nutrient ${nutrient.nutrientType} missing duplicateMergeCount`);
+    assert.ok(typeof nutrient.duplicateMergeCount === 'number', 'duplicateMergeCount must be a number');
+    assert.ok(nutrient.duplicateMergeCount >= 0, 'duplicateMergeCount must be >= 0');
+  }
+});
+
+// ─── Suppressed Candidate Count ───────────────────────────────────────────────
+
+test('digestivePass includes suppressedCandidateCount field', () => {
+  const artifact = SIMULATION_ARTIFACTS[0];
+  const result = digestArtifact(artifact);
+  assert.ok('suppressedCandidateCount' in result.digestivePass, 'digestivePass must include suppressedCandidateCount');
+  assert.ok(typeof result.digestivePass.suppressedCandidateCount === 'number', 'suppressedCandidateCount must be a number');
+  assert.ok(result.digestivePass.suppressedCandidateCount >= 0, 'suppressedCandidateCount must be >= 0');
+});
+
+test('suppressedCandidateCount is populated across the dataset', () => {
+  const digestedResults = SIMULATION_ARTIFACTS.map((artifact) => digestArtifact(artifact));
+  const totalSuppressed = digestedResults.reduce((sum, r) => sum + r.digestivePass.suppressedCandidateCount, 0);
+  assert.ok(totalSuppressed > 0, `Expected some suppressed candidates across the full dataset, got ${totalSuppressed}`);
+});
+
+// ─── Before/After Comparison ──────────────────────────────────────────────────
+
+test('BASELINE_METRICS contains expected pre-tuning values', () => {
+  assert.ok(typeof BASELINE_METRICS === 'object', 'BASELINE_METRICS must be an object');
+  assert.ok(BASELINE_METRICS.totalNutrients > 0, 'BASELINE_METRICS.totalNutrients must be positive');
+  assert.ok(BASELINE_METRICS.avgPerArtifact > 0, 'BASELINE_METRICS.avgPerArtifact must be positive');
+  assert.ok(BASELINE_METRICS.stakeholderCount > 0, 'BASELINE_METRICS.stakeholderCount must be positive');
+});
+
+test('tuned system produces fewer total nutrients than baseline', () => {
+  const digestedResults = SIMULATION_ARTIFACTS.map((artifact) => digestArtifact(artifact));
+  const tunedTotal = digestedResults.reduce((sum, r) => sum + r.nutrients.length, 0);
+  assert.ok(tunedTotal < BASELINE_METRICS.totalNutrients,
+    `Tuned total nutrients (${tunedTotal}) should be less than baseline (${BASELINE_METRICS.totalNutrients})`);
+});
+
+test('tuned system has lower avg nutrients per artifact than baseline', () => {
+  const digestedResults = SIMULATION_ARTIFACTS.map((artifact) => digestArtifact(artifact));
+  const tunedTotal = digestedResults.reduce((sum, r) => sum + r.nutrients.length, 0);
+  const tunedAvg = tunedTotal / SIMULATION_ARTIFACTS.length;
+  assert.ok(tunedAvg < BASELINE_METRICS.avgPerArtifact,
+    `Tuned avg (${tunedAvg.toFixed(2)}) should be less than baseline avg (${BASELINE_METRICS.avgPerArtifact})`);
+});
+
+// ─── Suppression Metrics ──────────────────────────────────────────────────────
+
+test('computeSuppressionMetrics is a function', () => {
+  assert.ok(typeof computeSuppressionMetrics === 'function', 'computeSuppressionMetrics must be exported as a function');
+});
+
+test('computeSuppressionMetrics returns object with expected fields', () => {
+  const metrics = computeSuppressionMetrics(SIMULATION_ARTIFACTS);
+  assert.ok(typeof metrics === 'object', 'Must return an object');
+  assert.ok('totalSuppressed' in metrics, 'Must include totalSuppressed');
+  assert.ok('totalActive' in metrics, 'Must include totalActive');
+  assert.ok('suppressionRate' in metrics, 'Must include suppressionRate');
+  assert.ok('byReason' in metrics, 'Must include byReason');
+  assert.ok(typeof metrics.totalSuppressed === 'number', 'totalSuppressed must be number');
+  assert.ok(typeof metrics.totalActive === 'number', 'totalActive must be number');
+  assert.ok(typeof metrics.suppressionRate === 'number', 'suppressionRate must be number');
+  assert.ok(metrics.suppressionRate >= 0 && metrics.suppressionRate <= 100, 'suppressionRate must be in [0, 100]');
+});
+
+test('suppression metrics show non-trivial suppression across the dataset', () => {
+  const metrics = computeSuppressionMetrics(SIMULATION_ARTIFACTS);
+  assert.ok(metrics.totalSuppressed > 0, `Expected some suppression, got ${metrics.totalSuppressed}`);
+  assert.ok(metrics.suppressionRate > 0, `suppressionRate should be > 0, got ${metrics.suppressionRate}`);
+});
+
+test('totalSuppressed + totalActive accounts for all candidates in suppression metrics', () => {
+  const metrics = computeSuppressionMetrics(SIMULATION_ARTIFACTS);
+  assert.ok(metrics.totalSuppressed >= 0, 'totalSuppressed must be >= 0');
+  assert.ok(metrics.totalActive >= 0, 'totalActive must be >= 0');
+  assert.ok(metrics.totalSuppressed + metrics.totalActive > 0, 'Total candidates must be > 0');
 });

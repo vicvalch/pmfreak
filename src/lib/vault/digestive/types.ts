@@ -117,6 +117,8 @@ export type VaultNutrientScoring = {
   evidenceStrength: "weak" | "moderate" | "strong";
   /** How quickly this nutrient loses relevance without reinforcement */
   decayProfile: "fast" | "medium" | "slow" | "persistent";
+  /** Deterministic significance score 0..1 — higher = more operationally meaningful */
+  significanceScore: number;
 };
 
 // ─── Nutrient ─────────────────────────────────────────────────────────────────
@@ -129,6 +131,8 @@ export type VaultNutrient = {
   /** One or more evidence references that support this nutrient */
   evidence: VaultEvidenceLineage[];
   scoring: VaultNutrientScoring;
+  /** How many duplicate candidates were compressed into this nutrient */
+  duplicateMergeCount: number;
   workspaceId: string;
   projectId: string | null;
   digestionRunId: string;
@@ -168,6 +172,8 @@ export type VaultDigestivePass = {
   nutrientCount: number;
   residueCount: number;
   entityCount: number;
+  /** Candidates suppressed by significance/stakeholder filtering */
+  suppressedCandidateCount: number;
 };
 
 // ─── Digestion Result ─────────────────────────────────────────────────────────

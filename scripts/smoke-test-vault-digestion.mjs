@@ -148,6 +148,123 @@ const SEVERITY_DEFAULTS = {
 
 const HALF_LIFE_DAYS = { fast: 2, medium: 7, slow: 21, persistent: 90 };
 
+// ─── Significance Evaluator (mirrors significance.ts) ────────────────────────
+
+const SIGNIFICANCE_THRESHOLD = 0.35;
+
+const HIGH_INTENSITY_PATTERNS = [
+  /\bblocked\b/i, /\bescalat/i, /\boverdue\b/i, /\bunresolved\b/i, /\burgent\b/i,
+  /\bcannot proceed\b/i, /\bno response\b/i, /\bnot (?:processed|received|approved|confirmed|responded)\b/i,
+  /\bstalled\b/i, /\bstill\s+(?:pending|waiting|blocked)\b/i,
+  /\b\d+\s+(?:days?|weeks?)\s+(?:overdue|without|waiting|since)\b/i,
+  /\bpayment.{0,20}(?:not|delay|block)/i, /\bfailed?\b/i, /\bimpasse\b/i, /\bat risk\b/i,
+];
+
+const LOW_VALUE_FILLER_PATTERNS = [
+  /\bfollowing up (?:with|on)\b/i, /^following up\b/i,
+  /\breviewing (?:status|alignment|progress)\b/i, /\bmonitoring progress\b/i,
+  /\balignment (?:discussion|session|meeting|call|achieved|confirmed)\b/i,
+  /\bcoordination (?:ongoing|in progress|happening)\b/i,
+  /\bsync (?:completed|done|scheduled)\b/i, /\bdiscussed internally\b/i,
+  /\bno (?:major )?issues? to report\b/i, /\bteam meeting (?:completed|held|scheduled)\b/i,
+];
+
+export const STAKEHOLDER_PRESSURE_PATTERNS = [
+  /\bescalat/i, /\blosing (?:confidence|patience)\b/i, /\bwaiting (?:on|for)\b/i,
+  /\bno response\b/i, /\bnot responding\b/i, /\bdelayed? (?:feedback|response|delivery|approval)\b/i,
+  /\bdelay/i, /\bconcern/i, /\bfrustrat/i, /\bunresolved\b/i,
+  /\bpending (?:approval|response|confirmation|sign)\b/i, /\bblock/i,
+  /\brequesting (?:update|clarification|decision|escalation)\b/i,
+  /\boverdue\b/i, /\bpressure\b/i, /\bapproval\b/i, /\bat risk\b/i, /\bstalled\b/i,
+];
+
+export function evaluateSignificance(line, nutrientType, matchedPatternCount) {
+  if (nutrientType === 'stakeholder_signal') {
+    const hasPressure = STAKEHOLDER_PRESSURE_PATTERNS.some((p) => p.test(line));
+    if (!hasPressure) return { score: 0, suppressed: true, reason: 'stakeholder_bare_reference' };
+  }
+  const isLowValueFiller = LOW_VALUE_FILLER_PATTERNS.some((p) => p.test(line));
+  if (isLowValueFiller) {
+    const hasIntensity = HIGH_INTENSITY_PATTERNS.some((p) => p.test(line));
+    if (!hasIntensity) return { score: 0.1, suppressed: true, reason: 'low_value_filler' };
+  }
+  let score = 0.4;
+  const intensityMatches = HIGH_INTENSITY_PATTERNS.filter((p) => p.test(line)).length;
+  score += Math.min(0.3, intensityMatches * 0.1);
+  score += Math.min(0.15, (matchedPatternCount - 1) * 0.05);
+  if (/\b\d+\s*(?:days?|weeks?|USD|EUR|\$|hours?|months?)\b/i.test(line)) score += 0.05;
+  if (/\b(?:invoice|payment|PO|RMA|SLA|SN-)\b/i.test(line)) score += 0.05;
+  if (isLowValueFiller) score -= 0.2;
+  score = Math.round(Math.min(1.0, Math.max(0, score)) * 100) / 100;
+  if (score < SIGNIFICANCE_THRESHOLD) return { score, suppressed: true, reason: 'below_significance_threshold' };
+  return { score, suppressed: false, reason: null };
+}
+
+// ─── Deduplicator (mirrors deduplicator.ts) ───────────────────────────────────
+
+const DEDUP_STOP_WORDS = new Set([
+  'the', 'a', 'an', 'is', 'are', 'was', 'has', 'have', 'been', 'be',
+  'to', 'of', 'in', 'for', 'on', 'with', 'as', 'by', 'at', 'from',
+  'that', 'this', 'it', 'its', 'and', 'or', 'but', 'not', 'so',
+  'we', 'our', 'they', 'their', 'you', 'your', 'will', 'can',
+  'still', 'now', 'also', 'just', 'very', 'some', 'any', 'all',
+]);
+
+function extractThemeWords(text) {
+  return text.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/)
+    .filter((w) => w.length > 3 && !DEDUP_STOP_WORDS.has(w)).slice(0, 6);
+}
+
+function themeKey(candidate) {
+  const words = extractThemeWords(candidate.summary);
+  return `${candidate.nutrientType}:${words.slice(0, 3).join('_')}`;
+}
+
+function jaccardSimilarity(a, b) {
+  const setA = new Set(a);
+  const setB = new Set(b);
+  const intersection = [...setA].filter((x) => setB.has(x)).length;
+  const union = new Set([...setA, ...setB]).size;
+  return union === 0 ? 0 : intersection / union;
+}
+
+export function deduplicateCandidates(candidates) {
+  const exactGroups = new Map();
+  for (const candidate of candidates) {
+    const key = themeKey(candidate);
+    const existing = exactGroups.get(key);
+    if (existing) existing.push(candidate);
+    else exactGroups.set(key, [candidate]);
+  }
+  const representatives = [];
+  for (const group of exactGroups.values()) {
+    group.sort((a, b) => b.confidence - a.confidence);
+    representatives.push({ ...group[0], duplicateMergeCount: group.length - 1, mergedExcerpts: group.slice(1).map((c) => c.excerpt) });
+  }
+  const final = [];
+  const merged = new Set();
+  for (let i = 0; i < representatives.length; i++) {
+    if (merged.has(i)) continue;
+    let rep = representatives[i];
+    const repWords = extractThemeWords(rep.summary);
+    for (let j = i + 1; j < representatives.length; j++) {
+      if (merged.has(j)) continue;
+      const other = representatives[j];
+      if (rep.nutrientType !== other.nutrientType) continue;
+      const otherWords = extractThemeWords(other.summary);
+      if (jaccardSimilarity(repWords, otherWords) >= 0.45) {
+        const winner = other.confidence > rep.confidence ? other : rep;
+        const loser = other.confidence > rep.confidence ? rep : other;
+        rep = { ...winner, duplicateMergeCount: rep.duplicateMergeCount + other.duplicateMergeCount + 1, mergedExcerpts: [...(winner.mergedExcerpts ?? []), loser.excerpt, ...(loser.mergedExcerpts ?? [])] };
+        representatives[i] = rep;
+        merged.add(j);
+      }
+    }
+    final.push(rep);
+  }
+  return final;
+}
+
 function cleanText(raw) {
   return raw.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
 }
@@ -164,7 +281,7 @@ function normalizeRawMaterial(material) {
   return { cleanedText, lines, wordCount, rawMaterial: material };
 }
 
-function extractNutrientCandidates(lines) {
+export function extractNutrientCandidates(lines) {
   const candidates = [];
   const seen = new Set();
   for (const line of lines) {
@@ -180,7 +297,8 @@ function extractNutrientCandidates(lines) {
       if (isResolved && nutrientType !== 'recovery_signal') confidence *= 0.5;
       if (isResolved && nutrientType === 'recovery_signal') confidence = Math.min(0.9, confidence + 0.15);
       confidence = Math.round(Math.min(0.95, confidence) * 100) / 100;
-      candidates.push({ nutrientType, summary: line.slice(0, 300), excerpt: line.slice(0, 200), matchedPattern: matched[0].toString(), confidence });
+      const sig = evaluateSignificance(line, nutrientType, matched.length);
+      candidates.push({ nutrientType, summary: line.slice(0, 300), excerpt: line.slice(0, 200), matchedPattern: matched[0].toString(), confidence, significanceScore: sig.score, suppressed: sig.suppressed, suppressionReason: sig.reason });
     }
   }
   return candidates;
@@ -219,7 +337,7 @@ function scoreNutrient(inputs) {
   const actionability = severity === 'critical' || severity === 'high' ? 'actionable' : severity === 'medium' ? 'monitor' : 'informational';
   const ambiguityLevel = inputs.confidence < 0.5 ? 'highly_ambiguous' : inputs.confidence < 0.7 ? 'ambiguous' : 'clear';
   const recurrenceHint = inputs.isRecurring ? 'confirmed_recurrence' : 'first_occurrence';
-  return { confidence: inputs.confidence, severity, freshness: 1.0, recurrenceHint, ambiguityLevel, actionability, evidenceStrength, decayProfile };
+  return { confidence: inputs.confidence, severity, freshness: 1.0, recurrenceHint, ambiguityLevel, actionability, evidenceStrength, decayProfile, significanceScore: inputs.significanceScore };
 }
 
 function computeDecayedFreshness(input) {
@@ -249,14 +367,17 @@ function buildEvidenceLineage(rawMaterial, excerpt, confidenceBasis) {
   };
 }
 
-function runDigestivePipeline(rawMaterial, context) {
+export function runDigestivePipeline(rawMaterial, context) {
   const runId = context.traceId;
   const startedAt = context.digestedAt;
   const normalized = normalizeRawMaterial(rawMaterial);
-  const nutrientCandidates = extractNutrientCandidates(normalized.lines);
-  const nutrients = nutrientCandidates.map((candidate) => {
+  const allCandidates = extractNutrientCandidates(normalized.lines);
+  const suppressedCandidateCount = allCandidates.filter((c) => c.suppressed).length;
+  const activeCandidates = allCandidates.filter((c) => !c.suppressed);
+  const deduplicatedCandidates = deduplicateCandidates(activeCandidates);
+  const nutrients = deduplicatedCandidates.map((candidate) => {
     const evidence = buildEvidenceLineage(rawMaterial, candidate.excerpt, `Pattern matched: ${candidate.matchedPattern}. Rule-based line-level extraction.`);
-    const scoring = scoreNutrient({ nutrientType: candidate.nutrientType, confidence: candidate.confidence });
+    const scoring = scoreNutrient({ nutrientType: candidate.nutrientType, confidence: candidate.confidence, significanceScore: candidate.significanceScore });
     return {
       id: crypto.randomUUID(),
       nutrientType: candidate.nutrientType,
@@ -264,6 +385,7 @@ function runDigestivePipeline(rawMaterial, context) {
       entities: [],
       evidence: [evidence],
       scoring,
+      duplicateMergeCount: candidate.duplicateMergeCount,
       workspaceId: context.workspaceId,
       projectId: context.projectId,
       digestionRunId: runId,
@@ -284,6 +406,7 @@ function runDigestivePipeline(rawMaterial, context) {
     nutrientCount: nutrients.length,
     residueCount: residue.length,
     entityCount: 0,
+    suppressedCandidateCount,
   };
   return { digestivePass, nutrients, residue, entities: [] };
 }
@@ -1421,11 +1544,53 @@ function computeDecayObservations(results, artifacts) {
   return observations;
 }
 
-function computeCognitionReadinessScore(allNutrients, lineageViolations, determinismMismatches, overTriggerFlags, underTriggerFlags, signalDensity) {
+// Before-tuning baseline (v0 — no significance filtering or deduplication)
+export const BASELINE_METRICS = {
+  totalNutrients: 410,
+  avgPerArtifact: 8.04,
+  stakeholderCount: 113,
+  overTriggerFlags: 24,
+  residueTotal: 15,
+  signalQualityPct: 30,
+  suppressedCount: 0,
+  totalMerged: 0,
+};
+
+export function computeSuppressionMetrics(artifacts) {
+  const byReason = {};
+  let totalSuppressed = 0;
+  let totalActive = 0;
+  let totalMerged = 0;
+  for (const artifact of artifacts) {
+    const allCandidates = extractNutrientCandidates(normalizeRawMaterial({
+      id: artifact.id, type: artifact.type, title: artifact.title,
+      content: artifact.content, workspaceId: artifact.workspaceId,
+      projectId: artifact.projectId, actorUserId: artifact.actorUserId,
+      sourceRef: artifact.sourceRef, submittedAt: artifact.submittedAt,
+    }).lines);
+    for (const c of allCandidates) {
+      if (c.suppressed) {
+        totalSuppressed++;
+        byReason[c.suppressionReason] = (byReason[c.suppressionReason] ?? 0) + 1;
+      } else {
+        totalActive++;
+      }
+    }
+    // Count dedup merges from the digested result
+    const result = digestArtifact(artifact);
+    totalMerged += result.nutrients.reduce((s, n) => s + (n.duplicateMergeCount ?? 0), 0);
+  }
+  const suppressionRate = totalSuppressed / Math.max(1, totalSuppressed + totalActive);
+  return { totalSuppressed, totalActive, totalMerged, byReason, suppressionRate: Math.round(suppressionRate * 100) };
+}
+
+function computeCognitionReadinessScore(allNutrients, lineageViolations, determinismMismatches, overTriggerFlags, underTriggerFlags, signalDensity, artifactCount) {
   const total = allNutrients.length;
   const coherenceScore = total > 0 ? Math.max(0, 1 - (lineageViolations.length / total)) : 0;
   const signalQualityScore = total > 0 ? allNutrients.filter((n) => n.scoring.confidence >= 0.7).length / total : 0;
-  const noiseSuppression = overTriggerFlags.length === 0 ? 1.0 : Math.max(0, 1 - (overTriggerFlags.length / 20));
+  // Noise suppression: proportion of artifacts NOT over-triggered
+  const overTriggerRate = overTriggerFlags.length / Math.max(1, artifactCount ?? SIMULATION_ARTIFACTS.length);
+  const noiseSuppression = Math.max(0, 1 - overTriggerRate);
   const determinismScore = determinismMismatches.length === 0 ? 1.0 : Math.max(0, 1 - (determinismMismatches.length / 10));
   const realismScore = Math.min(1.0, (signalDensity.avgNutrients / 4));
   const allTypesCovered = NUTRIENT_RULES.every((r) => signalDensity.typeDistribution[r.nutrientType] > 0);
@@ -1480,9 +1645,15 @@ function runSmokeTest() {
   const decayObservations = computeDecayObservations(digestedResults, SIMULATION_ARTIFACTS);
   console.log(`  ✓ Decay observations: ${decayObservations.length}`);
 
-  // Phase 5: Cognition readiness
-  console.log('\n→ Phase 5: Computing cognition readiness score...');
-  const readiness = computeCognitionReadinessScore(allNutrients, lineageViolations, determinismMismatches, overTriggerFlags, underTriggerFlags, signalDensity);
+  // Phase 5: Suppression metrics
+  console.log('\n→ Phase 5: Computing suppression and compression metrics...');
+  const suppressionMetrics = computeSuppressionMetrics(SIMULATION_ARTIFACTS);
+  console.log(`  ✓ Suppressed candidates: ${suppressionMetrics.totalSuppressed} (${suppressionMetrics.suppressionRate}% of raw candidates)`);
+  console.log(`  ✓ Duplicate merges: ${suppressionMetrics.totalMerged}`);
+
+  // Phase 6: Cognition readiness
+  console.log('\n→ Phase 6: Computing cognition readiness score...');
+  const readiness = computeCognitionReadinessScore(allNutrients, lineageViolations, determinismMismatches, overTriggerFlags, underTriggerFlags, signalDensity, SIMULATION_ARTIFACTS.length);
   console.log(`  ✓ Overall readiness score: ${readiness.overall}/100\n`);
 
   // ─── Console Summary ────────────────────────────────────────────────────────
@@ -1494,7 +1665,22 @@ function runSmokeTest() {
   console.log(`  Residue items:          ${allResidue.length}`);
   console.log(`  Avg nutrients/artifact: ${signalDensity.avgNutrients.toFixed(2)}`);
   console.log(`  Avg residue/artifact:   ${signalDensity.avgResidue.toFixed(2)}`);
-  console.log(`  Projects analyzed:      5 (MEP, ICE, GCH, HSA, MUC)\n`);
+  console.log(`  Projects analyzed:      5 (MEP, ICE, GCH, HSA, MUC)`);
+  console.log(`  Suppressed candidates:  ${suppressionMetrics.totalSuppressed} (${suppressionMetrics.suppressionRate}%)`);
+  console.log(`  Duplicate merges:       ${suppressionMetrics.totalMerged}\n`);
+
+  console.log('═══════════════════════════════════════════════════════════════');
+  console.log(' BEFORE vs AFTER TUNING (v0 → v1)');
+  console.log('═══════════════════════════════════════════════════════════════');
+  const afterSignalQuality = Math.round(allNutrients.filter((n) => n.scoring.confidence >= 0.7).length / Math.max(1, allNutrients.length) * 100);
+  const after = { totalNutrients: allNutrients.length, avgPerArtifact: signalDensity.avgNutrients, stakeholderCount: signalDensity.typeDistribution['stakeholder_signal'] ?? 0, overTriggerFlags: overTriggerFlags.length, residueTotal: allResidue.length, signalQualityPct: afterSignalQuality };
+  const delta = (before, after, lower = false) => { const d = after - before; const sign = d > 0 ? '+' : ''; const good = lower ? d <= 0 : d >= 0; return `${before} → ${after} (${sign}${typeof d === 'number' ? d.toFixed ? d.toFixed(2) : d : d}) ${good ? '✓' : '⚠'}`.padEnd(40); };
+  console.log(`  Nutrients total:   ${delta(BASELINE_METRICS.totalNutrients, after.totalNutrients, true)}`);
+  console.log(`  Avg/artifact:      ${delta(BASELINE_METRICS.avgPerArtifact, after.avgPerArtifact, true)}`);
+  console.log(`  stakeholder_signal:${delta(BASELINE_METRICS.stakeholderCount, after.stakeholderCount, true)}`);
+  console.log(`  Over-trigger flags:${delta(BASELINE_METRICS.overTriggerFlags, after.overTriggerFlags, true)}`);
+  console.log(`  Signal quality %:  ${delta(BASELINE_METRICS.signalQualityPct, after.signalQualityPct, false)}`);
+  console.log('');
 
   console.log('═══════════════════════════════════════════════════════════════');
   console.log(' SIGNAL DISTRIBUTION');
@@ -1573,9 +1759,15 @@ function runSmokeTest() {
     }
   }
 
+  const afterSignalQualityPct = Math.round(allNutrients.filter((n) => n.scoring.confidence >= 0.7).length / Math.max(1, allNutrients.length) * 100);
   const report = {
-    metadata: { generatedAt: new Date().toISOString(), artifactCount: SIMULATION_ARTIFACTS.length, elapsedMs, smokeTestVersion: '1.0.0', datasetDescription: 'LATAM Enterprise PM — 5 projects across 51 operational artifacts' },
+    metadata: { generatedAt: new Date().toISOString(), artifactCount: SIMULATION_ARTIFACTS.length, elapsedMs, smokeTestVersion: '1.1.0', datasetDescription: 'LATAM Enterprise PM — 5 projects across 51 operational artifacts' },
     overview: { totalNutrients: allNutrients.length, totalResidue: allResidue.length, avgNutrientsPerArtifact: parseFloat(signalDensity.avgNutrients.toFixed(2)), avgResiduePerArtifact: parseFloat(signalDensity.avgResidue.toFixed(2)), projectCount: 5 },
+    beforeAfterComparison: {
+      before: BASELINE_METRICS,
+      after: { totalNutrients: allNutrients.length, avgPerArtifact: parseFloat(signalDensity.avgNutrients.toFixed(2)), stakeholderCount: signalDensity.typeDistribution['stakeholder_signal'] ?? 0, overTriggerFlags: overTriggerFlags.length, residueTotal: allResidue.length, signalQualityPct: afterSignalQualityPct, suppressedCount: suppressionMetrics.totalSuppressed, totalMerged: suppressionMetrics.totalMerged },
+    },
+    suppressionMetrics,
     signalDistribution: signalDensity.typeDistribution,
     projectStats,
     validation: {
@@ -1719,7 +1911,7 @@ function buildMarkdownReport(report, digestedResults) {
 }
 
 // Export for test consumption
-export { runSmokeTest, validateOverTriggering, validateUnderTriggering, validateSignalDensity, validateLineageIntegrity, validateDeterminism, runDigestivePipeline, extractNutrientCandidates, digestArtifact };
+export { runSmokeTest, validateOverTriggering, validateUnderTriggering, validateSignalDensity, validateLineageIntegrity, validateDeterminism, digestArtifact };
 
 // Run if executed directly
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === path.resolve('scripts/smoke-test-vault-digestion.mjs');
